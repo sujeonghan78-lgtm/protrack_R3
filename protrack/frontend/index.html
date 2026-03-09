@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRO-TRACK · 공정 관리 시스템</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f1f5f9;
+    --surface:   #ffffff;
+    --surface2:  #f8fafc;
+    --border:    #e2e8f0;
+    --accent:    #3b82f6;
+    --accent2:   #06b6d4;
+    --danger:    #ef4444;
+    --warn:      #f59e0b;
+    --success:   #10b981;
+    --text:      #1e293b;
+    --muted:     #94a3b8;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Noto Sans KR', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ─── Login ─────────────────────────────────────────── */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, #0f2040 0%, var(--bg) 70%);
+    position: relative;
+    overflow: hidden;
+  }
+  .login-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='40' cy='40' r='0.5' fill='%23ffffff08'/%3E%3C/svg%3E") repeat;
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px;
+    width: 420px;
+    position: relative;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.1);
+  }
+  .login-logo {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 36px;
+  }
+  .login-logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .login-logo-text { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .login-logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
+  .login-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .login-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: block; }
+  .form-input {
+    width: 100%; padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-size: 14px; font-family: var(--sans);
+    transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, var(--accent), #2563eb);
+    border: none; border-radius: 10px; color: #fff;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s; margin-top: 8px;
+    font-family: var(--sans);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.4); }
+  .btn-primary:active { transform: translateY(0); }
+  .login-hints { margin-top: 24px; padding: 16px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 10px; }
+  .login-hints p { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .login-hints span { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; }
+
+  /* ─── App Layout ─────────────────────────────────────── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ─── Sidebar ────────────────────────────────────────── */
+  .sidebar {
+    width: 240px; background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+    transition: width 0.3s;
+  }
+  .sidebar.collapsed { width: 64px; }
+  .sidebar-header {
+    padding: 20px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border); min-height: 64px;
+  }
+  .sidebar-logo-icon {
+    width: 32px; height: 32px; min-width: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .sidebar-logo-text {
+    font-size: 16px; font-weight: 900; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden;
+  }
+  .sidebar-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+  .nav-section-label {
+    font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1px; padding: 8px 8px 4px; white-space: nowrap; overflow: hidden;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: 10px; cursor: pointer; transition: all 0.15s;
+    color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: rgba(59,130,246,0.15); color: var(--accent);
+    border-color: rgba(59,130,246,0.2);
+  }
+  .nav-icon { font-size: 17px; min-width: 17px; }
+  .sidebar-footer {
+    padding: 12px; border-top: 1px solid var(--border);
+  }
+  .user-card {
+    display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+    border-radius: 10px; overflow: hidden;
+  }
+  .user-avatar {
+    width: 32px; height: 32px; min-width: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .admin-avatar { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .viewer-avatar { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+  .user-info { overflow: hidden; }
+  .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-role {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;
+  }
+  .role-admin { background: rgba(59,130,246,0.2); color: var(--accent); }
+  .role-viewer { background: rgba(139,92,246,0.2); color: #a78bfa; }
+  .logout-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 18px; padding: 4px; margin-left: auto; min-width: 24px;
+    transition: color 0.15s;
+  }
+  .logout-btn:hover { color: var(--danger); }
+
+  /* ─── Main ───────────────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar {
+    height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px; gap: 16px; flex-shrink: 0;
+  }
+  .page-title { font-size: 18px; font-weight: 700; }
+  .page-subtitle { font-size: 12px; color: var(--muted); margin-left: 8px; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 14px; min-width: 260px;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input {
+    background: none; border: none; color: var(--text); font-size: 13px;
+    font-family: var(--sans); outline: none; width: 100%;
+  }
+  .search-box input::placeholder { color: var(--muted); }
+  .btn-icon {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 9px;
+    padding: 8px 14px; color: var(--text); cursor: pointer; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px; transition: all 0.15s; font-family: var(--sans);
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { border-color: rgba(239,68,68,0.3); }
+  .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* ─── KPI Cards ──────────────────────────────────────── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .kpi-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  .kpi-val { font-size: 32px; font-weight: 900; font-family: var(--mono); letter-spacing: -1px; }
+  .kpi-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+  .bg-blue { background: rgba(59,130,246,0.15); }
+  .bg-orange { background: rgba(249,115,22,0.15); }
+  .bg-red { background: rgba(239,68,68,0.15); }
+  .bg-green { background: rgba(16,185,129,0.15); }
+  .text-blue { color: var(--accent); }
+  .text-orange { color: #f97316; }
+  .text-red { color: var(--danger); }
+  .text-green { color: var(--success); }
+  .badge-green { background: rgba(16,185,129,0.15); color: var(--success); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  /* ─── Charts Grid ────────────────────────────────────── */
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+  }
+  .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-subtitle { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+
+  /* ─── Alerts ─────────────────────────────────────────── */
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .alert-item:hover { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
+  .alert-days {
+    background: rgba(239,68,68,0.15); color: var(--danger);
+    width: 44px; height: 40px; border-radius: 8px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-family: var(--mono); flex-shrink: 0;
+  }
+  .alert-days-num { font-size: 15px; font-weight: 700; line-height: 1; }
+  .alert-days-label { font-size: 9px; color: #f87171; margin-top: 1px; }
+  .alert-info { flex: 1; min-width: 0; }
+  .alert-id { font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+  .alert-desc { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ─── Table ──────────────────────────────────────────── */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; display: flex; flex-direction: column; flex: 1;
+  }
+  .table-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .table-header-title { font-size: 14px; font-weight: 700; }
+  .filter-group { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+  .filter-select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 12px; padding: 7px 10px; font-family: var(--sans); cursor: pointer;
+    outline: none; transition: border-color 0.2s;
+  }
+  .filter-select:focus { border-color: var(--accent); }
+
+  .table-wrap { overflow-x: auto; flex: 1; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead tr { background: var(--surface2); }
+  th {
+    padding: 10px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--muted); text-align: left; white-space: nowrap;
+    cursor: pointer; user-select: none; transition: color 0.15s;
+  }
+  th:hover { color: var(--text); }
+  td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid rgba(31,45,69,0.6); }
+  tr:hover td { background: rgba(59,130,246,0.04); cursor: pointer; }
+  .td-mono { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); }
+  .td-name { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .step-badge {
+    padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700;
+    background: rgba(59,130,246,0.15); color: var(--accent); display: inline-block;
+  }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-진행중 { background: var(--accent); }
+  .status-지연 { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
+  .status-완료 { background: var(--success); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.4; } }
+
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; min-width: 80px; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .progress-blue { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .progress-red { background: var(--danger); }
+
+  .table-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2);
+  }
+  .footer-info { font-size: 12px; color: var(--muted); }
+  .pagination { display: flex; gap: 4px; }
+  .page-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    font-family: var(--sans);
+  }
+  .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ─── Detail Drawer ──────────────────────────────────── */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+    display: flex; justify-content: flex-end;
+    backdrop-filter: blur(2px);
+  }
+  .drawer {
+    width: 520px; height: 100%; background: var(--surface);
+    border-left: 1px solid var(--border); overflow-y: auto;
+    animation: slideIn 0.25s ease-out;
+  }
+  @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .drawer-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; position: sticky; top: 0;
+    background: var(--surface); z-index: 1;
+  }
+  .drawer-title { font-size: 18px; font-weight: 700; }
+  .drawer-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .drawer-close {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    width: 32px; height: 32px; cursor: pointer; color: var(--muted); font-size: 18px;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .drawer-close:hover { color: var(--text); border-color: var(--accent); }
+  .drawer-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+  .drawer-section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-item { background: var(--surface2); border-radius: 10px; padding: 12px; }
+  .info-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .info-val { font-size: 13px; font-weight: 600; }
+
+  /* Timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .timeline-item {
+    display: flex; gap: 16px; padding-bottom: 20px; position: relative;
+  }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-left { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot {
+    width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; z-index: 1;
+    border: 2px solid transparent;
+  }
+  .dot-done { background: rgba(16,185,129,0.2); border-color: var(--success); color: var(--success); }
+  .dot-current { background: rgba(59,130,246,0.2); border-color: var(--accent); color: var(--accent); animation: dotPulse 2s ease-in-out infinite; }
+  .dot-pending { background: var(--surface2); border-color: var(--border); color: var(--muted); }
+  @keyframes dotPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 6px rgba(59,130,246,0); } }
+  .timeline-line { width: 2px; flex: 1; min-height: 20px; background: var(--border); margin-top: 4px; }
+  .timeline-line.done { background: var(--success); }
+  .timeline-content { flex: 1; padding-top: 4px; }
+  .tl-step-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .tl-dates { display: flex; gap: 16px; }
+  .tl-date-item { font-size: 11px; }
+  .tl-date-label { color: var(--muted); }
+  .tl-date-val { font-family: var(--mono); font-weight: 600; margin-left: 4px; }
+
+  /* Edit form */
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .edit-item label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+  .edit-item input {
+    width: 100%; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px; font-family: var(--mono);
+    outline: none; transition: border-color 0.2s;
+  }
+  .edit-item input:focus { border-color: var(--accent); }
+  .edit-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .btn-save {
+    flex: 1; padding: 11px; background: linear-gradient(135deg, var(--accent), #2563eb);
+    border: none; border-radius: 9px; color: #fff; font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: var(--sans); transition: opacity 0.15s;
+  }
+  .btn-save:hover { opacity: 0.9; }
+  .btn-cancel {
+    padding: 11px 20px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--muted); font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans); transition: all 0.15s;
+  }
+  .btn-cancel:hover { color: var(--text); }
+
+  /* ─── Upload Modal ───────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 200; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 32px; width: 460px; animation: fadeUp 0.2s ease-out;
+  }
+  @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 32px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-text { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--muted); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+
+  /* ─── Misc ───────────────────────────────────────────── */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--muted); }
+  .dot-loader { display: flex; gap: 6px; }
+  .dot-loader span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: bounce 1.2s ease-in-out infinite; }
+  .dot-loader span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-loader span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+  .empty-state { padding: 60px; text-align: center; color: var(--muted); font-size: 14px; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    animation: toastIn 0.3s ease-out;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .toast-success { background: var(--success); color: #fff; }
+  .toast-error { background: var(--danger); color: #fff; }
+  @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    font-family: var(--sans) !important;
+    font-size: 12px !important;
+  }
+
+  @media (max-width: 1200px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { width: 64px; }
+    .sidebar-logo-text, .nav-item span:not(.nav-icon), .nav-section-label, .user-info { display: none; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .drawer { width: 100vw; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const API = 'http://35.173.250.250:8000';
+const PIE_COLORS = ['#3b82f6','#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'];
+
+// ── API helper ──────────────────────────────────────────────────────────────
+function useApi() {
+  const token = localStorage.getItem('pt_token');
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+
+  const get = (path) => fetch(`${API}${path}`, { headers }).then(r => {
+    if (r.status === 401) { localStorage.removeItem('pt_token'); window.location.reload(); }
+    return r.json();
+  });
+
+  const put = (path, body) => fetch(`${API}${path}`, { method: 'PUT', headers, body: JSON.stringify(body) }).then(r => r.json());
+
+  const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers, body: JSON.stringify(body) }).then(r => r.json());
+
+  const upload = (path, formData) => fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  }).then(r => r.json());
+
+  return { get, put, post, upload };
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, []);
+  return <div className={`toast toast-${type}`}>{type === 'success' ? '✓' : '✕'} {msg}</div>;
+}
+
+// ── Login ────────────────────────────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const form = new FormData();
+      form.append('username', username);
+      form.append('password', password);
+      const res = await fetch(`${API}/api/auth/login`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || '로그인 실패'); return; }
+      localStorage.setItem('pt_token', data.access_token);
+      onLogin({ username: data.username, role: data.role });
+    } catch {
+      setError('서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인해주세요.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="login-logo-icon">⚙</div>
+          <div>
+            <div className="login-logo-text">PRO-TRACK</div>
+            <div className="login-logo-sub">Process Management</div>
+          </div>
+        </div>
+        <div className="login-title">로그인</div>
+        <div className="login-subtitle">계정 정보를 입력하여 시스템에 접속하세요.</div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">아이디</label>
+            <input className="form-input" value={username} onChange={e => setUsername(e.target.value)} placeholder="username" required autoFocus />
+          </div>
+          <div className="form-group">
+            <label className="form-label">비밀번호</label>
+            <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+          </div>
+          {error && <div className="error-msg">{error}</div>}
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? '로그인 중...' : '로그인 →'}
+          </button>
+        </form>
+        <div className="login-hints">
+          <p>테스트 계정:</p>
+          <p>관리자 → <span>admin</span> / <span>admin1234</span></p>
+          <p>뷰어 → <span>viewer</span> / <span>viewer1234</span></p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ user, activeTab, onTab, onLogout }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const isAdmin = user.role === 'admin';
+
+  const navItems = [
+    { id: 'dashboard', icon: '◈', label: '종합 대시보드' },
+    { id: 'list', icon: '≡', label: '공정 목록' },
+    ...(isAdmin ? [{ id: 'upload', icon: '↑', label: '데이터 업로드' }] : []),
+  ];
+
+  return (
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+      <div className="sidebar-header" style={{ cursor:'pointer' }} onClick={() => setCollapsed(!collapsed)}>
+        <div className="sidebar-logo-icon">⚙</div>
+        {!collapsed && <span className="sidebar-logo-text">PRO-TRACK</span>}
+      </div>
+      <nav className="sidebar-nav">
+        {!collapsed && <div className="nav-section-label">Navigation</div>}
+        {navItems.map(item => (
+          <div key={item.id}
+            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+            onClick={() => onTab(item.id)}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            {!collapsed && <span>{item.label}</span>}
+          </div>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <div className="user-card">
+          <div className={`user-avatar ${isAdmin ? 'admin-avatar' : 'viewer-avatar'}`}>
+            {user.username.slice(0, 2).toUpperCase()}
+          </div>
+          {!collapsed && (
+            <div className="user-info">
+              <div className="user-name">{user.username}</div>
+              <span className={`user-role ${isAdmin ? 'role-admin' : 'role-viewer'}`}>
+                {isAdmin ? 'Admin' : 'Viewer'}
+              </span>
+            </div>
+          )}
+          {!collapsed && (
+            <button className="logout-btn" onClick={onLogout} title="로그아웃">⏻</button>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── KPI Cards ─────────────────────────────────────────────────────────────────
+function KpiCards({ kpi }) {
+  if (!kpi) return null;
+  const cards = [
+    { label: '전체 수주', val: kpi.total, icon: '◈', bg: 'bg-blue', tc: 'text-blue', badge: '+0%', badgeClass: 'badge-green' },
+    { label: '진행 중', val: kpi.in_progress, icon: '◐', bg: 'bg-orange', tc: 'text-orange', badge: `${Math.round(kpi.in_progress/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
+    { label: '지연 발생', val: kpi.delayed, icon: '⚠', bg: 'bg-red', tc: 'text-red', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red' },
+    { label: '완료', val: kpi.completed, icon: '✓', bg: 'bg-green', tc: 'text-green', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
+  ];
+  return (
+    <div className="kpi-grid">
+      {cards.map((c, i) => (
+        <div className="kpi-card" key={i}>
+          <div className="kpi-top">
+            <div className={`kpi-icon ${c.bg} ${c.tc}`}>{c.icon}</div>
+            <span className={`kpi-badge ${c.badgeClass}`}>{c.badge}</span>
+          </div>
+          <div className={`kpi-val ${c.tc}`}>{c.val.toLocaleString()}</div>
+          <div className="kpi-label">{c.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Process Load Chart (순수 SVG) ─────────────────────────────────────────────
+function ProcessLoadChart({ data, onBarClick }) {
+  const [hovered, setHovered] = useState(null);
+  if (!data?.length) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
+
+  const W = 560, H = 200, PL = 36, PR = 12, PT = 16, PB = 32;
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
+  const max = Math.max(...data.map(d => d.count), 1);
+  const barW = Math.floor(chartW / data.length * 0.55);
+  const gap  = chartW / data.length;
+
+  const yTicks = [0, Math.round(max * 0.5), max];
+
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, fontFamily: 'Noto Sans KR, sans-serif' }}>
+        {/* grid lines */}
+        {yTicks.map((t, i) => {
+          const y = PT + chartH - (t / max) * chartH;
+          return (
+            <g key={i}>
+              <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="#1f2d45" strokeDasharray="4 3" strokeWidth={1} />
+              <text x={PL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="#64748b">{t}</text>
+            </g>
+          );
+        })}
+
+        {/* bars */}
+        {data.map((d, i) => {
+          const x = PL + i * gap + gap / 2 - barW / 2;
+          const total = d.count;
+          const totalH = Math.max((total / max) * chartH, total > 0 ? 4 : 0);
+          const baseY = PT + chartH;
+          const normalH = total > 0 ? (d.normal / total) * totalH : 0;
+          const warningH = total > 0 ? (d.warning / total) * totalH : 0;
+          const delayedH = total > 0 ? (d.delayed / total) * totalH : 0;
+          const isHov = hovered === i;
+
+          return (
+            <g key={i} style={{ cursor: 'pointer' }}
+              onClick={() => onBarClick(d.step)}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              {isHov && <rect x={PL + i * gap + 2} y={PT} width={gap - 4} height={chartH} fill="rgba(59,130,246,0.06)" rx={4} />}
+              {/* 지연(빨강) - 맨 아래 */}
+              {delayedH > 0 && <rect x={x} y={baseY - delayedH} width={barW} height={delayedH} fill="#ef4444" fillOpacity={isHov ? 1 : 0.85} rx={2} />}
+              {/* 허용(초록) - 중간 */}
+              {warningH > 0 && <rect x={x} y={baseY - delayedH - warningH} width={barW} height={warningH} fill="#10b981" fillOpacity={isHov ? 1 : 0.85} />}
+              {/* 정상(파랑) - 맨 위 */}
+              {normalH > 0 && <rect x={x} y={baseY - delayedH - warningH - normalH} width={barW} height={normalH} fill="#3b82f6" fillOpacity={isHov ? 1 : 0.85} rx={[4,4,0,0]} />}
+              {isHov && total > 0 && (
+                <g>
+                  <rect x={x - 12} y={baseY - totalH - 44} width={barW + 24} height={40} fill="#1e293b" rx={5} stroke="#e2e8f0" strokeWidth={1} />
+                  <text x={x + barW/2} y={baseY - totalH - 30} textAnchor="middle" fontSize={11} fill="#ffffff" fontWeight="700">{total}건</text>
+                  <text x={x + barW/2} y={baseY - totalH - 14} textAnchor="middle" fontSize={9} fill="#94a3b8">정상{d.normal} 허용{d.warning} 지연{d.delayed}</text>
+                </g>
+              )}
+              <text x={PL + i * gap + gap / 2} y={H - 6} textAnchor="middle" fontSize={11} fill={isHov ? '#1e293b' : '#64748b'} fontWeight={isHov ? '700' : '400'}>
+                {d.step}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ── Company Pie Chart (순수 SVG 도넛) ────────────────────────────────────────
+function CompanyPie({ data }) {
+  const [hovered, setHovered] = useState(null);
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = 90, cy = 90, R = 72, r = 46;
+  let angle = -Math.PI / 2;
+
+  const slices = data.slice(0, 8).map((d, i) => {
+    const sweep = (d.value / total) * 2 * Math.PI;
+    const a1 = angle, a2 = angle + sweep;
+    angle = a2;
+    const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+    const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+    const ix1 = cx + r * Math.cos(a1), iy1 = cy + r * Math.sin(a1);
+    const ix2 = cx + r * Math.cos(a2), iy2 = cy + r * Math.sin(a2);
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z`;
+    const mid = a1 + sweep / 2;
+    return { path, color: PIE_COLORS[i % PIE_COLORS.length], name: d.name, value: d.value, mid };
+  });
+
+  const topItems = data.slice(0, 5);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <svg width={180} height={180} style={{ flexShrink: 0 }}>
+        {slices.map((s, i) => {
+          const isHov = hovered === i;
+          const pullX = isHov ? Math.cos(s.mid) * 5 : 0;
+          const pullY = isHov ? Math.sin(s.mid) * 5 : 0;
+          return (
+            <path key={i} d={s.path}
+              fill={s.color} fillOpacity={isHov ? 1 : 0.8}
+              stroke="#111827" strokeWidth={2}
+              transform={`translate(${pullX},${pullY})`}
+              style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          );
+        })}
+        {/* center text */}
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={20} fontWeight="900" fill="#e2e8f0" fontFamily="JetBrains Mono">{total}</text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={10} fill="#64748b" fontFamily="Noto Sans KR">전체</text>
+        {hovered !== null && (
+          <>
+            <rect x={cx - 52} y={cy + 24} width={104} height={20} fill="#1a2235" rx={4} />
+            <text x={cx} y={cy + 38} textAnchor="middle" fontSize={11} fill={slices[hovered]?.color} fontWeight="700" fontFamily="Noto Sans KR">
+              {slices[hovered]?.name} {slices[hovered]?.value}건
+            </text>
+          </>
+        )}
+      </svg>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {topItems.map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[i], flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+            <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#e2e8f0', fontWeight: 700 }}>{d.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Urgent Alerts ─────────────────────────────────────────────────────────────
+function UrgentAlerts({ data, onSelect }) {
+  if (!data?.length) return <div className="empty-state">지연 항목 없음 ✓</div>;
+  return (
+    <div className="alert-list">
+      {data.map((item, i) => (
+        <div className="alert-item" key={i} onClick={() => onSelect(item)}>
+          <div className="alert-days">
+            <div className="alert-days-num">{item._delay_days}</div>
+            <div className="alert-days-label">DAYS</div>
+          </div>
+          <div className="alert-info">
+            <div className="alert-id">{item.수주번호}-{item.ordseq}</div>
+            <div className="alert-desc">{item.업체명} · {item.품명} · {item._current_step} 정체</div>
+          </div>
+          <span style={{ color: 'var(--muted)', fontSize: 16 }}>›</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Process Timeline ───────────────────────────────────────────────────────────
+function ProcessTimeline({ timeline }) {
+  if (!timeline?.length) return null;
+  return (
+    <div className="timeline">
+      {timeline.map((item, i) => {
+        const cls = item.is_done ? 'dot-done' : item.is_current ? 'dot-current' : 'dot-pending';
+        const lineDone = i < timeline.length - 1 && timeline.slice(0, i + 1).every(t => t.is_done);
+        return (
+          <div className="timeline-item" key={i}>
+            <div className="timeline-left">
+              <div className={`timeline-dot ${cls}`}>
+                {item.is_done ? '✓' : item.is_current ? '●' : '○'}
+              </div>
+              {i < timeline.length - 1 && <div className={`timeline-line ${lineDone ? 'done' : ''}`} />}
+            </div>
+            <div className="timeline-content">
+              <div className="tl-step-name" style={{ color: item.is_current ? 'var(--accent)' : item.is_done ? 'var(--success)' : 'var(--muted)' }}>
+                {item.step}
+                {item.is_current && <span style={{ fontSize: 10, marginLeft: 8, background: 'rgba(59,130,246,0.2)', color: 'var(--accent)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>현재</span>}
+              </div>
+              <div className="tl-dates">
+                {item.planned && (
+                  <div className="tl-date-item">
+                    <span className="tl-date-label">예정</span>
+                    <span className="tl-date-val" style={{ color: 'var(--muted)' }}>{item.planned}</span>
+                  </div>
+                )}
+                {item.actual && (
+                  <div className="tl-date-item">
+                    <span className="tl-date-label">실적</span>
+                    <span className="tl-date-val" style={{ color: 'var(--success)' }}>{item.actual}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Detail Drawer ─────────────────────────────────────────────────────────────
+function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
+  const [detail, setDetail] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+    api.get(`/api/processes/${encodeURIComponent(item.수주번호)}/${item.ordseq}`)
+      .then(d => { setDetail(d); setEditData({}); });
+  }, [item]);
+
+  const handleSave = async () => {
+    if (!Object.keys(editData).length) { setEditMode(false); return; }
+    setSaving(true);
+    try {
+      const res = await api.put(`/api/processes/${encodeURIComponent(item.수주번호)}/${item.ordseq}`, editData);
+      if (res.success) {
+        onToast('저장되었습니다.', 'success');
+        setEditMode(false);
+        api.get(`/api/processes/${encodeURIComponent(item.수주번호)}/${item.ordseq}`).then(setDetail);
+      }
+    } catch { onToast('저장 실패', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const editableFields = [
+    { key: '시방출도 (O)', label: '시방출도', type: 'text' },
+    { key: '자재입고일 (R)', label: '자재입고일', type: 'date' },
+    { key: '생산완료일 (S)', label: '생산완료일', type: 'date' },
+    { key: '검사예상일 (T)', label: '검사예상일', type: 'date' },
+    { key: '포장완료예정 (U)', label: '포장완료예정', type: 'date' },
+    { key: '포장완료 (V)', label: '포장완료', type: 'date' },
+  ];
+
+  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', '진행중': 'var(--accent)' };
+
+  return (
+    <div className="drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <div>
+            <div className="drawer-title" style={{ fontFamily: 'JetBrains Mono', color: 'var(--accent)' }}>
+              {item.수주번호}<span style={{ color: 'var(--muted)', fontWeight: 400 }}>-{item.ordseq}</span>
+            </div>
+            <div className="drawer-subtitle">{item.업체명} · {item.프로젝트}</div>
+          </div>
+          <button className="drawer-close" onClick={onClose}>×</button>
+        </div>
+
+        {!detail ? (
+          <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>
+        ) : (
+          <div className="drawer-body">
+            {/* Status Banner */}
+            <div style={{ background: 'var(--surface2)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="status-dot" style={{ background: statusColorMap[detail._status] || 'var(--muted)' }} />
+                <span style={{ fontWeight: 700, color: statusColorMap[detail._status] }}>{detail._status}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 4 }}>· {detail._current_step} 단계</span>
+              </div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: detail._progress > 80 ? 'var(--success)' : 'var(--text)' }}>
+                {detail._progress}%
+              </div>
+            </div>
+
+            {/* Info Grid */}
+            <div>
+              <div className="drawer-section-title">기본 정보</div>
+              <div className="info-grid">
+                {[
+                  { label: '품명', val: detail.품명 },
+                  { label: '모델명', val: detail.모델명 },
+                  { label: '수량', val: `${detail.수량} EA` },
+                  { label: '시스템', val: detail.시스템명 },
+                  { label: '구분', val: detail.구분 },
+                  { label: '비고', val: detail.비고 || '—' },
+                  { label: '요구납기', val: detail['요구납기일'] || '—' },
+                  { label: '최종납기', val: detail['최종납기일'] || '—' },
+                ].map((f, i) => (
+                  <div className="info-item" key={i}>
+                    <div className="info-label">{f.label}</div>
+                    <div className="info-val" style={{ fontFamily: f.label.includes('납기') ? 'JetBrains Mono' : undefined }}>{f.val || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div>
+              <div className="drawer-section-title">공정 타임라인</div>
+              <ProcessTimeline timeline={detail._timeline} />
+            </div>
+
+            {/* Edit (Admin only) */}
+            {isAdmin && (
+              <div>
+                <div className="drawer-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  공정 일자 수정
+                  {!editMode && (
+                    <button onClick={() => setEditMode(true)} style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}>
+                      수정
+                    </button>
+                  )}
+                </div>
+                {editMode ? (
+                  <>
+                    <div className="edit-grid">
+                      {editableFields.map(f => (
+                        <div className="edit-item" key={f.key}>
+                          <label>{f.label}</label>
+                          <input
+                            type={f.type === 'date' ? 'date' : 'text'}
+                            defaultValue={detail[f.key] || ''}
+                            onChange={e => setEditData(prev => ({ ...prev, [f.key]: e.target.value || null }))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="edit-actions">
+                      <button className="btn-cancel" onClick={() => { setEditMode(false); setEditData({}); }}>취소</button>
+                      <button className="btn-save" onClick={handleSave} disabled={saving}>
+                        {saving ? '저장 중...' : '저장하기'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', padding: '10px 0' }}>
+                    수정 버튼을 클릭하여 공정 일자를 업데이트할 수 있습니다.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Upload Modal ──────────────────────────────────────────────────────────────
+function UploadModal({ api, onClose, onToast, onRefresh }) {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+
+  const handleFile = (f) => {
+    if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) setFile(f);
+    else onToast('엑셀 파일(.xlsx)만 업로드 가능합니다.', 'error');
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await api.upload('/api/upload', form);
+      if (res.rows) {
+        onToast(`업로드 완료. ${res.rows.toLocaleString()}행 로드됨.`, 'success');
+        onRefresh();
+        onClose();
+      } else {
+        onToast(res.detail || '업로드 실패', 'error');
+      }
+    } catch { onToast('업로드 오류', 'error'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">데이터 업로드</div>
+        <div className="modal-subtitle">엑셀 파일을 업로드하여 공정 데이터를 교체합니다. 기존 데이터는 덮어씁니다.</div>
+        <div
+          className={`upload-zone ${drag ? 'dragover' : ''}`}
+          onClick={() => inputRef.current.click()}
+          onDragOver={e => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}
+        >
+          <div className="upload-icon">📊</div>
+          <div className="upload-text">{file ? file.name : '파일을 드래그하거나 클릭하여 선택'}</div>
+          <div className="upload-sub">.xlsx, .xls 형식 지원</div>
+          <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+        </div>
+        <div className="modal-actions">
+          <button className="btn-cancel" style={{ flex: 1, padding: '11px 0' }} onClick={onClose}>취소</button>
+          <button className="btn-save" style={{ flex: 2 }} onClick={handleUpload} disabled={!file || loading}>
+            {loading ? '업로드 중...' : '업로드 실행'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard Tab ─────────────────────────────────────────────────────────────
+function DashboardTab({ api, user, onFilterStep, onToast }) {
+  const [kpi, setKpi] = useState(null);
+  const [processLoad, setProcessLoad] = useState([]);
+  const [urgentDelays, setUrgentDelays] = useState([]);
+  const [companyDist, setCompanyDist] = useState([]);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+
+  const load = useCallback(() => {
+    api.get('/api/dashboard/kpi').then(setKpi);
+    api.get('/api/dashboard/process-load').then(setProcessLoad);
+    api.get('/api/dashboard/urgent-delays').then(setUrgentDelays);
+    api.get('/api/dashboard/company-distribution').then(setCompanyDist);
+  }, []);
+
+  useEffect(() => { load(); }, []);
+
+  return (
+    <>
+      <KpiCards kpi={kpi} />
+
+      <div className="charts-grid">
+        <div className="chart-card">
+          <div className="chart-title">
+            ◈ 공정별 부하도 (Bottleneck Analysis)
+            <span className="chart-subtitle">클릭하면 해당 공정 목록 필터</span>
+          </div>
+          <ProcessLoadChart data={processLoad} onBarClick={onFilterStep} />
+          <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#3b82f6' }} /> 정상
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#10b981' }} /> 허용(3일 이내)
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#ef4444' }} /> 지연
+            </div>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <div className="chart-title">⬡ 업체별 수주 분포</div>
+          <CompanyPie data={companyDist} />
+        </div>
+      </div>
+
+      <div className="chart-card" style={{ borderRadius: 16 }}>
+        <div className="chart-title">
+          ⚠ 긴급 지연 TOP 5
+          <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>즉시 조치 필요</span>
+        </div>
+        <UrgentAlerts data={urgentDelays} onSelect={setSelectedAlert} />
+      </div>
+
+      {selectedAlert && (
+        <DetailDrawer
+          item={selectedAlert}
+          isAdmin={user.role === 'admin'}
+          api={api}
+          onClose={() => setSelectedAlert(null)}
+          onToast={onToast}
+        />
+      )}
+    </>
+  );
+}
+
+// ── List Tab ──────────────────────────────────────────────────────────────────
+function ListTab({ api, user, initialStepFilter, initialSearch, onToast }) {
+  const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(initialSearch || '');
+  const [statusFilter, setStatusFilter] = useState('전체');
+  const [stepFilter, setStepFilter] = useState(initialStepFilter || '전체');
+  const [companies, setCompanies] = useState([]);
+  const [companyFilter, setCompanyFilter] = useState('전체');
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [sortBy, setSortBy] = useState('수주번호');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고'];
+  const statuses = ['전체', '진행중', '지연', '완료'];
+
+  useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
+  useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      page, page_size: 50,
+      search, status_filter: statusFilter, company_filter: companyFilter,
+      step_filter: stepFilter, sort_by: sortBy, sort_dir: sortDir,
+    });
+    try {
+      const res = await api.get(`/api/processes?${params}`);
+      setData(res);
+    } finally { setLoading(false); }
+  }, [page, search, statusFilter, companyFilter, stepFilter, sortBy, sortDir]);
+
+  useEffect(() => { setPage(1); }, [search, statusFilter, companyFilter, stepFilter]);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  };
+
+  const handleExport = () => {
+    const token = localStorage.getItem('pt_token');
+    const params = new URLSearchParams({ search, status_filter: statusFilter, company_filter: companyFilter });
+    window.open(`${API}/api/export?${params}`, '_blank');
+  };
+
+  const SortIcon = ({ col }) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+
+  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', '진행중': 'var(--accent)' };
+
+  const visiblePages = () => {
+    const total = data.total_pages;
+    const cur = page;
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages = [1];
+    if (cur > 3) pages.push('...');
+    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+    if (cur < total - 2) pages.push('...');
+    pages.push(total);
+    return pages;
+  };
+
+  return (
+    <>
+      <div className="table-card" style={{ minHeight: 0 }}>
+        <div className="table-header">
+          <div className="table-header-title">프로젝트 공정 상세 목록</div>
+          <div className="filter-group">
+            <select className="filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              {statuses.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <select className="filter-select" value={stepFilter} onChange={e => setStepFilter(e.target.value)}>
+              {steps.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <select className="filter-select" value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}>
+              {companies.map(c => <option key={c}>{c}</option>)}
+            </select>
+            {user.role === 'admin' && (
+              <button className="btn-icon" onClick={handleExport}>↓ 엑셀</button>
+            )}
+          </div>
+        </div>
+
+        <div className="table-wrap">
+          {loading ? (
+            <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>
+          ) : data.items.length === 0 ? (
+            <div className="empty-state">검색 결과가 없습니다.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['프로젝트', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['수량', '수량'], ['최종납기', '최종납기일']].map(([label, col]) => (
+                    <th key={col} onClick={() => handleSort(col)}>
+                      {label}<SortIcon col={col} />
+                    </th>
+                  ))}
+                  <th>상세</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item, i) => (
+                  <tr key={i} onClick={() => setSelected(item)}>
+                    <td>
+                      <div className="td-mono">{item.수주번호}</div>
+                      <div className="td-name">seq {item.ordseq}</div>
+                    </td>
+                    <td style={{ fontSize: 12, fontWeight: 600 }}>{item.업체명}</td>
+                    <td style={{ fontSize: 12 }}>{item.프로젝트}</td>
+                    <td>
+                      <div style={{ fontSize: 12 }}>{item.품명}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{item.시스템명}</div>
+                    </td>
+                    <td><span className="step-badge">{item._current_step}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="progress-bar" style={{ flex: 1 }}>
+                          <div className={`progress-fill ${item._status === '지연' ? 'progress-red' : 'progress-blue'}`} style={{ width: `${item._progress}%` }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600, minWidth: 30 }}>{item._progress}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
+                      <span style={{ color: statusColorMap[item._status], fontWeight: 600, fontSize: 12 }}>{item._status}</span>
+                    </td>
+                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>{item.수량} EA</td>
+                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['최종납기일'] || '—'}</td>
+                    <td>
+                      <button style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 6, padding: '5px 10px', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}
+                        onClick={e => { e.stopPropagation(); setSelected(item); }}
+                      >보기</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="table-footer">
+          <div className="footer-info">
+            총 <strong>{data.total.toLocaleString()}</strong>건 중 {((page - 1) * 50 + 1).toLocaleString()}–{Math.min(page * 50, data.total).toLocaleString()} 표시
+          </div>
+          <div className="pagination">
+            <button className="page-btn" onClick={() => setPage(p => p - 1)} disabled={page === 1}>‹</button>
+            {visiblePages().map((p, i) => (
+              p === '...'
+                ? <button key={`e${i}`} className="page-btn" disabled>…</button>
+                : <button key={p} className={`page-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+            ))}
+            <button className="page-btn" onClick={() => setPage(p => p + 1)} disabled={page === data.total_pages}>›</button>
+          </div>
+        </div>
+      </div>
+
+      {selected && (
+        <DetailDrawer
+          item={selected}
+          isAdmin={user.role === 'admin'}
+          api={api}
+          onClose={() => setSelected(null)}
+          onToast={onToast}
+        />
+      )}
+    </>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [toast, setToast] = useState(null);
+  const [stepFilter, setStepFilter] = useState('전체');
+  const [showUpload, setShowUpload] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const api = useApi();
+
+  // Check existing token
+  useEffect(() => {
+    const token = localStorage.getItem('pt_token');
+    if (token) {
+      fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => setUser(data))
+        .catch(() => localStorage.removeItem('pt_token'));
+    }
+  }, []);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleLogout = () => { localStorage.removeItem('pt_token'); setUser(null); };
+
+  const handleBarClick = (step) => {
+    if (step) { setStepFilter(step); setActiveTab('list'); }
+  };
+
+  const pageTitles = {
+    dashboard: { title: '종합 대시보드', sub: '실시간 공정 현황 모니터링' },
+    list: { title: '공정 목록', sub: '상세 공정 데이터 조회 및 관리' },
+    upload: { title: '데이터 업로드', sub: '엑셀 파일 업로드 (관리자 전용)' },
+  };
+
+  if (!user) return <LoginPage onLogin={setUser} />;
+
+  const { title, sub } = pageTitles[activeTab] || {};
+
+  return (
+    <div className="app">
+      <Sidebar user={user} activeTab={activeTab} onTab={(tab) => { if (tab === 'upload') { setShowUpload(true); } else setActiveTab(tab); }} onLogout={handleLogout} />
+
+      <div className="main">
+        <div className="topbar">
+          <div>
+            <span className="page-title">{title}</span>
+            <span className="page-subtitle">{sub}</span>
+          </div>
+          <div className="topbar-right">
+            {activeTab === 'list' && (
+              <div className="search-box">
+                <span style={{ color: 'var(--muted)', fontSize: 14 }}>⌕</span>
+                <input
+                  placeholder="수주번호, 업체명, 품명 검색..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') setRefreshKey(k => k + 1); }}
+                  id="main-search"
+                />
+              </div>
+            )}
+            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono' }}>
+              {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+            </span>
+          </div>
+        </div>
+
+        <div className="content">
+          {activeTab === 'dashboard' && (
+            <DashboardTab
+              key={refreshKey}
+              api={api}
+              user={user}
+              onFilterStep={handleBarClick}
+              onToast={showToast}
+            />
+          )}
+          {activeTab === 'list' && (
+            <ListTab
+              key={refreshKey}
+              api={api}
+              user={user}
+              initialStepFilter={stepFilter}
+              initialSearch={searchQuery}
+              onToast={showToast}
+            />
+          )}
+        </div>
+      </div>
+
+      {showUpload && user.role === 'admin' && (
+        <UploadModal
+          api={api}
+          onClose={() => setShowUpload(false)}
+          onToast={showToast}
+          onRefresh={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
