@@ -992,8 +992,8 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
   const inputRef = useRef();
 
   const handleFile = (f) => {
-    if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) setFile(f);
-    else onToast('엑셀 파일(.xlsx)만 업로드 가능합니다.', 'error');
+    if (f && (f.name.toLowerCase().endsWith('.xlsx') || f.name.toLowerCase().endsWith('.xls'))) setFile(f);
+    else onToast('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
   };
 
   const handleUpload = async () => {
