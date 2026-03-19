@@ -5,17 +5,19 @@ import math
 from typing import Optional, Dict, Any, List
 
 
-PROCESS_STEPS = ['수주', '시방', '자재', '생산', '검사', '포장', '출고']
+PROCESS_STEPS = ['수주', '시방', '자재', '생산', '검사', '포장', '출고', 'OTP', '계산서']
 
 # 컬럼 → 공정 단계 매핑 (새 양식 기준)
 STEP_DATE_MAP = {
-    '수주':  {'planned': '수주일자',        'actual': '수주일자'},
+    '수주':  {'planned': None,              'actual': '수주일자'},
     '시방':  {'planned': '시방예상일',      'actual': '시방출도일'},
     '자재':  {'planned': '자재예상일',      'actual': '자재입고일'},
     '생산':  {'planned': '생산예상일',      'actual': '생산완료일'},
     '검사':  {'planned': '품질검사예상일',   'actual': '품질검사일'},
     '포장':  {'planned': None,             'actual': '포장완료일'},
     '출고':  {'planned': '요구납기일',      'actual': '최종납기일'},
+    'OTP':  {'planned': 'OTP예상일',       'actual': 'OTP일자'},
+    '계산서': {'planned': None,            'actual': '계산서발행일'},
 }
 
 # 진척률 가중치 (실적일만, 합계 100)
@@ -55,7 +57,9 @@ def safe_date(val):
 def infer_current_step(row) -> str:
     """실적일이 찍힌 가장 마지막 단계 기준."""
     if pd.notna(row.get('계산서발행일')):
-        return '출고'
+        return '계산서'
+    if pd.notna(row.get('OTP일자')):
+        return 'OTP'
     if pd.notna(row.get('최종납기일')):
         return '출고'
     if pd.notna(row.get('포장완료일')):
@@ -93,10 +97,7 @@ def infer_status(row) -> str:
 
 
 def calc_progress(row) -> int:
-    """처음~마지막 실적일 단계까지 중간 공정 포함 누적 가중치. 출고 실적 있으면 100%."""
-    # 출고(최종납기일) 실적 있으면 무조건 100%
-    if pd.notna(row.get('최종납기일')) or pd.notna(row.get('계산서발행일')):
-        return 100
+    """처음~마지막 실적일 단계까지 중간 공정 포함 누적 가중치."""
     weight_cols = list(PROGRESS_WEIGHTS.keys())
     last_idx = -1
     for i, col in enumerate(weight_cols):
@@ -137,6 +138,10 @@ class DataManager:
             # TLGS 제외
             if '제품군' in df.columns:
                 df = df[df['제품군'] != 'TLGS']
+
+            # 컬럼명 정규화
+            if 'dlvdt' in df.columns:
+                df = df.rename(columns={'dlvdt': '요구납기일'})
 
             # 날짜 컬럼 자동 감지 + 엑셀 시리얼 숫자 보정
             date_cols = [col for col in df.columns if '일자' in str(col) or str(col).endswith('일')]
