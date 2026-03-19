@@ -157,15 +157,19 @@ async def upload_excel(
     
     contents = await file.read()
     try:
-        df = pd.read_excel(io.BytesIO(contents))
-        required_cols = ['수주번호', 'ordseq', '업체명', '프로젝트']
+        engine = 'xlrd' if file.filename.lower().endswith('.xls') else 'openpyxl'
+        df = pd.read_excel(io.BytesIO(contents), engine=engine)
+        required_cols = ['수주번호', '업체명']
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
             raise HTTPException(status_code=400, detail=f"필수 컬럼 누락: {', '.join(missing)}")
         
+        # ordseq 없으면 수주번호 기준 자동 생성
+        if 'ordseq' not in df.columns:
+            df['ordseq'] = df.groupby('수주번호').cumcount() + 1
+
         save_path = os.path.join(os.path.dirname(__file__), "../data/sample.xlsx")
-        with open(save_path, "wb") as f:
-            f.write(contents)
+        df.to_excel(save_path, index=False)
         
         dm.reload(save_path)
         return {"message": f"업로드 완료. {len(df)}행 로드됨.", "rows": len(df)}
