@@ -152,7 +152,7 @@ async def upload_excel(
     file: UploadFile = File(...),
     current_user: User = Depends(require_admin)
 ):
-    if not file.filename.endswith(('.xlsx', '.xls')):
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.")
     
     contents = await file.read()
