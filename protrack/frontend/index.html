@@ -807,7 +807,8 @@ function ProcessTimeline({ timeline }) {
     <div className="timeline">
       {timeline.map((item, i) => {
         const cls = item.is_done ? 'dot-done' : item.is_current ? 'dot-current' : 'dot-pending';
-        const lineDone = i < timeline.length - 1 && timeline.slice(0, i + 1).every(t => t.is_done);
+        const hasActualAfter = timeline.slice(i + 1).some(t => t.is_done);
+        const lineDone = (item.is_done || timeline.slice(0, i).some(t => t.is_done)) && hasActualAfter;
         return (
           <div className="timeline-item" key={i}>
             <div className="timeline-left">
