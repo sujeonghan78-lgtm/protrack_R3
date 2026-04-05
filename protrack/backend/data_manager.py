@@ -483,7 +483,7 @@ class DataManager:
             due_soon_otp = [row_summary(row) for _, row in df[mask].iterrows()]
 
         return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp}}
-
+ 
     def get_company_distribution(self, product_filter: str = "") -> List[Dict]:
         if self.df.empty:
             return []
