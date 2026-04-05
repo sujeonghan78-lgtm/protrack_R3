@@ -57,13 +57,23 @@ async def get_me(current_user: User = Depends(get_current_user)):
 # ─── KPI & Dashboard ─────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard/kpi")
-async def get_kpi(current_user: User = Depends(get_current_user)):
-    return dm.get_kpi()
+async def get_kpi(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_kpi(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/process-load")
-async def get_process_load(current_user: User = Depends(get_current_user)):
-    return dm.get_process_load()
+async def get_process_load(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_process_load(product_filter=product_filter)
+
+
+@app.get("/api/dashboard/alerts")
+async def get_alerts(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_alerts(product_filter=product_filter)
+
+
+@app.get("/api/dashboard/stage-progress")
+async def get_stage_progress(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_stage_progress(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/urgent-delays")
@@ -72,13 +82,13 @@ async def get_urgent_delays(current_user: User = Depends(get_current_user)):
 
 
 @app.get("/api/dashboard/company-distribution")
-async def get_company_distribution(current_user: User = Depends(get_current_user)):
-    return dm.get_company_distribution()
+async def get_company_distribution(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_company_distribution(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/monthly-trend")
 async def get_monthly_trend(current_user: User = Depends(get_current_user)):
-    return dm.get_monthly_trend()
+    return dm.get_monthly_trend() if hasattr(dm, 'get_monthly_trend') else []
 
 
 # ─── Process List ─────────────────────────────────────────────────────────────
@@ -93,19 +103,10 @@ async def get_processes(
     step_filter: str = "",
     sort_by: str = "수주번호",
     sort_dir: str = "asc",
+    product_filter: str = "",
     current_user: User = Depends(get_current_user)
 ):
-    result = dm.get_processes(
-        page=page,
-        page_size=page_size,
-        search=search,
-        status_filter=status_filter,
-        company_filter=company_filter,
-        step_filter=step_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir
-    )
-    return result
+    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter)
 
 
 @app.get("/api/processes/{order_no}/{ordseq}")
@@ -143,6 +144,11 @@ async def get_companies(current_user: User = Depends(get_current_user)):
 @app.get("/api/filters/projects")
 async def get_projects(current_user: User = Depends(get_current_user)):
     return dm.get_unique_values("프로젝트")
+
+
+@app.get("/api/filters/products")
+async def get_products(current_user: User = Depends(get_current_user)):
+    return dm.get_unique_values("제품군")
 
 
 # ─── Excel Upload ────────────────────────────────────────────────────────────
