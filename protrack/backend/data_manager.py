@@ -248,14 +248,20 @@ class DataManager:
     def _enrich(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
         df['_current_step'] = df.apply(infer_current_step, axis=1)
-        df['_status'] = df.apply(infer_status, axis=1)
-        df['_progress'] = df.apply(calc_progress, axis=1)
-        df['_delay_days'] = df.apply(calc_delay_days, axis=1)
-        # 현재/다음 단계 날짜 차이
-        stage_diffs = df.apply(calc_stage_diff, axis=1)
-        df['_cur_diff'] = stage_diffs.apply(lambda x: x.get('cur_diff'))
-        df['_cur_has_actual'] = stage_diffs.apply(lambda x: x.get('cur_has_actual', False))
-        df['_next_diff'] = stage_diffs.apply(lambda x: x.get('next_diff'))
+
+        def enrich_row(row):
+            diff = calc_stage_diff(row)
+            return pd.Series({
+                '_status': infer_status(row),
+                '_progress': calc_progress(row),
+                '_delay_days': calc_delay_days(row),
+                '_cur_diff': diff.get('cur_diff'),
+                '_cur_has_actual': diff.get('cur_has_actual', False),
+                '_next_diff': diff.get('next_diff'),
+            })
+
+        enriched = df.apply(enrich_row, axis=1)
+        df = pd.concat([df, enriched], axis=1)
         df['_row_id'] = df.index
         return df
 
@@ -282,7 +288,7 @@ class DataManager:
                 df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
                 df['업체명'].astype(str).str.contains(search, case=False, na=False) |
                 df['프로젝트'].astype(str).str.contains(search, case=False, na=False) |
-                df['품명'].astype(str).str.contains(search, case=False, na=False) |
+                df['시스템명'].astype(str).str.contains(search, case=False, na=False) if '시스템명' in df.columns else pd.Series(False, index=df.index) |
                 df['시스템명'].astype(str).str.contains(search, case=False, na=False)
             )
             df = df[mask]
