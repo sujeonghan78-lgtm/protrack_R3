@@ -276,6 +276,8 @@ class DataManager:
                 d[col] = int(val)
             elif isinstance(val, np.floating):
                 d[col] = None if np.isnan(val) else float(val)
+            elif isinstance(val, (np.bool_, bool)):
+                d[col] = bool(val)
             else:
                 d[col] = val
         return d
@@ -346,7 +348,7 @@ class DataManager:
 
     def update_process(self, order_no: str, ordseq: int, updates: Dict) -> bool:
         mask = (self.df['수주번호'] == order_no) & (self.df['ordseq'] == ordseq)
-        if not self.df[mask].any().any():
+        if not mask.any():
             return False
 
         for col, val in updates.items():
