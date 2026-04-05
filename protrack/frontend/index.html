@@ -668,23 +668,26 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
 function KpiCards({ kpi, onCardClick }) {
   if (!kpi) return null;
   const cards = [
-    { label: '전체 수주', val: kpi.total, icon: '◈', bg: 'bg-blue', tc: 'text-blue', badge: `avg ${kpi.avg_progress}%`, badgeClass: 'badge-green', key: null, desc: null },
-    { label: '정상', val: kpi.on_track, icon: '✓', bg: 'bg-green', tc: 'text-green', badge: `${Math.round(kpi.on_track/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green', key: 'On Track', desc: '납기일 여유 있음' },
-    { label: '임박', val: kpi.at_risk, icon: '⚡', bg: 'bg-orange', tc: 'text-orange', badge: `${Math.round(kpi.at_risk/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red', key: 'At Risk', desc: '납기 7일 이내' },
-    { label: '지연', val: kpi.delayed, icon: '⚠', bg: 'bg-red', tc: 'text-red', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red', key: '지연', desc: '납기일 초과' },
-    { label: '완료', val: kpi.completed, icon: '★', bg: 'bg-blue', tc: 'text-blue', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green', key: '완료', desc: '계산서 발행 완료' },
+    { label: '전체 수주', val: kpi.total, icon: '◈', color: '#3b82f6', key: null, desc: `평균 진척률 ${kpi.avg_progress}%`, badge: `${kpi.avg_progress}%` },
+    { label: '정상', val: kpi.on_track, icon: '✓', color: '#10b981', key: 'On Track', desc: '납기일 여유 있음', badge: `${Math.round(kpi.on_track/Math.max(kpi.total,1)*100)}%` },
+    { label: '임박', val: kpi.at_risk, icon: '⚡', color: '#f59e0b', key: 'At Risk', desc: '납기 7일 이내', badge: `${Math.round(kpi.at_risk/Math.max(kpi.total,1)*100)}%` },
+    { label: '지연', val: kpi.delayed, icon: '⚠', color: '#ef4444', key: '지연', desc: '납기일 초과', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%` },
+    { label: '완료', val: kpi.completed, icon: '★', color: '#6366f1', key: '완료', desc: '계산서 발행 완료', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%` },
   ];
   return (
     <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
       {cards.map((c, i) => (
-        <div className="kpi-card" key={i} onClick={() => c.key && onCardClick(c.key)} style={{ cursor: c.key ? 'pointer' : 'default' }}>
+        <div className="kpi-card" key={i}
+          onClick={() => c.key && onCardClick(c.key)}
+          style={{ cursor: c.key ? 'pointer' : 'default', borderTop: `3px solid ${c.color}` }}
+        >
           <div className="kpi-top">
-            <div className={`kpi-icon ${c.bg} ${c.tc}`}>{c.icon}</div>
-            <span className={`kpi-badge ${c.badgeClass}`}>{c.badge}</span>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: `${c.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: c.color }}>{c.icon}</div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: c.color, background: `${c.color}12`, padding: '2px 7px', borderRadius: 20 }}>{c.badge}</span>
           </div>
-          <div className={`kpi-val ${c.tc}`}>{c.val.toLocaleString()}</div>
+          <div style={{ fontSize: 30, fontWeight: 900, fontFamily: 'JetBrains Mono', color: c.color, letterSpacing: -1 }}>{c.val.toLocaleString()}</div>
           <div className="kpi-label">{c.label}</div>
-          {c.desc && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{c.desc}</div>}
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{c.desc}</div>
         </div>
       ))}
     </div>
@@ -692,18 +695,22 @@ function KpiCards({ kpi, onCardClick }) {
 }
 
 // ── Stage Progress Chart ──────────────────────────────────────────────────────
-function StageProgressChart({ data }) {
+function StageProgressChart({ data, onSystemClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {data.map((d, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
+          onClick={() => onSystemClick(d.system)}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+          onMouseLeave={e => e.currentTarget.style.background = ''}
+        >
           <div style={{ width: 70, fontSize: 11, color: 'var(--muted)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.system}</div>
-          <div style={{ flex: 1, height: 16, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ width: `${d.rate}%`, height: '100%', background: d.rate >= 80 ? 'var(--success)' : d.rate >= 50 ? 'var(--accent)' : 'var(--warn)', borderRadius: 4, transition: 'width 0.4s' }} />
+          <div style={{ flex: 1, height: 12, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: `${d.rate}%`, height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width 0.4s', opacity: 0.8 }} />
           </div>
-          <div style={{ width: 40, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{d.rate}%</div>
-          <div style={{ width: 40, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.completed}/{d.total}</div>
+          <div style={{ width: 36, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{d.rate}%</div>
+          <div style={{ width: 36, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.completed}/{d.total}</div>
         </div>
       ))}
     </div>
@@ -712,15 +719,15 @@ function StageProgressChart({ data }) {
 
 // ── Alerts Panel ──────────────────────────────────────────────────────────────
 function AlertsPanel({ alerts, onSelectItem }) {
-  const [modal, setModal] = useState(null); // 'delayed' | 'at_risk' | 'due_soon_출고' | 'due_soon_otp'
+  const [modal, setModal] = useState(null);
 
   if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
 
   const sections = [
-    { key: 'delayed', label: 'Delayed', color: 'var(--danger)', icon: '⚠', items: alerts.delayed || [] },
-    { key: 'at_risk', label: '임박', color: 'var(--warn)', icon: '⚡', items: alerts.at_risk || [] },
-    { key: 'due_soon_출고', label: `이달 출고 예정`, color: 'var(--accent)', icon: '📦', items: alerts.due_soon?.출고 || [] },
-    { key: 'due_soon_otp', label: `이달 OTP 예정`, color: '#8b5cf6', icon: '🔖', items: alerts.due_soon?.OTP || [] },
+    { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#ef4444', items: alerts.delayed || [] },
+    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#f59e0b', items: alerts.at_risk || [] },
+    { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
+    { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#6366f1', items: alerts.due_soon?.OTP || [] },
   ];
 
   const modalItems = modal === 'delayed' ? alerts.delayed :
@@ -735,15 +742,15 @@ function AlertsPanel({ alerts, onSelectItem }) {
         {sections.map(s => (
           <div key={s.key}
             onClick={() => s.items.length > 0 && setModal(s.key)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: `1px solid var(--border)`, borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s' }}
-            onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.borderColor = s.color)}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)', e.currentTarget.style.borderLeftColor = s.color)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s' }}
+            onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.background = `${s.color}08`)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>{s.icon}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: s.color }}>{s.label}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{s.desc}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono', color: s.color }}>{s.items.length}</span>
               {s.items.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>›</span>}
             </div>
@@ -753,7 +760,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
 
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
-          <div className="modal" style={{ width: 720, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div className="modal-title">{modalTitle} ({modalItems?.length}건)</div>
               <button className="drawer-close" onClick={() => setModal(null)}>×</button>
@@ -761,17 +768,13 @@ function AlertsPanel({ alerts, onSelectItem }) {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '22%' }} />
-                  <col style={{ width: '28%' }} />
-                  <col style={{ width: '20%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '8%' }} />
-                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '22%' }} /><col style={{ width: '28%' }} /><col style={{ width: '20%' }} />
+                  <col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: 'var(--surface2)' }}>
                     {['수주번호', '업체명', '품명', '현재단계', '진척도', '납기일'].map(h => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>{h}</th>
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1217,9 +1220,12 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
   const [alerts, setAlerts] = useState(null);
   const [companyDist, setCompanyDist] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [kpiModal, setKpiModal] = useState(null); // 'On Track' | 'At Risk' | '지연' | '완료'
+  const [kpiModal, setKpiModal] = useState(null);
   const [kpiModalItems, setKpiModalItems] = useState([]);
   const [kpiModalLoading, setKpiModalLoading] = useState(false);
+  const [stageModal, setStageModal] = useState(null);
+  const [stageModalItems, setStageModalItems] = useState([]);
+  const [stageModalLoading, setStageModalLoading] = useState(false);
 
   const pfVal = Array.isArray(productFilter) ? productFilter.join(',') : (productFilter !== '전체' ? productFilter : '');
   const pf = pfVal ? `?product_filter=${encodeURIComponent(pfVal)}` : '';
@@ -1245,13 +1251,22 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
 
   const kpiLabelMap = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
 
+  const handleStageClick = async (system) => {
+    setStageModal(system);
+    setStageModalLoading(true);
+    const sep = pf ? '&' : '?';
+    const res = await api.get(`/api/processes${pf}${sep}search=${encodeURIComponent(system)}&page_size=500`);
+    setStageModalItems((res.items || []).filter(i => i.시스템명 === system));
+    setStageModalLoading(false);
+  };
+
   return (
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       {kpiModal && (
         <div className="modal-overlay" onClick={() => setKpiModal(null)}>
-          <div className="modal" style={{ width: 720, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div className="modal-title">{kpiLabelMap[kpiModal]} ({kpiModalItems.length}건)</div>
               <button className="drawer-close" onClick={() => setKpiModal(null)}>×</button>
@@ -1298,7 +1313,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
           <div className="chart-title">▤ Stage Progress
             <span className="chart-subtitle">시스템별 완료율</span>
           </div>
-          <StageProgressChart data={stageProgress} />
+          <StageProgressChart data={stageProgress} onSystemClick={handleStageClick} />
         </div>
 
         {/* Alerts */}
@@ -1335,6 +1350,49 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
           <CompanyPie data={companyDist} />
         </div>
       </div>
+
+      {stageModal && (
+        <div className="modal-overlay" onClick={() => setStageModal(null)}>
+          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="modal-title">{stageModal} ({stageModalItems.length}건)</div>
+              <button className="drawer-close" onClick={() => setStageModal(null)}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {stageModalLoading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '22%' }} /><col style={{ width: '25%' }} /><col style={{ width: '20%' }} />
+                    <col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '15%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: 'var(--surface2)' }}>
+                      {['수주번호', '업체명', '호선명', '현재단계', '진척도', '상태'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageModalItems.map((item, i) => (
+                      <tr key={i} onClick={() => { setSelectedAlert(item); setStageModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}
+                      >
+                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                        <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                        <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                        <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
+                        <td style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: item._status === '지연' ? 'var(--danger)' : item._status === 'At Risk' ? 'var(--warn)' : 'var(--accent)' }}>{item._status === 'On Track' ? '정상' : item._status === 'At Risk' ? '임박' : item._status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedAlert && (
         <DetailDrawer
@@ -1590,9 +1648,13 @@ function App() {
             <span className="page-title">{title}</span>
             <span className="page-subtitle">{sub}</span>
             {productFilter !== '전체' && (
-              <span style={{ marginLeft: 10, fontSize: 11, background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-                {productFilter}
-              </span>
+              <div style={{ display: 'flex', gap: 4, marginLeft: 10, flexWrap: 'wrap' }}>
+                {(Array.isArray(productFilter) ? productFilter : [productFilter]).map(p => (
+                  <span key={p} style={{ fontSize: 11, background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                    {p}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <div className="topbar-right">
