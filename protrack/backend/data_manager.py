@@ -214,7 +214,9 @@ class DataManager:
             df = df[df['_current_step'] == step_filter]
 
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
 
         return df
 
@@ -279,7 +281,9 @@ class DataManager:
     def get_kpi(self, product_filter: str = "") -> Dict:
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
 
         total = len(df)
         on_track = len(df[df['_status'] == 'On Track'])
@@ -295,7 +299,9 @@ class DataManager:
             return []
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
 
         today = pd.Timestamp.now()
         result = []
@@ -331,7 +337,9 @@ class DataManager:
             return []
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
         if '시스템명' not in df.columns:
             return []
 
@@ -350,7 +358,9 @@ class DataManager:
 
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
 
         today = pd.Timestamp.now()
         this_month_start = today.replace(day=1)
@@ -388,7 +398,9 @@ class DataManager:
             return []
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
-            df = df[df['제품군'] == product_filter]
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
         counts = df['업체명'].value_counts().head(10)
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
