@@ -106,17 +106,95 @@ def calc_progress(row) -> int:
     return min(100, total)
 
 
-def calc_delay_days(row) -> int:
+def get_current_next_step_info(row):
+    """현재 단계와 다음 단계의 예상/실적일 반환"""
     today = pd.Timestamp.now()
-    due_val = row.get('요구납기일')
-    if pd.notna(due_val):
+    current_step = row.get('_current_step') or infer_current_step(row)
+    
+    # 현재 단계 정보
+    cur_map = STEP_DATE_MAP.get(current_step, {})
+    cur_actual_col = cur_map.get('actual')
+    cur_planned_col = cur_map.get('planned')
+    cur_actual = row.get(cur_actual_col) if cur_actual_col else None
+    cur_planned = row.get(cur_planned_col) if cur_planned_col else None
+    
+    # 다음 단계 정보
+    steps = list(STEP_DATE_MAP.keys())
+    cur_idx = steps.index(current_step) if current_step in steps else -1
+    next_step = steps[cur_idx + 1] if cur_idx >= 0 and cur_idx + 1 < len(steps) else None
+    next_map = STEP_DATE_MAP.get(next_step, {}) if next_step else {}
+    next_planned_col = next_map.get('planned')
+    next_planned = row.get(next_planned_col) if next_planned_col else None
+
+    return {
+        'cur_actual': cur_actual if pd.notna(cur_actual) else None,
+        'cur_planned': cur_planned if pd.notna(cur_planned) else None,
+        'next_planned': next_planned if pd.notna(next_planned) else None,
+        'today': today,
+    }
+
+
+def calc_stage_diff(row) -> dict:
+    """현재/다음 단계 날짜 차이 계산"""
+    info = get_current_next_step_info(row)
+    today = info['today']
+    result = {'cur_diff': None, 'cur_has_actual': False, 'next_diff': None}
+    
+    # 현재 단계: 실적 있으면 실적-예상, 없으면 오늘-예상
+    if info['cur_planned']:
         try:
-            due_date = pd.Timestamp(due_val)
-            delta = (today - due_date).days
-            return max(0, delta)
+            planned = pd.Timestamp(info['cur_planned'])
+            if info['cur_actual']:
+                result['cur_diff'] = int((pd.Timestamp(info['cur_actual']) - planned).days)
+                result['cur_has_actual'] = True
+            else:
+                result['cur_diff'] = int((today - planned).days)
+                result['cur_has_actual'] = False
         except:
             pass
-    return 0
+    
+    # 다음 단계: 오늘-예상
+    if info['next_planned']:
+        try:
+            result['next_diff'] = int((today - pd.Timestamp(info['next_planned'])).days)
+        except:
+            pass
+    
+    return result
+
+
+def infer_status(row) -> str:
+    """완료: 계산서발행일, 지연/임박/정상: 현재+다음 단계 기준"""
+    today = pd.Timestamp.now()
+
+    if pd.notna(row.get('계산서발행일')):
+        return '완료'
+
+    diff = calc_stage_diff(row)
+    
+    # 지연 판단: 현재단계 실적이 예상보다 늦거나, 실적없고 예상일 초과
+    cur_diff = diff.get('cur_diff')
+    next_diff = diff.get('next_diff')
+    
+    if cur_diff is not None and cur_diff > 0:
+        return '지연'
+    if next_diff is not None and next_diff > 0:
+        return '지연'
+    
+    # 임박: 다음 단계 예상일 7일 이내
+    if next_diff is not None and next_diff >= -7:
+        return 'At Risk'
+    if cur_diff is not None and not diff.get('cur_has_actual') and cur_diff >= -7:
+        return 'At Risk'
+
+    return 'On Track'
+
+
+def calc_delay_days(row) -> int:
+    diff = calc_stage_diff(row)
+    cur_diff = diff.get('cur_diff') or 0
+    next_diff = diff.get('next_diff') or 0
+    return max(0, cur_diff, next_diff)
 
 
 class DataManager:
@@ -173,6 +251,11 @@ class DataManager:
         df['_status'] = df.apply(infer_status, axis=1)
         df['_progress'] = df.apply(calc_progress, axis=1)
         df['_delay_days'] = df.apply(calc_delay_days, axis=1)
+        # 현재/다음 단계 날짜 차이
+        stage_diffs = df.apply(calc_stage_diff, axis=1)
+        df['_cur_diff'] = stage_diffs.apply(lambda x: x.get('cur_diff'))
+        df['_cur_has_actual'] = stage_diffs.apply(lambda x: x.get('cur_has_actual', False))
+        df['_next_diff'] = stage_diffs.apply(lambda x: x.get('next_diff'))
         df['_row_id'] = df.index
         return df
 
