@@ -565,7 +565,7 @@ function LoginPage({ onLogin }) {
 }
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, activeTab, onTab, onLogout }) {
+function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products }) {
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
 
@@ -592,6 +592,21 @@ function Sidebar({ user, activeTab, onTab, onLogout }) {
             {!collapsed && <span>{item.label}</span>}
           </div>
         ))}
+        {!collapsed && products?.length > 0 && (
+          <>
+            <div className="nav-section-label" style={{ marginTop: 12 }}>제품군 필터</div>
+            {['전체', ...products].map(p => (
+              <div key={p}
+                className={`nav-item ${productFilter === p ? 'active' : ''}`}
+                onClick={() => onProductFilter(p)}
+                style={{ fontSize: 12 }}
+              >
+                <span className="nav-icon" style={{ fontSize: 12 }}>▸</span>
+                <span>{p}</span>
+              </div>
+            ))}
+          </>
+        )}
       </nav>
       <div className="sidebar-footer">
         <div className="user-card">
@@ -619,13 +634,14 @@ function Sidebar({ user, activeTab, onTab, onLogout }) {
 function KpiCards({ kpi }) {
   if (!kpi) return null;
   const cards = [
-    { label: '전체 수주', val: kpi.total, icon: '◈', bg: 'bg-blue', tc: 'text-blue', badge: '+0%', badgeClass: 'badge-green' },
-    { label: '진행 중', val: kpi.in_progress, icon: '◐', bg: 'bg-orange', tc: 'text-orange', badge: `${Math.round(kpi.in_progress/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
-    { label: '지연 발생', val: kpi.delayed, icon: '⚠', bg: 'bg-red', tc: 'text-red', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red' },
-    { label: '완료', val: kpi.completed, icon: '✓', bg: 'bg-green', tc: 'text-green', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
+    { label: '전체 수주', val: kpi.total, icon: '◈', bg: 'bg-blue', tc: 'text-blue', badge: `avg ${kpi.avg_progress}%`, badgeClass: 'badge-green' },
+    { label: 'On Track', val: kpi.on_track, icon: '✓', bg: 'bg-green', tc: 'text-green', badge: `${Math.round(kpi.on_track/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
+    { label: 'At Risk', val: kpi.at_risk, icon: '⚡', bg: 'bg-orange', tc: 'text-orange', badge: `${Math.round(kpi.at_risk/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red' },
+    { label: 'Delayed', val: kpi.delayed, icon: '⚠', bg: 'bg-red', tc: 'text-red', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-red' },
+    { label: '완료', val: kpi.completed, icon: '★', bg: 'bg-blue', tc: 'text-blue', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%`, badgeClass: 'badge-green' },
   ];
   return (
-    <div className="kpi-grid">
+    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
       {cards.map((c, i) => (
         <div className="kpi-card" key={i}>
           <div className="kpi-top">
@@ -637,6 +653,106 @@ function KpiCards({ kpi }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// ── Stage Progress Chart ──────────────────────────────────────────────────────
+function StageProgressChart({ data }) {
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {data.map((d, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 70, fontSize: 11, color: 'var(--muted)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.system}</div>
+          <div style={{ flex: 1, height: 16, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: `${d.rate}%`, height: '100%', background: d.rate >= 80 ? 'var(--success)' : d.rate >= 50 ? 'var(--accent)' : 'var(--warn)', borderRadius: 4, transition: 'width 0.4s' }} />
+          </div>
+          <div style={{ width: 40, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{d.rate}%</div>
+          <div style={{ width: 40, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.completed}/{d.total}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Alerts Panel ──────────────────────────────────────────────────────────────
+function AlertsPanel({ alerts, onSelectItem }) {
+  const [modal, setModal] = useState(null); // 'delayed' | 'at_risk' | 'due_soon_출고' | 'due_soon_otp'
+
+  if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
+
+  const sections = [
+    { key: 'delayed', label: 'Delayed', color: 'var(--danger)', icon: '⚠', items: alerts.delayed || [] },
+    { key: 'at_risk', label: 'At Risk', color: 'var(--warn)', icon: '⚡', items: alerts.at_risk || [] },
+    { key: 'due_soon_출고', label: `이달 출고 예정`, color: 'var(--accent)', icon: '📦', items: alerts.due_soon?.출고 || [] },
+    { key: 'due_soon_otp', label: `이달 OTP 예정`, color: '#8b5cf6', icon: '🔖', items: alerts.due_soon?.OTP || [] },
+  ];
+
+  const modalItems = modal === 'delayed' ? alerts.delayed :
+                     modal === 'at_risk' ? alerts.at_risk :
+                     modal === 'due_soon_출고' ? alerts.due_soon?.출고 :
+                     modal === 'due_soon_otp' ? alerts.due_soon?.OTP : [];
+  const modalTitle = sections.find(s => s.key === modal)?.label || '';
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sections.map(s => (
+          <div key={s.key}
+            onClick={() => s.items.length > 0 && setModal(s.key)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: `1px solid var(--border)`, borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s' }}
+            onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.borderColor = s.color)}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)', e.currentTarget.style.borderLeftColor = s.color)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>{s.icon}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: s.color }}>{s.label}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono', color: s.color }}>{s.items.length}</span>
+              {s.items.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>›</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" style={{ width: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="modal-title">{modalTitle} ({modalItems?.length}건)</div>
+              <button className="drawer-close" onClick={() => setModal(null)}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    {['수주번호', '업체명', '품명', '현재단계', '진척도', '납기일'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalItems?.map((item, i) => (
+                    <tr key={i} onClick={() => { onSelectItem(item); setModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600 }}>{item.수주번호}</td>
+                      <td style={{ padding: '8px 10px' }}>{item.업체명}</td>
+                      <td style={{ padding: '8px 10px' }}>{item.품명}</td>
+                      <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -880,7 +996,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
     { key: '포장완료 (V)', label: '포장완료', type: 'date' },
   ];
 
-  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', '진행중': 'var(--accent)' };
+  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', 'On Track': 'var(--accent)', 'At Risk': 'var(--warn)', '진행중': 'var(--accent)' };
 
   return (
     <div className="drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -1044,25 +1160,47 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({ api, user, onFilterStep, onToast }) {
+function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
   const [kpi, setKpi] = useState(null);
   const [processLoad, setProcessLoad] = useState([]);
-  const [urgentDelays, setUrgentDelays] = useState([]);
+  const [stageProgress, setStageProgress] = useState([]);
+  const [alerts, setAlerts] = useState(null);
   const [companyDist, setCompanyDist] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
 
-  const load = useCallback(() => {
-    api.get('/api/dashboard/kpi').then(setKpi);
-    api.get('/api/dashboard/process-load').then(setProcessLoad);
-    api.get('/api/dashboard/urgent-delays').then(setUrgentDelays);
-    api.get('/api/dashboard/company-distribution').then(setCompanyDist);
-  }, []);
+  const pf = productFilter ? `?product_filter=${encodeURIComponent(productFilter)}` : '';
 
-  useEffect(() => { load(); }, []);
+  const load = useCallback(() => {
+    api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
+    api.get(`/api/dashboard/process-load${pf}`).then(setProcessLoad);
+    api.get(`/api/dashboard/stage-progress${pf}`).then(setStageProgress);
+    api.get(`/api/dashboard/alerts${pf}`).then(setAlerts);
+    api.get(`/api/dashboard/company-distribution${pf}`).then(setCompanyDist);
+  }, [productFilter]);
+
+  useEffect(() => { load(); }, [load]);
 
   return (
     <>
       <KpiCards kpi={kpi} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Stage Progress */}
+        <div className="chart-card">
+          <div className="chart-title">▤ Stage Progress
+            <span className="chart-subtitle">시스템별 완료율</span>
+          </div>
+          <StageProgressChart data={stageProgress} />
+        </div>
+
+        {/* Alerts */}
+        <div className="chart-card">
+          <div className="chart-title">🔔 Alerts
+            <span className="chart-subtitle">클릭하면 상세 목록</span>
+          </div>
+          <AlertsPanel alerts={alerts} onSelectItem={setSelectedAlert} />
+        </div>
+      </div>
 
       <div className="charts-grid">
         <div className="chart-card">
@@ -1090,14 +1228,6 @@ function DashboardTab({ api, user, onFilterStep, onToast }) {
         </div>
       </div>
 
-      <div className="chart-card" style={{ borderRadius: 16 }}>
-        <div className="chart-title">
-          ⚠ 긴급 지연 TOP 5
-          <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>즉시 조치 필요</span>
-        </div>
-        <UrgentAlerts data={urgentDelays} onSelect={setSelectedAlert} />
-      </div>
-
       {selectedAlert && (
         <DetailDrawer
           item={selectedAlert}
@@ -1112,7 +1242,7 @@ function DashboardTab({ api, user, onFilterStep, onToast }) {
 }
 
 // ── List Tab ──────────────────────────────────────────────────────────────────
-function ListTab({ api, user, initialStepFilter, initialSearch, onToast }) {
+function ListTab({ api, user, initialStepFilter, initialSearch, onToast, productFilter }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(initialSearch || '');
@@ -1125,8 +1255,8 @@ function ListTab({ api, user, initialStepFilter, initialSearch, onToast }) {
   const [sortBy, setSortBy] = useState('수주번호');
   const [sortDir, setSortDir] = useState('asc');
 
-  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고'];
-  const statuses = ['전체', '진행중', '지연', '완료'];
+  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', 'OTP', '계산서'];
+  const statuses = ['전체', 'On Track', 'At Risk', '지연', '완료'];
 
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
@@ -1137,6 +1267,7 @@ function ListTab({ api, user, initialStepFilter, initialSearch, onToast }) {
       page, page_size: 50,
       search, status_filter: statusFilter, company_filter: companyFilter,
       step_filter: stepFilter, sort_by: sortBy, sort_dir: sortDir,
+      product_filter: productFilter || '전체',
     });
     try {
       const res = await api.get(`/api/processes?${params}`);
@@ -1160,7 +1291,7 @@ function ListTab({ api, user, initialStepFilter, initialSearch, onToast }) {
 
   const SortIcon = ({ col }) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
 
-  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', '진행중': 'var(--accent)' };
+  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', 'On Track': 'var(--accent)', 'At Risk': 'var(--warn)', '진행중': 'var(--accent)' };
 
   const visiblePages = () => {
     const total = data.total_pages;
@@ -1290,9 +1421,10 @@ function App() {
   const [showUpload, setShowUpload] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productFilter, setProductFilter] = useState('전체');
+  const [products, setProducts] = useState([]);
   const api = useApi();
 
-  // Check existing token
   useEffect(() => {
     const token = localStorage.getItem('pt_token');
     if (token) {
@@ -1302,6 +1434,12 @@ function App() {
         .catch(() => localStorage.removeItem('pt_token'));
     }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      api.get('/api/filters/products').then(p => setProducts(p || []));
+    }
+  }, [user]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -1326,13 +1464,26 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar user={user} activeTab={activeTab} onTab={(tab) => { if (tab === 'upload') { setShowUpload(true); } else setActiveTab(tab); }} onLogout={handleLogout} />
+      <Sidebar
+        user={user}
+        activeTab={activeTab}
+        onTab={(tab) => { if (tab === 'upload') { setShowUpload(true); } else setActiveTab(tab); }}
+        onLogout={handleLogout}
+        productFilter={productFilter}
+        onProductFilter={(p) => { setProductFilter(p); setRefreshKey(k => k + 1); }}
+        products={products}
+      />
 
       <div className="main">
         <div className="topbar">
           <div>
             <span className="page-title">{title}</span>
             <span className="page-subtitle">{sub}</span>
+            {productFilter !== '전체' && (
+              <span style={{ marginLeft: 10, fontSize: 11, background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                {productFilter}
+              </span>
+            )}
           </div>
           <div className="topbar-right">
             {activeTab === 'list' && (
@@ -1361,6 +1512,7 @@ function App() {
               user={user}
               onFilterStep={handleBarClick}
               onToast={showToast}
+              productFilter={productFilter}
             />
           )}
           {activeTab === 'list' && (
@@ -1371,6 +1523,7 @@ function App() {
               initialStepFilter={stepFilter}
               initialSearch={searchQuery}
               onToast={showToast}
+              productFilter={productFilter}
             />
           )}
         </div>
