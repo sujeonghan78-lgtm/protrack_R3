@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any, List
 
 PROCESS_STEPS = ['수주', '시방', '자재', '생산', '검사', '포장', '출고', 'OTP', '계산서']
 
-# 컬럼 → 공정 단계 매핑 (새 양식 기준)
 STEP_DATE_MAP = {
     '수주':  {'planned': None,              'actual': '수주일자'},
     '시방':  {'planned': '시방예상일',      'actual': '시방출도일'},
@@ -20,7 +19,6 @@ STEP_DATE_MAP = {
     '계산서': {'planned': None,            'actual': '계산서발행일'},
 }
 
-# 진척률 가중치 (실적일만, 합계 100)
 PROGRESS_WEIGHTS = {
     '수주일자':     5,
     '시방출도일':   10,
@@ -36,7 +34,6 @@ PROGRESS_WEIGHTS = {
 
 
 def safe_date(val):
-    """Convert various date formats to ISO string safely."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return None
     if isinstance(val, (datetime, date, pd.Timestamp)):
@@ -55,7 +52,6 @@ def safe_date(val):
 
 
 def infer_current_step(row) -> str:
-    """실적일이 찍힌 가장 마지막 단계 기준."""
     if pd.notna(row.get('계산서발행일')):
         return '계산서'
     if pd.notna(row.get('OTP일자')):
@@ -78,26 +74,27 @@ def infer_current_step(row) -> str:
 
 
 def infer_status(row) -> str:
-    """Determine status: 완료/지연/진행중."""
     today = pd.Timestamp.now()
-    
-    # 완료: 포장완료 또는 최종납기일(실적출고) 또는 계산서발행
-    if pd.notna(row.get('포장완료일')) or pd.notna(row.get('최종납기일')) or pd.notna(row.get('계산서발행일')):
+
+    if pd.notna(row.get('계산서발행일')):
         return '완료'
-    
+
     due_val = row.get('요구납기일')
     if pd.notna(due_val):
         try:
-            if today > pd.Timestamp(due_val):
+            due_date = pd.Timestamp(due_val)
+            delta = (due_date - today).days
+            if delta < 0:
                 return '지연'
+            elif delta <= 7:
+                return 'At Risk'
         except:
             pass
-    
-    return '진행중'
+
+    return 'On Track'
 
 
 def calc_progress(row) -> int:
-    """처음~마지막 실적일 단계까지 중간 공정 포함 누적 가중치."""
     weight_cols = list(PROGRESS_WEIGHTS.keys())
     last_idx = -1
     for i, col in enumerate(weight_cols):
@@ -110,10 +107,8 @@ def calc_progress(row) -> int:
 
 
 def calc_delay_days(row) -> int:
-    """Calculate delay days from due date."""
     today = pd.Timestamp.now()
-    due_col = '최종납기일' if pd.notna(row.get('최종납기일')) else '요구납기일'
-    due_val = row.get(due_col)
+    due_val = row.get('요구납기일')
     if pd.notna(due_val):
         try:
             due_date = pd.Timestamp(due_val)
@@ -135,15 +130,15 @@ class DataManager:
             engine = 'xlrd' if str(self.filepath).endswith('.xls') else 'openpyxl'
             df = pd.read_excel(self.filepath, engine=engine)
 
-            # TLGS 제외
             if '제품군' in df.columns:
                 df = df[df['제품군'] != 'TLGS']
 
-            # 컬럼명 정규화
             if 'dlvdt' in df.columns:
                 df = df.rename(columns={'dlvdt': '요구납기일'})
 
-            # 날짜 컬럼 자동 감지 + 엑셀 시리얼 숫자 보정
+            if 'ordseq' not in df.columns:
+                df['ordseq'] = df.groupby('수주번호').cumcount() + 1
+
             date_cols = [col for col in df.columns if '일자' in str(col) or str(col).endswith('일')]
             for col in date_cols:
                 def fix_date(v):
@@ -152,16 +147,15 @@ class DataManager:
                     if isinstance(v, (int, float)):
                         try:
                             s = str(int(v))
-                            if len(s) == 8:  # YYYYMMDD 형식
+                            if len(s) == 8:
                                 return pd.Timestamp(s[:4] + '-' + s[4:6] + '-' + s[6:])
-                            # Excel 시리얼 (일반적으로 5자리)
                             return pd.Timestamp('1899-12-30') + pd.Timedelta(days=int(v))
                         except:
                             return pd.NaT
                     return v
                 df[col] = df[col].apply(fix_date)
                 df[col] = pd.to_datetime(df[col], errors='coerce')
-            
+
             self.df = self._enrich(df)
             print(f"[DataManager] Loaded {len(self.df)} rows from {self.filepath}")
         except Exception as e:
@@ -174,7 +168,6 @@ class DataManager:
         self._load()
 
     def _enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add computed columns."""
         df = df.copy()
         df['_current_step'] = df.apply(infer_current_step, axis=1)
         df['_status'] = df.apply(infer_status, axis=1)
@@ -184,7 +177,6 @@ class DataManager:
         return df
 
     def _row_to_dict(self, row) -> Dict[str, Any]:
-        """Convert a DataFrame row to a JSON-safe dict."""
         d = {}
         for col, val in row.items():
             if isinstance(val, (pd.Timestamp, datetime, date)):
@@ -199,15 +191,9 @@ class DataManager:
                 d[col] = val
         return d
 
-    def get_filtered_df(
-        self,
-        search: str = "",
-        status_filter: str = "",
-        company_filter: str = "",
-        step_filter: str = "",
-    ) -> pd.DataFrame:
+    def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="") -> pd.DataFrame:
         df = self.df.copy()
-        
+
         if search:
             mask = (
                 df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
@@ -217,52 +203,35 @@ class DataManager:
                 df['시스템명'].astype(str).str.contains(search, case=False, na=False)
             )
             df = df[mask]
-        
+
         if status_filter and status_filter != "전체":
             df = df[df['_status'] == status_filter]
-        
+
         if company_filter and company_filter != "전체":
             df = df[df['업체명'] == company_filter]
-        
+
         if step_filter and step_filter != "전체":
             df = df[df['_current_step'] == step_filter]
-        
+
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+
         return df
 
-    def get_processes(
-        self,
-        page: int = 1,
-        page_size: int = 50,
-        search: str = "",
-        status_filter: str = "",
-        company_filter: str = "",
-        step_filter: str = "",
-        sort_by: str = "수주번호",
-        sort_dir: str = "asc",
-    ) -> Dict:
-        df = self.get_filtered_df(search, status_filter, company_filter, step_filter)
-        
+    def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="") -> Dict:
+        df = self.get_filtered_df(search, status_filter, company_filter, step_filter, product_filter)
+
         total = len(df)
         total_pages = max(1, math.ceil(total / page_size))
         page = max(1, min(page, total_pages))
-        
-        # Sort
+
         if sort_by in df.columns:
             df = df.sort_values(sort_by, ascending=(sort_dir == "asc"), na_position='last')
-        
+
         start = (page - 1) * page_size
-        end = start + page_size
-        page_df = df.iloc[start:end]
-        
-        items = [self._row_to_dict(row) for _, row in page_df.iterrows()]
-        
-        return {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-        }
+        items = [self._row_to_dict(row) for _, row in df.iloc[start:start+page_size].iterrows()]
+
+        return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
 
     def get_process_detail(self, order_no: str, ordseq: int) -> Optional[Dict]:
         mask = (self.df['수주번호'] == order_no) & (self.df['ordseq'] == ordseq)
@@ -271,8 +240,7 @@ class DataManager:
             return None
         row = rows.iloc[0]
         d = self._row_to_dict(row)
-        
-        # Build timeline
+
         timeline = []
         for step in PROCESS_STEPS:
             mapping = STEP_DATE_MAP.get(step, {})
@@ -280,15 +248,8 @@ class DataManager:
             actual_col = mapping.get('actual')
             planned = safe_date(row.get(planned_col)) if planned_col else None
             actual = safe_date(row.get(actual_col)) if actual_col else None
-            
-            timeline.append({
-                "step": step,
-                "planned": planned,
-                "actual": actual,
-                "is_current": step == row['_current_step'],
-                "is_done": actual is not None,
-            })
-        
+            timeline.append({"step": step, "planned": planned, "actual": actual, "is_current": step == row['_current_step'], "is_done": actual is not None})
+
         d['_timeline'] = timeline
         return d
 
@@ -296,125 +257,148 @@ class DataManager:
         mask = (self.df['수주번호'] == order_no) & (self.df['ordseq'] == ordseq)
         if not self.df[mask].any().any():
             return False
-        
+
         for col, val in updates.items():
             if col in self.df.columns:
                 self.df.loc[mask, col] = val
-        
-        # Re-enrich the modified rows
+
         for idx in self.df[mask].index:
             self.df.at[idx, '_current_step'] = infer_current_step(self.df.loc[idx])
             self.df.at[idx, '_status'] = infer_status(self.df.loc[idx])
             self.df.at[idx, '_progress'] = calc_progress(self.df.loc[idx])
             self.df.at[idx, '_delay_days'] = calc_delay_days(self.df.loc[idx])
-        
-        # Persist to disk
+
         try:
             save_df = self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
             save_df.to_excel(self.filepath, index=False)
         except Exception as e:
             print(f"[DataManager] Save error: {e}")
-        
+
         return True
 
-    def get_kpi(self) -> Dict:
-        df = self.df
+    def get_kpi(self, product_filter: str = "") -> Dict:
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+
         total = len(df)
-        in_progress = len(df[df['_status'] == '진행중'])
+        on_track = len(df[df['_status'] == 'On Track'])
+        at_risk = len(df[df['_status'] == 'At Risk'])
         delayed = len(df[df['_status'] == '지연'])
         completed = len(df[df['_status'] == '완료'])
-        
-        return {
-            "total": total,
-            "in_progress": in_progress,
-            "delayed": delayed,
-            "completed": completed,
-        }
+        avg_progress = int(df['_progress'].mean()) if total > 0 else 0
 
-    def get_process_load(self) -> List[Dict]:
+        return {"total": total, "on_track": on_track, "at_risk": at_risk, "delayed": delayed, "completed": completed, "avg_progress": avg_progress}
+
+    def get_process_load(self, product_filter: str = "") -> List[Dict]:
         if self.df.empty:
             return []
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+
         today = pd.Timestamp.now()
         result = []
         for step in PROCESS_STEPS:
-            step_df = self.df[self.df['_current_step'] == step]
-            normal = 0
-            warning = 0
-            delayed = 0
+            step_df = df[df['_current_step'] == step]
+            normal = 0; warning = 0; delayed = 0
             planned_col = STEP_DATE_MAP.get(step, {}).get('planned')
             actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
             for _, row in step_df.iterrows():
                 actual = row.get(actual_col) if actual_col else None
                 planned = row.get(planned_col) if planned_col else None
                 if pd.notna(actual):
-                    # 실적일 있음 - 예상일 대비 차이 계산
                     if pd.notna(planned):
                         try:
                             diff = (pd.Timestamp(actual) - pd.Timestamp(planned)).days
-                            if diff <= 0:
-                                normal += 1
-                            elif diff <= 3:
-                                warning += 1
-                            else:
-                                delayed += 1
-                        except:
-                            normal += 1
-                    else:
-                        normal += 1
+                            if diff <= 0: normal += 1
+                            elif diff <= 3: warning += 1
+                            else: delayed += 1
+                        except: normal += 1
+                    else: normal += 1
                 else:
-                    # 실적일 없음 - 예상일 초과 여부
                     if pd.notna(planned):
                         try:
-                            if today > pd.Timestamp(planned):
-                                delayed += 1
-                            else:
-                                normal += 1
-                        except:
-                            normal += 1
-                    else:
-                        normal += 1
-            result.append({
-                "step": step,
-                "count": int(len(step_df)),
-                "normal": normal,
-                "warning": warning,
-                "delayed": delayed,
-            })
+                            if today > pd.Timestamp(planned): delayed += 1
+                            else: normal += 1
+                        except: normal += 1
+                    else: normal += 1
+            result.append({"step": step, "count": int(len(step_df)), "normal": normal, "warning": warning, "delayed": delayed})
         return result
+
+    def get_stage_progress(self, product_filter: str = "") -> List[Dict]:
+        if self.df.empty:
+            return []
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+        if '시스템명' not in df.columns:
+            return []
+
+        result = []
+        for system, group in df.groupby('시스템명'):
+            total = len(group)
+            completed = len(group[group['_status'] == '완료'])
+            rate = int(completed / total * 100) if total > 0 else 0
+            result.append({"system": str(system), "total": total, "completed": completed, "rate": rate})
+        result.sort(key=lambda x: x['rate'], reverse=True)
+        return result
+
+    def get_alerts(self, product_filter: str = "") -> Dict:
+        if self.df.empty:
+            return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
+
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+
+        today = pd.Timestamp.now()
+        this_month_start = today.replace(day=1)
+        next_month_start = this_month_start + pd.DateOffset(months=1)
+
+        def row_summary(row):
+            return {
+                "수주번호": row.get('수주번호', ''),
+                "ordseq": int(row.get('ordseq', 0)),
+                "업체명": row.get('업체명', ''),
+                "품명": row.get('품명', ''),
+                "_current_step": row.get('_current_step', ''),
+                "_progress": int(row.get('_progress', 0)),
+                "요구납기일": safe_date(row.get('요구납기일')),
+                "OTP예상일": safe_date(row.get('OTP예상일')),
+            }
+
+        delayed = [row_summary(row) for _, row in df[df['_status'] == '지연'].sort_values('_delay_days', ascending=False).iterrows()]
+        at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
+
+        due_soon_출고 = []
+        if '요구납기일' in df.columns:
+            mask = df['요구납기일'].notna() & (df['요구납기일'] >= this_month_start) & (df['요구납기일'] < next_month_start) & (df['_status'] != '완료')
+            due_soon_출고 = [row_summary(row) for _, row in df[mask].iterrows()]
+
+        due_soon_otp = []
+        if 'OTP예상일' in df.columns:
+            mask = df['OTP예상일'].notna() & (df['OTP예상일'] >= this_month_start) & (df['OTP예상일'] < next_month_start) & (df['_status'] != '완료')
+            due_soon_otp = [row_summary(row) for _, row in df[mask].iterrows()]
+
+        return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp}}
+
+    def get_company_distribution(self, product_filter: str = "") -> List[Dict]:
+        if self.df.empty:
+            return []
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            df = df[df['제품군'] == product_filter]
+        counts = df['업체명'].value_counts().head(10)
+        return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
     def get_urgent_delays(self, limit: int = 5) -> List[Dict]:
         delayed = self.df[self.df['_status'] == '지연'].copy()
         delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
         result = []
         for _, row in delayed.iterrows():
-            result.append({
-                "수주번호": row.get('수주번호', ''),
-                "ordseq": int(row.get('ordseq', 0)),
-                "업체명": row.get('업체명', ''),
-                "품명": row.get('품명', ''),
-                "_current_step": row.get('_current_step', ''),
-                "_delay_days": int(row.get('_delay_days', 0)),
-                "_progress": int(row.get('_progress', 0)),
-            })
+            result.append({"수주번호": row.get('수주번호', ''), "ordseq": int(row.get('ordseq', 0)), "업체명": row.get('업체명', ''), "품명": row.get('품명', ''), "_current_step": row.get('_current_step', ''), "_delay_days": int(row.get('_delay_days', 0)), "_progress": int(row.get('_progress', 0))})
         return result
-
-    def get_company_distribution(self) -> List[Dict]:
-        if self.df.empty:
-            return []
-        counts = self.df['업체명'].value_counts().head(10)
-        return [{"name": k, "value": int(v)} for k, v in counts.items()]
-
-    def get_monthly_trend(self) -> List[Dict]:
-        df = self.df.copy()
-        col = '수주일자'
-        if col not in df.columns:
-            return []
-        df[col] = pd.to_datetime(df[col], errors='coerce')
-        df = df.dropna(subset=[col])
-        df['month'] = df[col].dt.to_period('M').astype(str)
-        monthly = df.groupby('month').size().reset_index(name='count')
-        monthly = monthly.sort_values('month').tail(12)
-        return monthly.to_dict(orient='records')
 
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
