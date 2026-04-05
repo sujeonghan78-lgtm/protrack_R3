@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -482,6 +483,22 @@ function useDebounce(value, delay) {
 const API = 'http://35.173.250.250:8000';
 const PIE_COLORS = ['#3b82f6','#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'];
 
+// ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
+function exportToExcel(items, filename = 'protrack_export') {
+  if (!items?.length) return;
+  const cols = ['수주번호', '업체명', '프로젝트', '품명', '시스템명', '_current_step', '_progress', '_status', '요구납기일', '최종납기일'];
+  const headers = ['수주번호', '업체명', '호선명', '품명', '시스템명', '현재단계', '진척도(%)', '상태', '요구납기일', '최종납기일'];
+  const statusLabel = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+  const rows = items.map(item => cols.map(c => {
+    if (c === '_status') return statusLabel[item[c]] || item[c];
+    return item[c] ?? '';
+  }));
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '공정현황');
+  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 // ── API helper ──────────────────────────────────────────────────────────────
 function useApi() {
   const token = localStorage.getItem('pt_token');
@@ -763,7 +780,10 @@ function AlertsPanel({ alerts, onSelectItem }) {
           <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div className="modal-title">{modalTitle} ({modalItems?.length}건)</div>
-              <button className="drawer-close" onClick={() => setModal(null)}>×</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-icon" onClick={() => exportToExcel(modalItems, modalTitle)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+                <button className="drawer-close" onClick={() => setModal(null)}>×</button>
+              </div>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
@@ -1269,7 +1289,10 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
           <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div className="modal-title">{kpiLabelMap[kpiModal]} ({kpiModalItems.length}건)</div>
-              <button className="drawer-close" onClick={() => setKpiModal(null)}>×</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-icon" onClick={() => exportToExcel(kpiModalItems, kpiLabelMap[kpiModal])} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+                <button className="drawer-close" onClick={() => setKpiModal(null)}>×</button>
+              </div>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {kpiModalLoading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
@@ -1356,7 +1379,10 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
           <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div className="modal-title">{stageModal} ({stageModalItems.length}건)</div>
-              <button className="drawer-close" onClick={() => setStageModal(null)}>×</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-icon" onClick={() => exportToExcel(stageModalItems, stageModal)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+                <button className="drawer-close" onClick={() => setStageModal(null)}>×</button>
+              </div>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {stageModalLoading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
@@ -1421,6 +1447,11 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
   const [companyFilter, setCompanyFilter] = useState('전체');
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [checkedRows, setCheckedRows] = useState([]);
+
+  const toggleCheck = (id) => setCheckedRows(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleAll = () => setCheckedRows(checkedRows.length === data.items.length ? [] : data.items.map(i => i._row_id));
+  const checkedItems = data.items.filter(i => checkedRows.includes(i._row_id));
   const [sortBy, setSortBy] = useState('수주번호');
   const [sortDir, setSortDir] = useState('asc');
 
@@ -1491,7 +1522,9 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
               {companies.map(c => <option key={c}>{c}</option>)}
             </select>
             {user.role === 'admin' && (
-              <button className="btn-icon" onClick={handleExport}>↓ 엑셀</button>
+              <button className="btn-icon" onClick={() => exportToExcel(checkedItems.length > 0 ? checkedItems : data.items, '공정목록')}>
+                ↓ 엑셀{checkedItems.length > 0 ? ` (${checkedItems.length}건)` : ''}
+              </button>
             )}
           </div>
         </div>
@@ -1505,7 +1538,10 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
             <table>
               <thead>
                 <tr>
-                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['요구납기', '요구납기일']].map(([label, col]) => (
+                  <th style={{ width: 36, padding: '10px 8px' }}>
+                    <input type="checkbox" onChange={toggleAll} checked={checkedRows.length === data.items.length && data.items.length > 0} style={{ cursor: 'pointer' }} />
+                  </th>
+                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['현재단계 차이', '_cur_diff'], ['다음단계 D-', '_next_diff'], ['요구납기', '요구납기일']].map(([label, col]) => (
                     <th key={col} onClick={() => handleSort(col)}>
                       {label}<SortIcon col={col} />
                     </th>
@@ -1514,8 +1550,16 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item, i) => (
-                  <tr key={i} onClick={() => setSelected(item)}>
+                {data.items.map((item, i) => {
+                  const isChecked = checkedRows.includes(item._row_id);
+                  const curDiff = item._cur_diff;
+                  const curHasActual = item._cur_has_actual;
+                  const nextDiff = item._next_diff;
+                  return (
+                  <tr key={i} onClick={() => setSelected(item)} style={{ background: isChecked ? 'rgba(59,130,246,0.05)' : '' }}>
+                    <td style={{ padding: '10px 8px' }} onClick={e => { e.stopPropagation(); toggleCheck(item._row_id); }}>
+                      <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ cursor: 'pointer' }} />
+                    </td>
                     <td>
                       <div className="td-mono">{item.수주번호}</div>
                     </td>
@@ -1538,6 +1582,21 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
                       <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
                       <span style={{ color: statusColorMap[item._status], fontWeight: 600, fontSize: 12 }}>{item._status === 'On Track' ? '정상' : item._status === 'At Risk' ? '임박' : item._status}</span>
                     </td>
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono' }}>
+                      {curDiff !== null && curDiff !== undefined ? (
+                        <span style={{ color: curDiff > 0 ? 'var(--danger)' : curDiff < 0 ? 'var(--success)' : 'var(--muted)' }}>
+                          {!curHasActual && <span style={{ fontSize: 9, marginRight: 3, color: 'var(--warn)', fontWeight: 700 }}>미실적</span>}
+                          {curDiff > 0 ? `+${curDiff}일` : curDiff < 0 ? `${curDiff}일` : '정시'}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono' }}>
+                      {nextDiff !== null && nextDiff !== undefined ? (
+                        <span style={{ color: nextDiff > 0 ? 'var(--danger)' : nextDiff <= 7 ? 'var(--warn)' : 'var(--muted)' }}>
+                          {nextDiff > 0 ? `+${nextDiff}일` : `D${nextDiff}`}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
                     <td>
                       <button style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 6, padding: '5px 10px', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}
@@ -1545,7 +1604,8 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
                       >보기</button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1554,6 +1614,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
         <div className="table-footer">
           <div className="footer-info">
             총 <strong>{data.total.toLocaleString()}</strong>건 중 {((page - 1) * 50 + 1).toLocaleString()}–{Math.min(page * 50, data.total).toLocaleString()} 표시
+            {checkedRows.length > 0 && <span style={{ marginLeft: 12, color: 'var(--accent)', fontWeight: 700 }}>{checkedRows.length}건 선택됨</span>}
           </div>
           <div className="pagination">
             <button className="page-btn" onClick={() => setPage(p => p - 1)} disabled={page === 1}>‹</button>
