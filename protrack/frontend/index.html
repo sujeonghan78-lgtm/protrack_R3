@@ -733,9 +733,9 @@ function StageByProcessChart({ data, onStepClick }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
         {data.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRadius: 4, padding: '1px 4px', transition: 'background 0.15s' }}
             onClick={() => onStepClick(d.step)}
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
