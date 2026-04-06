@@ -567,6 +567,21 @@ class DataManager:
             "completed": int(len(df[df['_status'] == '완료'])),
         }
 
+    def get_monthly_delivery(self, product_filter: str = "") -> List[Dict]:
+        """요구납기일 기준 월별 출고예정 건수"""
+        if self.df.empty or '요구납기일' not in self.df.columns:
+            return []
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['제품군'].isin(pf_list)]
+        df = df[df['요구납기일'].notna() & (df['_status'] != '완료')]
+        df['month'] = df['요구납기일'].dt.to_period('M').astype(str)
+        monthly = df.groupby('month').size().reset_index(name='count')
+        monthly = monthly.sort_values('month').tail(12)
+        return monthly.to_dict(orient='records')
+
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
             return []
