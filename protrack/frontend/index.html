@@ -726,23 +726,23 @@ function StageByProcessChart({ data, onStepClick }) {
   const maxPct = Math.max(...data.map(d => d.pct), 1);
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         {systems.map((sys, i) => (
           <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[i] }} />{sys}
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: colors[i] }} />{sys}
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
         {data.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRadius: 6, padding: '3px 4px', transition: 'background 0.15s' }}
             onClick={() => onStepClick(d.step)}
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           >
-            <div style={{ width: 48, fontSize: 11, color: hovered === i ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0, fontWeight: hovered === i ? 700 : 400 }}>{d.step}</div>
-            <div style={{ flex: 1, height: 14, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+            <div style={{ width: 44, fontSize: 11, color: hovered === i ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0, fontWeight: hovered === i ? 700 : 400 }}>{d.step}</div>
+            <div style={{ flex: 1, height: 16, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
               {d.by_system.map((s, si) => (
                 s.count > 0 && (
                   <div key={si} title={`${s.system}: ${s.count}건`}
@@ -751,8 +751,8 @@ function StageByProcessChart({ data, onStepClick }) {
                 )
               ))}
             </div>
-            <div style={{ width: 28, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{d.pct}%</div>
-            <div style={{ width: 36, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.project_count}/{d.total}</div>
+            <div style={{ width: 30, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0, textAlign: 'right' }}>{d.pct}%</div>
+            <div style={{ width: 38, fontSize: 10, color: 'var(--muted)', flexShrink: 0, textAlign: 'right' }}>{d.project_count}/{d.total}</div>
           </div>
         ))}
       </div>
@@ -765,25 +765,33 @@ function ProjectByStage({ data }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 36px 36px', gap: 4, marginBottom: 6 }}>
-        {['단계','비중','건수','완료'].map(h => (
-          <div key={h} style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{h}</div>
-        ))}
-      </div>
-      {data.map((d, i) => {
-        const pct = Math.round(d.project_count / total * 100);
-        return (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 36px 36px', gap: 4, alignItems: 'center' }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.step}</div>
-            <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', opacity: 0.7, borderRadius: 3 }} />
-            </div>
-            <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text)', fontWeight: 600 }}>{d.project_count}</div>
-            <div style={{ fontSize: 10, color: 'var(--muted)' }}>{pct}%</div>
-          </div>
-        );
-      })}
+    <div style={{ height: '100%' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ background: 'var(--surface2)', borderBottom: '2px solid var(--border)' }}>
+            {['단계', '건수', '비중', '바'].map(h => (
+              <th key={h} style={{ padding: '8px 10px', textAlign: h === '바' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d, i) => {
+            const pct = Math.round(d.project_count / total * 100);
+            return (
+              <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{d.step}</td>
+                <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
+                <td style={{ padding: '7px 10px', textAlign: 'center', fontSize: 11, color: 'var(--muted)' }}>{pct}%</td>
+                <td style={{ padding: '7px 10px' }}>
+                  <div style={{ height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', opacity: 0.7, borderRadius: 4 }} />
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -800,7 +808,7 @@ function StatusPie({ data }) {
     { label: '완료', val: data.completed, color: '#6366f1' },
   ];
   const total = data.total;
-  const cx = 80, cy = 80, R = 65, r = 40;
+  const cx = 100, cy = 100, R = 85, r = 52;
   let angle = -Math.PI / 2;
 
   const slices = items.map((d, i) => {
@@ -820,11 +828,11 @@ function StatusPie({ data }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-      <svg width={160} height={160}>
+      <svg width={200} height={200} style={{ width: '100%', maxWidth: 200 }}>
         {slices.map((s, i) => {
           const isHov = hovered === i;
-          const pullX = isHov ? Math.cos(s.mid) * 4 : 0;
-          const pullY = isHov ? Math.sin(s.mid) * 4 : 0;
+          const pullX = isHov ? Math.cos(s.mid) * 5 : 0;
+          const pullY = isHov ? Math.sin(s.mid) * 5 : 0;
           return (
             <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
               transform={`translate(${pullX},${pullY})`}
@@ -833,16 +841,20 @@ function StatusPie({ data }) {
             />
           );
         })}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize={20} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={24} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
+        <text x={cx} y={cy + 14} textAnchor="middle" fontSize={11} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
+        {hovered !== null && slices[hovered] && (
+          <text x={cx} y={cy + 32} textAnchor="middle" fontSize={11} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
+            {slices[hovered].label} {slices[hovered].val}건 ({slices[hovered].pct}%)
+          </text>
+        )}
       </svg>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%' }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap', justifyContent: 'center' }}>
         {items.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{d.label}</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.label}</span>
             <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{Math.round(d.val/total*100)}%</span>
           </div>
         ))}
       </div>
@@ -1570,31 +1582,36 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      {/* 중단: 4등분 레이아웃 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
         {/* 1/4: Stage Progress */}
-        <div className="chart-card">
+        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="chart-title">▤ Stage Progress
             <span className="chart-subtitle">클릭하면 목록</span>
           </div>
-          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+          <div style={{ flex: 1 }}>
+            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+          </div>
         </div>
 
         {/* 2/4: Projects by Stage */}
-        <div className="chart-card">
+        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="chart-title">≡ Projects by Stage</div>
-          <ProjectByStage data={stageByProcess} />
+          <div style={{ flex: 1 }}>
+            <ProjectByStage data={stageByProcess} />
+          </div>
         </div>
 
         {/* 3/4: 전체 상태 분포 */}
-        <div className="chart-card">
+        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="chart-title">● 전체 상태 분포</div>
-          <StatusPie data={statusDist} />
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <StatusPie data={statusDist} />
+          </div>
         </div>
 
         {/* 4/4: 지연TOP5 + DueSoon */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="chart-card">
+          <div className="chart-card" style={{ flex: 1 }}>
             <div className="chart-title">⚠ 지연 TOP 5
               <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span>
             </div>
