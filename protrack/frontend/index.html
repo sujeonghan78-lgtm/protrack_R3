@@ -1678,28 +1678,24 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-        {/* 1/4 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="chart-card">
-            <div className="chart-title">▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
-            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
-          </div>
-          <div className="chart-card">
-            <div className="chart-title">◉ 단계별 비중</div>
-            <StagePie data={stageByProcess} onStepClick={handleStepClick} />
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, alignItems: 'stretch' }}>
+        {/* 1/4: StagePie + StageProgress 한 카드 */}
+        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="chart-title">◉ 단계별 비중</div>
+          <StagePie data={stageByProcess} onStepClick={handleStepClick} />
+          <div className="chart-title" style={{ marginTop: 4 }}>▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
+          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
         </div>
 
         {/* 2/4 */}
-        <div className="chart-card" style={{ minWidth: 0 }}>
+        <div className="chart-card" style={{ minWidth: 0, overflow: 'hidden' }}>
           <div className="chart-title">≡ Projects by Stage</div>
           <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
         </div>
 
         {/* 3/4 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="chart-card">
+          <div className="chart-card" style={{ flex: 1 }}>
             <div className="chart-title">● 전체 상태 분포</div>
             <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
           </div>
