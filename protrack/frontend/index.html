@@ -685,33 +685,276 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
 function KpiCards({ kpi, onCardClick }) {
   if (!kpi) return null;
   const cards = [
-    { label: '전체 수주', val: kpi.total, icon: '◈', color: '#3b82f6', key: null, desc: `평균 진척률 ${kpi.avg_progress}%`, badge: `${kpi.avg_progress}%` },
-    { label: '정상', val: kpi.on_track, icon: '✓', color: '#10b981', key: 'On Track', desc: '납기일 여유 있음', badge: `${Math.round(kpi.on_track/Math.max(kpi.total,1)*100)}%` },
-    { label: '임박', val: kpi.at_risk, icon: '⚡', color: '#f59e0b', key: 'At Risk', desc: '납기 7일 이내', badge: `${Math.round(kpi.at_risk/Math.max(kpi.total,1)*100)}%` },
-    { label: '지연', val: kpi.delayed, icon: '⚠', color: '#ef4444', key: '지연', desc: '납기일 초과', badge: `${Math.round(kpi.delayed/Math.max(kpi.total,1)*100)}%` },
-    { label: '완료', val: kpi.completed, icon: '★', color: '#6366f1', key: '완료', desc: '계산서 발행 완료', badge: `${Math.round(kpi.completed/Math.max(kpi.total,1)*100)}%` },
+    { label: '전체 수주', val: kpi.total, icon: '◈', color: '#3b82f6', key: null,
+      desc: kpi.system_counts ? Object.entries(kpi.system_counts).map(([k,v]) => `${k} ${v}`).join(' · ') : `평균 진척률 ${kpi.avg_progress}%` },
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, icon: '▶', color: '#06b6d4', key: null, desc: '전체 공정 진행률' },
+    { label: '진행중', val: kpi.on_track, icon: '✓', color: '#10b981', key: 'On Track', desc: '납기일 여유 있음' },
+    { label: '임박', val: kpi.at_risk, icon: '⚡', color: '#f59e0b', key: 'At Risk', desc: '납기 7일 이내' },
+    { label: '지연', val: kpi.delayed, icon: '⚠', color: '#ef4444', key: '지연', desc: '납기일 초과' },
+    { label: '완료', val: kpi.completed, icon: '★', color: '#6366f1', key: '완료',
+      desc: kpi.system_completed ? Object.entries(kpi.system_completed).map(([k,v]) => `${k} ${v}`).join(' · ') : '계산서 발행 완료' },
   ];
   return (
-    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
       {cards.map((c, i) => (
         <div className="kpi-card" key={i}
           onClick={() => c.key && onCardClick(c.key)}
           style={{ cursor: c.key ? 'pointer' : 'default', borderTop: `3px solid ${c.color}` }}
         >
           <div className="kpi-top">
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: `${c.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: c.color }}>{c.icon}</div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: c.color, background: `${c.color}12`, padding: '2px 7px', borderRadius: 20 }}>{c.badge}</span>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: c.color }}>{c.icon}</div>
+            <span style={{ fontSize: 10, fontWeight: 700, color: c.color, background: `${c.color}12`, padding: '2px 6px', borderRadius: 20 }}>
+              {typeof c.val === 'number' ? `${Math.round(c.val/Math.max(kpi.total,1)*100)}%` : ''}
+            </span>
           </div>
-          <div style={{ fontSize: 30, fontWeight: 900, fontFamily: 'JetBrains Mono', color: c.color, letterSpacing: -1 }}>{c.val.toLocaleString()}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'JetBrains Mono', color: c.color, letterSpacing: -1 }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
           <div className="kpi-label">{c.label}</div>
-          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{c.desc}</div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.desc}</div>
         </div>
       ))}
     </div>
   );
 }
 
-// ── Stage Progress Chart ──────────────────────────────────────────────────────
+// ── Stage By Process Chart (공정단계별 누적 바) ───────────────────────────────
+function StageByProcessChart({ data, onStepClick }) {
+  const [hovered, setHovered] = useState(null);
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+
+  const systems = data[0]?.by_system?.map(s => s.system) || [];
+  const colors = data[0]?.by_system?.map(s => s.color) || [];
+
+  return (
+    <div>
+      {/* 범례 */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        {systems.map((sys, i) => (
+          <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[i] }} />
+            {sys}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
+            onClick={() => onStepClick(d.step)}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <div style={{ width: 52, fontSize: 11, color: hovered === i ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0, fontWeight: hovered === i ? 700 : 400 }}>{d.step}</div>
+            <div style={{ flex: 1, height: 14, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+              {d.by_system.map((s, si) => (
+                s.pct > 0 && (
+                  <div key={si} title={`${s.system}: ${s.pct}%`}
+                    style={{ width: `${s.pct}%`, height: '100%', background: s.color, opacity: 0.85, transition: 'width 0.4s' }}
+                  />
+                )
+              ))}
+            </div>
+            <div style={{ width: 32, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
+              {d.total > 0 ? `${Math.round(d.project_count/d.total*100)}%` : '0%'}
+            </div>
+            <div style={{ width: 36, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.project_count}/{d.total}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Project By Stage 요약 ─────────────────────────────────────────────────────
+function ProjectByStage({ data }) {
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  const total = data[0]?.total || 1;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 36px 36px', gap: 4, marginBottom: 6 }}>
+        {['단계','비중','건수','완료'].map(h => (
+          <div key={h} style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{h}</div>
+        ))}
+      </div>
+      {data.map((d, i) => {
+        const pct = Math.round(d.project_count / total * 100);
+        return (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 36px 36px', gap: 4, alignItems: 'center' }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.step}</div>
+            <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', opacity: 0.7, borderRadius: 3 }} />
+            </div>
+            <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text)', fontWeight: 600 }}>{d.project_count}</div>
+            <div style={{ fontSize: 10, color: 'var(--muted)' }}>{pct}%</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Status Pie Chart ──────────────────────────────────────────────────────────
+function StatusPie({ data }) {
+  const [hovered, setHovered] = useState(null);
+  if (!data?.total) return <div className="empty-state">데이터 없음</div>;
+
+  const items = [
+    { label: '진행중', val: data.on_track, color: '#10b981' },
+    { label: '임박', val: data.at_risk, color: '#f59e0b' },
+    { label: '지연', val: data.delayed, color: '#ef4444' },
+    { label: '완료', val: data.completed, color: '#6366f1' },
+  ];
+  const total = data.total;
+  const cx = 70, cy = 70, R = 58, r = 36;
+  let angle = -Math.PI / 2;
+
+  const slices = items.map((d, i) => {
+    const sweep = (d.val / total) * 2 * Math.PI;
+    if (sweep === 0) return null;
+    const a1 = angle, a2 = angle + sweep;
+    angle = a2;
+    const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+    const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+    const ix1 = cx + r * Math.cos(a1), iy1 = cy + r * Math.sin(a1);
+    const ix2 = cx + r * Math.cos(a2), iy2 = cy + r * Math.sin(a2);
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z`;
+    const mid = a1 + sweep / 2;
+    return { ...d, path, mid, pct: Math.round(d.val/total*100) };
+  }).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <svg width={140} height={140} style={{ flexShrink: 0 }}>
+        {slices.map((s, i) => {
+          const isHov = hovered === i;
+          const pullX = isHov ? Math.cos(s.mid) * 4 : 0;
+          const pullY = isHov ? Math.sin(s.mid) * 4 : 0;
+          return (
+            <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
+              transform={`translate(${pullX},${pullY})`}
+              style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+            />
+          );
+        })}
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize={18} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
+      </svg>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{d.label}</span>
+            <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)', minWidth: 28 }}>{Math.round(d.val/total*100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Urgent Delays List ────────────────────────────────────────────────────────
+function UrgentDelaysList({ data, onSelect }) {
+  if (!data?.length) return <div className="empty-state">지연 항목 없음 ✓</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {data.slice(0, 5).map((item, i) => (
+        <div key={i} onClick={() => onSelect(item)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid #ef4444', borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.05)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
+        >
+          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: 6, padding: '4px 8px', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>+{item._delay_days}일</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'JetBrains Mono', color: 'var(--accent)' }}>{item.수주번호}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명} · {item._current_step}</div>
+          </div>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>›</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Due Soon Panel ────────────────────────────────────────────────────────────
+function DueSoonPanel({ alerts, onSelect }) {
+  const [modal, setModal] = useState(null);
+  if (!alerts) return null;
+
+  const sections = [
+    { key: '출고', label: '이달 출고 예정', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
+    { key: 'OTP', label: '이달 OTP 예정', color: '#6366f1', items: alerts.due_soon?.OTP || [] },
+  ];
+  const modalItems = modal === '출고' ? alerts.due_soon?.출고 : alerts.due_soon?.OTP;
+  const modalTitle = sections.find(s => s.key === modal)?.label || '';
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sections.map(s => (
+          <div key={s.key} onClick={() => s.items.length > 0 && setModal(s.key)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default' }}
+            onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.background = `${s.color}08`)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>이번 달 기준</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono', color: s.color }}>{s.items.length}</span>
+              {s.items.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>›</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      {modal && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="modal-title">{modalTitle} ({modalItems?.length}건)</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-icon" onClick={() => exportToExcel(modalItems, modalTitle)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+                <button className="drawer-close" onClick={() => setModal(null)}>×</button>
+              </div>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
+                  <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} />
+                </colgroup>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    {['납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalItems?.map((item, i) => (
+                    <tr key={i} onClick={() => { onSelect(item); setModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                      <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                      <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Stage Progress Chart (기존 - 시스템별 완료율) ─────────────────────────────
 function StageProgressChart({ data, onSystemClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   return (
@@ -1235,27 +1478,27 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
 function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
   const [kpi, setKpi] = useState(null);
-  const [processLoad, setProcessLoad] = useState([]);
-  const [stageProgress, setStageProgress] = useState([]);
+  const [stageByProcess, setStageByProcess] = useState([]);
   const [alerts, setAlerts] = useState(null);
-  const [companyDist, setCompanyDist] = useState([]);
+  const [statusDist, setStatusDist] = useState(null);
+  const [urgentDelays, setUrgentDelays] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [kpiModal, setKpiModal] = useState(null);
   const [kpiModalItems, setKpiModalItems] = useState([]);
   const [kpiModalLoading, setKpiModalLoading] = useState(false);
-  const [stageModal, setStageModal] = useState(null);
-  const [stageModalItems, setStageModalItems] = useState([]);
-  const [stageModalLoading, setStageModalLoading] = useState(false);
+  const [stepModal, setStepModal] = useState(null);
+  const [stepModalItems, setStepModalItems] = useState([]);
+  const [stepModalLoading, setStepModalLoading] = useState(false);
 
   const pfVal = Array.isArray(productFilter) ? productFilter.join(',') : (productFilter !== '전체' ? productFilter : '');
   const pf = pfVal ? `?product_filter=${encodeURIComponent(pfVal)}` : '';
 
   const load = useCallback(() => {
     api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
-    api.get(`/api/dashboard/process-load${pf}`).then(setProcessLoad);
-    api.get(`/api/dashboard/stage-progress${pf}`).then(setStageProgress);
+    api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
     api.get(`/api/dashboard/alerts${pf}`).then(setAlerts);
-    api.get(`/api/dashboard/company-distribution${pf}`).then(setCompanyDist);
+    api.get(`/api/dashboard/status-distribution${pf}`).then(setStatusDist);
+    api.get(`/api/dashboard/urgent-delays`).then(setUrgentDelays);
   }, [productFilter]);
 
   useEffect(() => { load(); }, [load]);
@@ -1269,156 +1512,106 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     setKpiModalLoading(false);
   };
 
-  const kpiLabelMap = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
-
-  const handleStageClick = async (system) => {
-    setStageModal(system);
-    setStageModalLoading(true);
+  const handleStepClick = async (step) => {
+    setStepModal(step);
+    setStepModalLoading(true);
     const sep = pf ? '&' : '?';
-    const res = await api.get(`/api/processes${pf}${sep}search=${encodeURIComponent(system)}&page_size=500`);
-    setStageModalItems((res.items || []).filter(i => i.시스템명 === system));
-    setStageModalLoading(false);
+    const res = await api.get(`/api/processes${pf}${sep}step_filter=${encodeURIComponent(step)}&page_size=500`);
+    setStepModalItems(res.items || []);
+    setStepModalLoading(false);
   };
+
+  const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+
+  const ModalTable = ({ items, loading, onClose, title }) => (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div className="modal-title">{title} ({items.length}건)</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-icon" onClick={() => exportToExcel(items, title)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+            <button className="drawer-close" onClick={onClose}>×</button>
+          </div>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {loading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  {['요구납기일','호선명','현재단계','수주번호','거래처','진척도'].map(h => (
+                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i} onClick={() => { setSelectedAlert(item); onClose(); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      {kpiModal && (
-        <div className="modal-overlay" onClick={() => setKpiModal(null)}>
-          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div className="modal-title">{kpiLabelMap[kpiModal]} ({kpiModalItems.length}건)</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-icon" onClick={() => exportToExcel(kpiModalItems, kpiLabelMap[kpiModal])} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
-                <button className="drawer-close" onClick={() => setKpiModal(null)}>×</button>
-              </div>
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              {kpiModalLoading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-                  <colgroup>
-                    <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
-                    <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} />
-                  </colgroup>
-                  <thead>
-                    <tr style={{ background: 'var(--surface2)' }}>
-                      {['요구납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
-                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {kpiModalItems.map((item, i) => (
-                      <tr key={i} onClick={() => { setSelectedAlert(item); setKpiModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-                        onMouseLeave={e => e.currentTarget.style.background = ''}
-                      >
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
-                        <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                        <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                        <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* 중단: 좌 Stage Progress + Project By Stage / 우 Status+지연+DueSoon */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Stage Progress */}
-        <div className="chart-card">
-          <div className="chart-title">▤ Stage Progress
-            <span className="chart-subtitle">시스템별 완료율</span>
+        {/* 좌측 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="chart-card">
+            <div className="chart-title">▤ Stage Progress
+              <span className="chart-subtitle">공정단계별 완료율 · 클릭하면 목록</span>
+            </div>
+            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
           </div>
-          <StageProgressChart data={stageProgress} onSystemClick={handleStageClick} />
+          <div className="chart-card">
+            <div className="chart-title">≡ Projects by Stage
+              <span className="chart-subtitle">단계별 건수 요약</span>
+            </div>
+            <ProjectByStage data={stageByProcess} />
+          </div>
         </div>
 
-        {/* Alerts */}
-        <div className="chart-card">
-          <div className="chart-title">🔔 Alerts
-            <span className="chart-subtitle">클릭하면 상세 목록</span>
+        {/* 우측 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="chart-card">
+            <div className="chart-title">● 전체 상태 분포</div>
+            <StatusPie data={statusDist} />
           </div>
-          <AlertsPanel alerts={alerts} onSelectItem={setSelectedAlert} />
+          <div className="chart-card">
+            <div className="chart-title">⚠ 지연 TOP 5
+              <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span>
+            </div>
+            <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
+          </div>
+          <div className="chart-card">
+            <div className="chart-title">📅 Due Soon</div>
+            <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
+          </div>
         </div>
       </div>
 
-      <div className="charts-grid">
-        <div className="chart-card">
-          <div className="chart-title">
-            ◈ 공정별 부하도 (Bottleneck Analysis)
-            <span className="chart-subtitle">클릭하면 해당 공정 목록 필터</span>
-          </div>
-          <ProcessLoadChart data={processLoad} onBarClick={onFilterStep} />
-          <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#3b82f6' }} /> 정상
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#10b981' }} /> 허용(3일 이내)
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#ef4444' }} /> 지연
-            </div>
-          </div>
-        </div>
-
-        <div className="chart-card">
-          <div className="chart-title">⬡ 업체별 수주 분포</div>
-          <CompanyPie data={companyDist} />
-        </div>
-      </div>
-
-      {stageModal && (
-        <div className="modal-overlay" onClick={() => setStageModal(null)}>
-          <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div className="modal-title">{stageModal} ({stageModalItems.length}건)</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-icon" onClick={() => exportToExcel(stageModalItems, stageModal)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
-                <button className="drawer-close" onClick={() => setStageModal(null)}>×</button>
-              </div>
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              {stageModalLoading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-                  <colgroup>
-                    <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
-                    <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} />
-                  </colgroup>
-                  <thead>
-                    <tr style={{ background: 'var(--surface2)' }}>
-                      {['수주번호', '업체명', '호선명', '현재단계', '진척도', '상태'].map(h => (
-                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stageModalItems.map((item, i) => (
-                      <tr key={i} onClick={() => { setSelectedAlert(item); setStageModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-                        onMouseLeave={e => e.currentTarget.style.background = ''}
-                      >
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
-                        <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                        <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                        <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
-                        <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {kpiModal && <ModalTable items={kpiModalItems} loading={kpiModalLoading} title={kpiLabelMap[kpiModal] || kpiModal} onClose={() => setKpiModal(null)} />}
+      {stepModal && <ModalTable items={stepModalItems} loading={stepModalLoading} title={`${stepModal} 단계`} onClose={() => setStepModal(null)} />}
 
       {selectedAlert && (
         <DetailDrawer
@@ -1432,7 +1625,6 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     </>
   );
 }
-
 // ── List Tab ──────────────────────────────────────────────────────────────────
 function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, productFilter }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
