@@ -716,45 +716,42 @@ function KpiCards({ kpi, onCardClick }) {
   );
 }
 
-// ── Stage By Process Chart (공정단계별 누적 바) ───────────────────────────────
+// ── Stage By Process Chart (공정단계별 현재 건수 누적 바) ─────────────────────
 function StageByProcessChart({ data, onStepClick }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
   const systems = data[0]?.by_system?.map(s => s.system) || [];
   const colors = data[0]?.by_system?.map(s => s.color) || [];
+  const maxPct = Math.max(...data.map(d => d.pct), 1);
 
   return (
     <div>
-      {/* 범례 */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         {systems.map((sys, i) => (
           <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[i] }} />
-            {sys}
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[i] }} />{sys}
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {data.map((d, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
             onClick={() => onStepClick(d.step)}
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           >
-            <div style={{ width: 52, fontSize: 11, color: hovered === i ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0, fontWeight: hovered === i ? 700 : 400 }}>{d.step}</div>
+            <div style={{ width: 48, fontSize: 11, color: hovered === i ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0, fontWeight: hovered === i ? 700 : 400 }}>{d.step}</div>
             <div style={{ flex: 1, height: 14, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
               {d.by_system.map((s, si) => (
-                s.pct > 0 && (
-                  <div key={si} title={`${s.system}: ${s.pct}%`}
-                    style={{ width: `${s.pct}%`, height: '100%', background: s.color, opacity: 0.85, transition: 'width 0.4s' }}
+                s.count > 0 && (
+                  <div key={si} title={`${s.system}: ${s.count}건`}
+                    style={{ width: `${(s.count / Math.max(d.project_count, 1)) * (d.pct / maxPct * 100)}%`, height: '100%', background: s.color, opacity: 0.85 }}
                   />
                 )
               ))}
             </div>
-            <div style={{ width: 32, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
-              {d.total > 0 ? `${Math.round(d.project_count/d.total*100)}%` : '0%'}
-            </div>
+            <div style={{ width: 28, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{d.pct}%</div>
             <div style={{ width: 36, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{d.project_count}/{d.total}</div>
           </div>
         ))}
@@ -803,7 +800,7 @@ function StatusPie({ data }) {
     { label: '완료', val: data.completed, color: '#6366f1' },
   ];
   const total = data.total;
-  const cx = 70, cy = 70, R = 58, r = 36;
+  const cx = 80, cy = 80, R = 65, r = 40;
   let angle = -Math.PI / 2;
 
   const slices = items.map((d, i) => {
@@ -822,8 +819,8 @@ function StatusPie({ data }) {
   }).filter(Boolean);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <svg width={140} height={140} style={{ flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <svg width={160} height={160}>
         {slices.map((s, i) => {
           const isHov = hovered === i;
           const pullX = isHov ? Math.cos(s.mid) * 4 : 0;
@@ -836,16 +833,16 @@ function StatusPie({ data }) {
             />
           );
         })}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize={18} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize={20} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
         <text x={cx} y={cy + 12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
       </svg>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%' }}>
         {items.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{d.label}</span>
-            <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
-            <span style={{ fontSize: 10, color: 'var(--muted)', minWidth: 28 }}>{Math.round(d.val/total*100)}%</span>
+            <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{Math.round(d.val/total*100)}%</span>
           </div>
         ))}
       </div>
@@ -1573,30 +1570,30 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      {/* 중단: 좌 Stage Progress + Project By Stage / 우 Status+지연+DueSoon */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* 좌측 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="chart-card">
-            <div className="chart-title">▤ Stage Progress
-              <span className="chart-subtitle">공정단계별 완료율 · 클릭하면 목록</span>
-            </div>
-            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+      {/* 중단: 4등분 레이아웃 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
+        {/* 1/4: Stage Progress */}
+        <div className="chart-card">
+          <div className="chart-title">▤ Stage Progress
+            <span className="chart-subtitle">클릭하면 목록</span>
           </div>
-          <div className="chart-card">
-            <div className="chart-title">≡ Projects by Stage
-              <span className="chart-subtitle">단계별 건수 요약</span>
-            </div>
-            <ProjectByStage data={stageByProcess} />
-          </div>
+          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
         </div>
 
-        {/* 우측 */}
+        {/* 2/4: Projects by Stage */}
+        <div className="chart-card">
+          <div className="chart-title">≡ Projects by Stage</div>
+          <ProjectByStage data={stageByProcess} />
+        </div>
+
+        {/* 3/4: 전체 상태 분포 */}
+        <div className="chart-card">
+          <div className="chart-title">● 전체 상태 분포</div>
+          <StatusPie data={statusDist} />
+        </div>
+
+        {/* 4/4: 지연TOP5 + DueSoon */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="chart-card">
-            <div className="chart-title">● 전체 상태 분포</div>
-            <StatusPie data={statusDist} />
-          </div>
           <div className="chart-card">
             <div className="chart-title">⚠ 지연 TOP 5
               <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span>
