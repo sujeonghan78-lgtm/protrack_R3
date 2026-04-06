@@ -462,7 +462,7 @@ class DataManager:
                 "수주번호": row.get('수주번호', ''),
                 "ordseq": int(row.get('ordseq', 0)),
                 "업체명": row.get('업체명', ''),
-                "품명": row.get('품명', ''),
+                "프로젝트": row.get('프로젝트', ''),
                 "_current_step": row.get('_current_step', ''),
                 "_progress": int(row.get('_progress', 0)),
                 "요구납기일": safe_date(row.get('요구납기일')),
@@ -483,7 +483,7 @@ class DataManager:
             due_soon_otp = [row_summary(row) for _, row in df[mask].iterrows()]
 
         return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp}}
- 
+
     def get_company_distribution(self, product_filter: str = "") -> List[Dict]:
         if self.df.empty:
             return []
