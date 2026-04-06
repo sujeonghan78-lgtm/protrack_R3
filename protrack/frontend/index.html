@@ -789,7 +789,7 @@ function ProjectByStage({ data }) {
         <thead>
           <tr style={{ background: 'var(--surface2)' }}>
             {['단계', '건수', '비중'].map(h => (
-              <th key={h} style={{ padding: '5px 8px', textAlign: h === '단계' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>{h}</th>
+              <th key={h} style={{ padding: '4px 6px', textAlign: h === '단계' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -798,9 +798,9 @@ function ProjectByStage({ data }) {
             const pct = Math.round(d.project_count / total * 100);
             return (
               <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '5px 8px', fontWeight: 600 }}>{d.step}</td>
-                <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
-                <td style={{ padding: '5px 8px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
+                <td style={{ padding: '4px 6px', fontWeight: 600 }}>{d.step}</td>
+                <td style={{ padding: '4px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
+                <td style={{ padding: '4px 6px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
               </tr>
             );
           })}
@@ -1596,33 +1596,22 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, alignItems: 'start' }}>
-        {/* 1/4: Stage Progress */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
         <div className="chart-card">
-          <div className="chart-title">▤ Stage Progress
-            <span className="chart-subtitle">클릭하면 목록</span>
-          </div>
+          <div className="chart-title">▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
           <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
         </div>
-
-        {/* 2/4: Projects by Stage */}
-        <div className="chart-card">
+        <div className="chart-card" style={{ overflow: 'hidden' }}>
           <div className="chart-title">≡ Projects by Stage</div>
           <ProjectByStage data={stageByProcess} />
         </div>
-
-        {/* 3/4: 전체 상태 분포 */}
         <div className="chart-card">
           <div className="chart-title">● 전체 상태 분포</div>
           <StatusPie data={statusDist} />
         </div>
-
-        {/* 4/4: 지연TOP5 + DueSoon */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="chart-card">
-            <div className="chart-title">⚠ 지연 TOP 5
-              <span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span>
-            </div>
+            <div className="chart-title">⚠ 지연 TOP 5<span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span></div>
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
           </div>
           <div className="chart-card">
