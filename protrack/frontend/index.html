@@ -232,7 +232,7 @@
   /* ─── Charts Grid ────────────────────────────────────── */
   .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
   .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden;
   }
   .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .chart-subtitle { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -1539,13 +1539,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     setKpiModalLoading(false);
   };
 
-  const handleStepClick = async (step) => {
-    setStepModal(step);
-    setStepModalLoading(true);
-    const sep = pf ? '&' : '?';
-    const res = await api.get(`/api/processes${pf}${sep}step_filter=${encodeURIComponent(step)}&page_size=500`);
-    setStepModalItems(res.items || []);
-    setStepModalLoading(false);
+  const handleStepClick = (step) => {
+    onFilterStep(step);
   };
 
   const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
