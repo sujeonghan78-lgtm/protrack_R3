@@ -565,7 +565,7 @@ class DataManager:
             "at_risk": int(len(df[df['_status'] == 'At Risk'])),
             "delayed": int(len(df[df['_status'] == '지연'])),
             "completed": int(len(df[df['_status'] == '완료'])),
-        }
+        } 
 
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
