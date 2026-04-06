@@ -553,7 +553,7 @@ class DataManager:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:
             return {}
-        df = self.df.copy()a
+        df = self.df.copy()
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
