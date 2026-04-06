@@ -761,65 +761,68 @@ function StageByProcessChart({ data, onStepClick }) {
 }
 
 // ── Project By Stage 요약 ─────────────────────────────────────────────────────
-function ProjectByStage({ data }) {
+function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
   const maxPct = Math.max(...data.map(d => Math.round(d.project_count / total * 100)), 1);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* 비중 바차트 */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {data.map((d, i) => {
           const pct = Math.round(d.project_count / total * 100);
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 44, fontSize: 11, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
-              <div style={{ flex: 1, height: 12, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: 44, fontSize: 10, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
+              <div style={{ flex: 1, height: 10, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', minWidth: 0 }}>
                 <div style={{ width: `${(pct / maxPct) * 100}%`, height: '100%', background: 'var(--accent)', opacity: 0.7, borderRadius: 3 }} />
               </div>
-              <div style={{ width: 28, fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0, textAlign: 'right' }}>{pct}%</div>
+              <div style={{ width: 24, fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--text)', flexShrink: 0, textAlign: 'right' }}>{pct}%</div>
             </div>
           );
         })}
       </div>
-      {/* 구분선 */}
       <div style={{ borderTop: '1px solid var(--border)' }} />
-      {/* 데이터 테이블 */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-        <thead>
-          <tr style={{ background: 'var(--surface2)' }}>
-            {['단계', '건수', '비중'].map(h => (
-              <th key={h} style={{ padding: '4px 6px', textAlign: h === '단계' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((d, i) => {
-            const pct = Math.round(d.project_count / total * 100);
-            return (
-              <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '4px 6px', fontWeight: 600 }}>{d.step}</td>
-                <td style={{ padding: '4px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
-                <td style={{ padding: '4px 6px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed' }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)' }}>
+              <th style={{ padding: '4px 6px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '40%' }}>단계</th>
+              <th style={{ padding: '4px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>건수</th>
+              <th style={{ padding: '4px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>비중</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d, i) => {
+              const pct = Math.round(d.project_count / total * 100);
+              return (
+                <tr key={i} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  onClick={() => onStepClick(d.step)}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                >
+                  <td style={{ padding: '4px 6px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.step}</td>
+                  <td style={{ padding: '4px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
+                  <td style={{ padding: '4px 6px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 // ── Status Pie Chart ──────────────────────────────────────────────────────────
-function StatusPie({ data }) {
+function StatusPie({ data, onSliceClick }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.total) return <div className="empty-state">데이터 없음</div>;
 
   const items = [
-    { label: '진행중', val: data.on_track, color: '#10b981' },
-    { label: '임박', val: data.at_risk, color: '#f59e0b' },
-    { label: '지연', val: data.delayed, color: '#ef4444' },
-    { label: '완료', val: data.completed, color: '#6366f1' },
+    { label: '진행중', val: data.on_track, color: '#10b981', key: 'On Track' },
+    { label: '임박', val: data.at_risk, color: '#f59e0b', key: 'At Risk' },
+    { label: '지연', val: data.delayed, color: '#ef4444', key: '지연' },
+    { label: '완료', val: data.completed, color: '#6366f1', key: '완료' },
   ];
   const total = data.total;
   const cx = 100, cy = 100, R = 85, r = 52;
@@ -851,6 +854,7 @@ function StatusPie({ data }) {
             <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
               transform={`translate(${pullX},${pullY})`}
               style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
+              onClick={() => onSliceClick && onSliceClick(s.key)}
               onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
             />
           );
@@ -1603,11 +1607,11 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
         </div>
         <div className="chart-card" style={{ overflow: 'hidden' }}>
           <div className="chart-title">≡ Projects by Stage</div>
-          <ProjectByStage data={stageByProcess} />
+          <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
         </div>
         <div className="chart-card">
           <div className="chart-title">● 전체 상태 분포</div>
-          <StatusPie data={statusDist} />
+          <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="chart-card">
