@@ -232,7 +232,7 @@
   /* ─── Charts Grid ────────────────────────────────────── */
   .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
   .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
   }
   .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .chart-subtitle { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -782,8 +782,8 @@ function ProjectByStage({ data, onStepClick }) {
         })}
       </div>
       <div style={{ borderTop: '1px solid var(--border)' }} />
-      <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed' }}>
+      <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)', width: '100%' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed', minWidth: 0 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={{ padding: '4px 6px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '40%' }}>단계</th>
