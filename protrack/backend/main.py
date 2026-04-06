@@ -96,6 +96,11 @@ async def get_company_distribution(product_filter: str = "", current_user: User 
     return dm.get_company_distribution(product_filter=product_filter)
 
 
+@app.get("/api/dashboard/monthly-delivery")
+async def get_monthly_delivery(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_monthly_delivery(product_filter=product_filter)
+
+
 @app.get("/api/dashboard/monthly-trend")
 async def get_monthly_trend(current_user: User = Depends(get_current_user)):
     return dm.get_monthly_trend() if hasattr(dm, 'get_monthly_trend') else []
