@@ -232,7 +232,7 @@
   /* ─── Charts Grid ────────────────────────────────────── */
   .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
   .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden;
   }
   .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .chart-subtitle { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -781,8 +781,8 @@ function StagePie({ data, onStepClick }) {
     return { ...d, path, mid: a1+sweep/2, color: COLORS[i % COLORS.length] };
   });
   return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <svg width={140} height={140}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <svg width={140} height={140} style={{ flexShrink: 0 }}>
         {slices.map((s, i) => {
           const isHov = hovered === i;
           const px = isHov ? Math.cos(s.mid)*4 : 0, py = isHov ? Math.sin(s.mid)*4 : 0;
@@ -792,13 +792,22 @@ function StagePie({ data, onStepClick }) {
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />;
         })}
         <text x={cx} y={cy-4} textAnchor="middle" fontSize={18} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
-        <text x={cx} y={cx+12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
+        <text x={cx} y={cy+12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
         {hovered !== null && slices[hovered] && (
           <text x={cx} y={cy+28} textAnchor="middle" fontSize={10} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
-            {slices[hovered].step} {slices[hovered].project_count}건
+            {slices[hovered].project_count}건
           </text>
         )}
       </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+        {slices.map((s, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => onStepClick(s.step)}>
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: hovered===i ? s.color : 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.step}</span>
+            <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: s.color, fontWeight: 700, marginLeft: 'auto' }}>{s.project_count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
