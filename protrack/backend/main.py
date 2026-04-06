@@ -76,6 +76,16 @@ async def get_stage_progress(product_filter: str = "", current_user: User = Depe
     return dm.get_stage_progress(product_filter=product_filter)
 
 
+@app.get("/api/dashboard/stage-by-process")
+async def get_stage_by_process(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_stage_by_process(product_filter=product_filter)
+
+
+@app.get("/api/dashboard/status-distribution")
+async def get_status_distribution(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_status_distribution(product_filter=product_filter)
+
+
 @app.get("/api/dashboard/urgent-delays")
 async def get_urgent_delays(current_user: User = Depends(get_current_user)):
     return dm.get_urgent_delays(limit=5)
