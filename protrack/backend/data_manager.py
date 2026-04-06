@@ -568,7 +568,7 @@ class DataManager:
         }
 
     def get_monthly_delivery(self, product_filter: str = "") -> List[Dict]:
-        """요구납기일 기준 월별 출고예정 건수"""
+        """요구납기일 기준 월별 출고예정 건수 + 시스템별"""
         if self.df.empty or '요구납기일' not in self.df.columns:
             return []
         df = self.df.copy()
@@ -578,9 +578,15 @@ class DataManager:
                 df = df[df['제품군'].isin(pf_list)]
         df = df[df['요구납기일'].notna() & (df['_status'] != '완료')]
         df['month'] = df['요구납기일'].dt.to_period('M').astype(str)
-        monthly = df.groupby('month').size().reset_index(name='count')
-        monthly = monthly.sort_values('month').tail(12)
-        return monthly.to_dict(orient='records')
+        result = []
+        for month, grp in df.groupby('month'):
+            by_system = {}
+            if '시스템명' in grp.columns:
+                for sys, cnt in grp['시스템명'].value_counts().items():
+                    by_system[str(sys)] = int(cnt)
+            result.append({'month': str(month), 'count': len(grp), 'by_system': by_system})
+        result.sort(key=lambda x: x['month'])
+        return result[-12:]
 
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
