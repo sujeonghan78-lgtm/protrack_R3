@@ -781,7 +781,7 @@ function StagePie({ data, onStepClick }) {
     return { ...d, path, mid: a1+sweep/2, color: COLORS[i % COLORS.length] };
   });
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
       <svg width={140} height={140} style={{ flexShrink: 0 }}>
         {slices.map((s, i) => {
           const isHov = hovered === i;
@@ -795,16 +795,17 @@ function StagePie({ data, onStepClick }) {
         <text x={cx} y={cy+12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
         {hovered !== null && slices[hovered] && (
           <text x={cx} y={cy+28} textAnchor="middle" fontSize={10} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
-            {slices[hovered].project_count}건
+            {slices[hovered].project_count}건 ({Math.round(slices[hovered].project_count/total*100)}%)
           </text>
         )}
       </svg>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'center' }}>
         {slices.map((s, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => onStepClick(s.step)}>
             <div style={{ width: 7, height: 7, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: hovered===i ? s.color : 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.step}</span>
-            <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: s.color, fontWeight: 700, marginLeft: 'auto' }}>{s.project_count}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{s.step}</span>
+            <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: s.color, fontWeight: 700 }}>{s.project_count}</span>
+            <span style={{ fontSize: 9, color: 'var(--muted)' }}>({Math.round(s.project_count/total*100)}%)</span>
           </div>
         ))}
       </div>
@@ -812,43 +813,37 @@ function StagePie({ data, onStepClick }) {
   );
 }
 
-// ── Project By Stage - 테이블만 ───────────────────────────────────────────────
+// ── Project By Stage - div 방식 ───────────────────────────────────────────────
 function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
   const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16'];
   const slices = data.filter(d => d.project_count > 0).map((d, i) => ({ ...d, color: COLORS[i % COLORS.length] }));
   return (
-    <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)', width: '100%' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed' }}>
-        <thead>
-          <tr style={{ background: 'var(--surface2)' }}>
-            <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '40%' }}>단계</th>
-            <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>건수</th>
-            <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>비중</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((d, i) => {
-            const pct = Math.round(d.project_count / total * 100);
-            const color = slices.find(s => s.step === d.step)?.color || 'var(--muted)';
-            return (
-              <tr key={i} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onClick={() => onStepClick(d.step)}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}
-              >
-                <td style={{ padding: '5px 8px', fontWeight: 600 }}>
-                  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color, marginRight: 5 }} />
-                  {d.step}
-                </td>
-                <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
-                <td style={{ padding: '5px 8px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ display: 'flex', padding: '5px 0', borderBottom: '2px solid var(--border)', marginBottom: 2 }}>
+        <span style={{ flex: 2, fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>단계</span>
+        <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textAlign: 'center' }}>건수</span>
+        <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textAlign: 'center' }}>비중</span>
+      </div>
+      {data.map((d, i) => {
+        const pct = Math.round(d.project_count / total * 100);
+        const color = slices.find(s => s.step === d.step)?.color || 'var(--muted)';
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+            onClick={() => onStepClick(d.step)}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+            onMouseLeave={e => e.currentTarget.style.background = ''}
+          >
+            <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 600 }}>{d.step}</span>
+            </div>
+            <span style={{ flex: 1, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)', textAlign: 'center' }}>{d.project_count}</span>
+            <span style={{ flex: 1, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>{pct}%</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -957,12 +952,13 @@ function StatusPie({ data, onSliceClick }) {
           </text>
         )}
       </svg>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         {items.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.label}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{d.label}</span>
             <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
+            <span style={{ fontSize: 9, color: 'var(--muted)' }}>({Math.round(d.val/total*100)}%)</span>
           </div>
         ))}
       </div>
