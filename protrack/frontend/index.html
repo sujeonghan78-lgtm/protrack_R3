@@ -760,84 +760,125 @@ function StageByProcessChart({ data, onStepClick }) {
 }
 
 // ── Project By Stage 요약 ─────────────────────────────────────────────────────
-function ProjectByStage({ data, onStepClick }) {
+// ── Stage Pie (공정별 도넛) ───────────────────────────────────────────────────
+function StagePie({ data, onStepClick }) {
   const [hovered, setHovered] = useState(null);
-  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  if (!data?.length) return null;
   const total = data[0]?.total || 1;
   const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16'];
-  const cx = 60, cy = 60, R = 52, r = 32;
+  const cx = 70, cy = 70, R = 60, r = 36;
   let angle = -Math.PI / 2;
   const slices = data.filter(d => d.project_count > 0).map((d, i) => {
     const sweep = (d.project_count / total) * 2 * Math.PI;
     const a1 = angle, a2 = angle + sweep;
     angle = a2;
-    const x1 = cx + R*Math.cos(a1), y1 = cy + R*Math.sin(a1);
-    const x2 = cx + R*Math.cos(a2), y2 = cy + R*Math.sin(a2);
-    const ix1 = cx + r*Math.cos(a1), iy1 = cy + r*Math.sin(a1);
-    const ix2 = cx + r*Math.cos(a2), iy2 = cy + r*Math.sin(a2);
+    const x1 = cx+R*Math.cos(a1), y1 = cy+R*Math.sin(a1);
+    const x2 = cx+R*Math.cos(a2), y2 = cy+R*Math.sin(a2);
+    const ix1 = cx+r*Math.cos(a1), iy1 = cy+r*Math.sin(a1);
+    const ix2 = cx+r*Math.cos(a2), iy2 = cy+r*Math.sin(a2);
     const large = sweep > Math.PI ? 1 : 0;
     const path = `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z`;
-    const mid = a1 + sweep/2;
-    return { ...d, path, mid, color: COLORS[i % COLORS.length], pct: Math.round(d.project_count/total*100) };
+    return { ...d, path, mid: a1+sweep/2, color: COLORS[i % COLORS.length] };
   });
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <svg width={120} height={120}>
-          {slices.map((s, i) => {
-            const isHov = hovered === i;
-            const px = isHov ? Math.cos(s.mid)*4 : 0, py = isHov ? Math.sin(s.mid)*4 : 0;
-            return <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
-              transform={`translate(${px},${py})`} style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
-              onClick={() => onStepClick(s.step)}
-              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />;
-          })}
-          <text x={cx} y={cy-4} textAnchor="middle" fontSize={18} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
-          <text x={cx} y={cy+12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
-          {hovered !== null && slices[hovered] && (
-            <text x={cx} y={cy+28} textAnchor="middle" fontSize={10} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
-              {slices[hovered].step} {slices[hovered].project_count}건
-            </text>
-          )}
-        </svg>
-      </div>
-      <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)', width: '100%' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed', minWidth: 0 }}>
-          <thead>
-            <tr style={{ background: 'var(--surface2)' }}>
-              <th style={{ padding: '4px 6px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '40%' }}>단계</th>
-              <th style={{ padding: '4px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>건수</th>
-              <th style={{ padding: '4px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>비중</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((d, i) => {
-              const pct = Math.round(d.project_count / total * 100);
-              const color = COLORS[slices.findIndex(s => s.step === d.step) % COLORS.length] || 'var(--muted)';
-              return (
-                <tr key={i} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                  onClick={() => onStepClick(d.step)}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}
-                >
-                  <td style={{ padding: '4px 6px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color, marginRight: 5 }} />
-                    {d.step}
-                  </td>
-                  <td style={{ padding: '4px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
-                  <td style={{ padding: '4px 6px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <svg width={140} height={140}>
+        {slices.map((s, i) => {
+          const isHov = hovered === i;
+          const px = isHov ? Math.cos(s.mid)*4 : 0, py = isHov ? Math.sin(s.mid)*4 : 0;
+          return <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
+            transform={`translate(${px},${py})`} style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
+            onClick={() => onStepClick(s.step)}
+            onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />;
+        })}
+        <text x={cx} y={cy-4} textAnchor="middle" fontSize={18} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
+        <text x={cx} y={cx+12} textAnchor="middle" fontSize={9} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
+        {hovered !== null && slices[hovered] && (
+          <text x={cx} y={cy+28} textAnchor="middle" fontSize={10} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
+            {slices[hovered].step} {slices[hovered].project_count}건
+          </text>
+        )}
+      </svg>
     </div>
   );
 }
 
-// ── Status Pie Chart ──────────────────────────────────────────────────────────
+// ── Project By Stage - 테이블만 ───────────────────────────────────────────────
+function ProjectByStage({ data, onStepClick }) {
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  const total = data[0]?.total || 1;
+  const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16'];
+  const slices = data.filter(d => d.project_count > 0).map((d, i) => ({ ...d, color: COLORS[i % COLORS.length] }));
+  return (
+    <div style={{ overflow: 'hidden', borderRadius: 6, border: '1px solid var(--border)', width: '100%' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed' }}>
+        <thead>
+          <tr style={{ background: 'var(--surface2)' }}>
+            <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '40%' }}>단계</th>
+            <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>건수</th>
+            <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--muted)', width: '30%' }}>비중</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d, i) => {
+            const pct = Math.round(d.project_count / total * 100);
+            const color = slices.find(s => s.step === d.step)?.color || 'var(--muted)';
+            return (
+              <tr key={i} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                onClick={() => onStepClick(d.step)}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '5px 8px', fontWeight: 600 }}>
+                  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color, marginRight: 5 }} />
+                  {d.step}
+                </td>
+                <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)' }}>{d.project_count}</td>
+                <td style={{ padding: '5px 8px', textAlign: 'center', color: 'var(--muted)' }}>{pct}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Monthly Delivery Chart ────────────────────────────────────────────────────
+function MonthlyDeliveryChart({ data }) {
+  if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  const W = 260, H = 100, PL = 28, PR = 8, PT = 10, PB = 24;
+  const cW = W-PL-PR, cH = H-PT-PB;
+  const max = Math.max(...data.map(d => d.count), 1);
+  const pts = data.map((d, i) => ({
+    x: PL + (i / Math.max(data.length-1, 1)) * cW,
+    y: PT + cH - (d.count / max) * cH,
+    ...d
+  }));
+  const pathD = pts.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+  const areaD = `${pathD} L${pts[pts.length-1].x},${PT+cH} L${pts[0].x},${PT+cH} Z`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+      <defs>
+        <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill="url(#mg)" />
+      <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} />
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={3} fill="#3b82f6" />
+          <text x={PL + (i / Math.max(data.length-1,1)) * cW} y={H-6} textAnchor="middle" fontSize={8} fill="#94a3b8">
+            {p.month?.slice(5)}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function StatusPie({ data, onSliceClick }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.total) return <div className="empty-state">데이터 없음</div>;
@@ -1530,6 +1571,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
   const [kpi, setKpi] = useState(null);
   const [stageByProcess, setStageByProcess] = useState([]);
+  const [monthlyDelivery, setMonthlyDelivery] = useState([]);
   const [alerts, setAlerts] = useState(null);
   const [statusDist, setStatusDist] = useState(null);
   const [urgentDelays, setUrgentDelays] = useState([]);
@@ -1547,6 +1589,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
   const load = useCallback(() => {
     api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
     api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
+    api.get(`/api/dashboard/monthly-delivery${pf}`).then(setMonthlyDelivery);
     api.get(`/api/dashboard/alerts${pf}`).then(setAlerts);
     api.get(`/api/dashboard/status-distribution${pf}`).then(setStatusDist);
     api.get(`/api/dashboard/urgent-delays`).then(setUrgentDelays);
@@ -1620,19 +1663,31 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-        <div className="chart-card" style={{ minHeight: 380, overflow: 'hidden' }}>
+        {/* 1/4: Stage Progress + StagePie */}
+        <div className="chart-card">
           <div className="chart-title">▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
           <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+          <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
+          <StagePie data={stageByProcess} onStepClick={handleStepClick} />
         </div>
-        <div className="chart-card" style={{ minHeight: 380, overflow: 'hidden' }}>
+
+        {/* 2/4: Projects by Stage 테이블 */}
+        <div className="chart-card">
           <div className="chart-title">≡ Projects by Stage</div>
           <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
         </div>
-        <div className="chart-card" style={{ minHeight: 380 }}>
+
+        {/* 3/4: 전체 상태 분포 + 월별 출고 추이 */}
+        <div className="chart-card">
           <div className="chart-title">● 전체 상태 분포</div>
           <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
+          <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
+          <div className="chart-title" style={{ marginBottom: 8 }}>📈 월별 출고예정<span className="chart-subtitle">요구납기일 기준</span></div>
+          <MonthlyDeliveryChart data={monthlyDelivery} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 380 }}>
+
+        {/* 4/4: 지연TOP5 + DueSoon */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="chart-card" style={{ flex: 1 }}>
             <div className="chart-title">⚠ 지연 TOP 5<span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span></div>
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
