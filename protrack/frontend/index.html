@@ -846,8 +846,9 @@ function ProjectByStage({ data, onStepClick }) {
 
 // ── Monthly Delivery Chart ────────────────────────────────────────────────────
 function MonthlyDeliveryChart({ data }) {
+  const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
-  const W = 260, H = 100, PL = 28, PR = 8, PT = 10, PB = 24;
+  const W = 260, H = 120, PL = 28, PR = 8, PT = 20, PB = 24;
   const cW = W-PL-PR, cH = H-PT-PB;
   const max = Math.max(...data.map(d => d.count), 1);
   const pts = data.map((d, i) => ({
@@ -857,25 +858,40 @@ function MonthlyDeliveryChart({ data }) {
   }));
   const pathD = pts.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
   const areaD = `${pathD} L${pts[pts.length-1].x},${PT+cH} L${pts[0].x},${PT+cH} Z`;
+  const hov = hovered !== null ? pts[hovered] : null;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
-      <defs>
-        <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d={areaD} fill="url(#mg)" />
-      <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} />
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r={3} fill="#3b82f6" />
-          <text x={PL + (i / Math.max(data.length-1,1)) * cW} y={H-6} textAnchor="middle" fontSize={8} fill="#94a3b8">
-            {p.month?.slice(5)}
-          </text>
-        </g>
-      ))}
-    </svg>
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+        <defs>
+          <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#mg)" />
+        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={4} fill={hovered===i ? '#2563eb' : '#3b82f6'} style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
+            <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize={9} fill="#3b82f6" fontWeight="700">{p.count}</text>
+            <text x={p.x} y={H-6} textAnchor="middle" fontSize={8} fill="#94a3b8">
+              {p.month?.slice(5)}월
+            </text>
+          </g>
+        ))}
+        {hov && (
+          <g>
+            <rect x={Math.min(hov.x+6, W-90)} y={hov.y-10} width={84} height={Object.keys(hov.by_system||{}).length*12+20} fill="#1e293b" rx={4} opacity={0.92} />
+            <text x={Math.min(hov.x+14, W-82)} y={hov.y+6} fontSize={10} fill="#fff" fontWeight="700">{hov.month?.slice(5)}월 {hov.count}건</text>
+            {Object.entries(hov.by_system||{}).map(([sys, cnt], si) => (
+              <text key={si} x={Math.min(hov.x+14, W-82)} y={hov.y+18+si*12} fontSize={9} fill="#94a3b8">{sys}: {cnt}</text>
+            ))}
+          </g>
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -1663,30 +1679,37 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-        {/* 1/4: Stage Progress + StagePie */}
-        <div className="chart-card">
-          <div className="chart-title">▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
-          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
-          <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
-          <StagePie data={stageByProcess} onStepClick={handleStepClick} />
+        {/* 1/4 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="chart-card">
+            <div className="chart-title">▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
+            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+          </div>
+          <div className="chart-card">
+            <div className="chart-title">◉ 단계별 비중</div>
+            <StagePie data={stageByProcess} onStepClick={handleStepClick} />
+          </div>
         </div>
 
-        {/* 2/4: Projects by Stage 테이블 */}
-        <div className="chart-card">
+        {/* 2/4 */}
+        <div className="chart-card" style={{ minWidth: 0 }}>
           <div className="chart-title">≡ Projects by Stage</div>
           <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
         </div>
 
-        {/* 3/4: 전체 상태 분포 + 월별 출고 추이 */}
-        <div className="chart-card">
-          <div className="chart-title">● 전체 상태 분포</div>
-          <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
-          <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
-          <div className="chart-title" style={{ marginBottom: 8 }}>📈 월별 출고예정<span className="chart-subtitle">요구납기일 기준</span></div>
-          <MonthlyDeliveryChart data={monthlyDelivery} />
+        {/* 3/4 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="chart-card">
+            <div className="chart-title">● 전체 상태 분포</div>
+            <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
+          </div>
+          <div className="chart-card">
+            <div className="chart-title">📈 월별 출고예정<span className="chart-subtitle">요구납기일 기준</span></div>
+            <MonthlyDeliveryChart data={monthlyDelivery} />
+          </div>
         </div>
 
-        {/* 4/4: 지연TOP5 + DueSoon */}
+        {/* 4/4 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="chart-card" style={{ flex: 1 }}>
             <div className="chart-title">⚠ 지연 TOP 5<span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span></div>
