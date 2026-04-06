@@ -510,7 +510,7 @@ class DataManager:
         delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
         result = []
         for _, row in delayed.iterrows():
-            result.append({"수주번호": row.get('수주번호', ''), "ordseq": int(row.get('ordseq', 0)), "업체명": row.get('업체명', ''), "품명": row.get('품명', ''), "_current_step": row.get('_current_step', ''), "_delay_days": int(row.get('_delay_days', 0)), "_progress": int(row.get('_progress', 0))})
+            result.append({"수주번호": row.get('수주번호', ''), "ordseq": int(row.get('ordseq', 0)), "업체명": row.get('업체명', ''), "프로젝트": row.get('프로젝트', ''), "_current_step": row.get('_current_step', ''), "_delay_days": int(row.get('_delay_days', 0)), "_progress": int(row.get('_progress', 0))})
         return result
 
     def get_stage_by_process(self, product_filter: str = "") -> List[Dict]:
@@ -553,7 +553,7 @@ class DataManager:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:
             return {}
-        df = self.df.copy()
+        df = self.df.copy()a
         if product_filter and product_filter != "전체" and '제품군' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
@@ -565,7 +565,7 @@ class DataManager:
             "at_risk": int(len(df[df['_status'] == 'At Risk'])),
             "delayed": int(len(df[df['_status'] == '지연'])),
             "completed": int(len(df[df['_status'] == '완료'])),
-        } 
+        }
 
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
