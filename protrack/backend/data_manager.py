@@ -514,7 +514,7 @@ class DataManager:
         return result
 
     def get_stage_by_process(self, product_filter: str = "") -> List[Dict]:
-        """공정 단계별 시스템명별 완료율 (누적 바차트용)"""
+        """공정 단계별 현재 건수 (누적 바차트용)"""
         if self.df.empty:
             return []
         df = self.df.copy()
@@ -523,36 +523,30 @@ class DataManager:
             if pf_list:
                 df = df[df['제품군'].isin(pf_list)]
 
-        # 실적일 컬럼 매핑 (단계별 완료 여부)
-        actual_cols = {
-            '수주': '수주일자', '시방': '시방출도일', '자재': '자재입고일',
-            '생산': '생산완료일', '검사': '품질검사일', '포장': '포장완료일',
-            '출고': '최종납기일', 'OTP': 'OTP일자', '계산서': '계산서발행일'
-        }
+        total_count = len(df)
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
         system_colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899']
 
         result = []
-        total_count = len(df)
         for step in PROCESS_STEPS:
-            actual_col = actual_cols.get(step)
-            step_data = {"step": step, "total": total_count, "by_system": [], "project_count": 0}
+            step_df = df[df['_current_step'] == step]
+            step_count = len(step_df)
+            by_system = []
             for si, system in enumerate(systems):
-                sys_df = df[df['시스템명'] == system] if '시스템명' in df.columns else df
-                total = len(sys_df)
-                if actual_col and actual_col in sys_df.columns:
-                    done = int(sys_df[sys_df[actual_col].notna()].shape[0])
-                else:
-                    done = 0
-                pct = round(done / total * 100) if total > 0 else 0
-                step_data["by_system"].append({
-                    "system": str(system), "total": total, "done": done, "pct": pct,
+                sys_step_df = step_df[step_df['시스템명'] == system] if '시스템명' in step_df.columns else step_df
+                count = len(sys_step_df)
+                pct = round(count / total_count * 100) if total_count > 0 else 0
+                by_system.append({
+                    "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 전체 이 단계 완료 건수
-            if actual_col and actual_col in df.columns:
-                step_data["project_count"] = int(df[df[actual_col].notna()].shape[0])
-            result.append(step_data)
+            result.append({
+                "step": step,
+                "total": total_count,
+                "project_count": step_count,
+                "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
+                "by_system": by_system,
+            })
         return result
 
     def get_status_distribution(self, product_filter: str = "") -> Dict:
