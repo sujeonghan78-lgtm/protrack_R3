@@ -216,12 +216,11 @@
     grid-template-columns: repeat(3, 1fr) 1.6fr;
     gap: 12px;
     align-items: stretch;
-    height: 110px;
   }
   .kpi-main-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 18px; transition: box-shadow 0.2s; cursor: default;
-    border-top-width: 3px; display: flex; flex-direction: column; justify-content: space-between;
+    padding: 16px 18px; transition: box-shadow 0.2s; cursor: default;
+    border-top-width: 3px; display: flex; flex-direction: column;
     overflow: hidden;
   }
   .kpi-main-card.clickable { cursor: pointer; }
@@ -236,7 +235,7 @@
   .kpi-sub-card.clickable:hover { background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
   .kpi-sub-label { font-size: 11px; color: var(--muted); font-weight: 500; }
   .kpi-sub-val { font-size: 20px; font-weight: 900; font-family: var(--mono); letter-spacing: -0.5px; }
-  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
   .kpi-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
   .kpi-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
   .kpi-val { font-size: 28px; font-weight: 900; font-family: var(--mono); letter-spacing: -1.5px; line-height: 1; }
@@ -258,9 +257,11 @@
   .dash-grid {
     display: grid;
     grid-template-columns: minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);
-    grid-template-rows: 380px;
     gap: 14px;
     align-items: stretch;
+    /* 뷰포트 높이 - topbar(58px) - content padding(32px) - KPI영역(~130px) - gap(28px) */
+    grid-template-rows: calc(100vh - 58px - 32px - 130px - 28px);
+    min-height: 320px;
   }
   .chart-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
@@ -282,8 +283,8 @@
   /* ─── Alerts / Delay cards ───────────────────────────── */
   .alert-list { display: flex; flex-direction: column; gap: 6px; }
   .delay-item {
-    display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
     cursor: pointer; transition: all 0.15s;
   }
   .delay-item:hover { border-color: rgba(220,38,38,0.25); background: rgba(220,38,38,0.03); }
@@ -301,7 +302,7 @@
   .due-item {
     display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    margin-bottom: 7px; transition: all 0.15s;
+    margin-bottom: 6px; transition: all 0.15s;
   }
   .due-item.clickable { cursor: pointer; }
   .due-item.clickable:hover { background: var(--surface); }
@@ -511,7 +512,7 @@
   @media (max-width: 900px) {
     .sidebar { width: 58px; }
     .sidebar-logo-text, .nav-item span:not(.nav-icon), .nav-section-label, .user-info { display: none; }
-    .dash-grid { grid-template-columns: 1fr; grid-template-rows: none; }
+    .dash-grid { grid-template-columns: 1fr; grid-template-rows: 380px; }
     .kpi-primary-row { grid-template-columns: 1fr 1fr; height: auto; }
     .drawer { width: 100vw; }
   }
@@ -1021,7 +1022,7 @@ function delayBadgeClass(days) {
 function UrgentDelaysList({ data, onSelect }) {
   if (!data?.length) return <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
       {data.slice(0, 5).map((item, i) => (
         <div key={i} className="delay-item" onClick={() => onSelect(item)}>
           <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>+{item._delay_days}일</div>
@@ -1732,16 +1733,17 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       <div className="dash-grid">
-        {/* 좌측: Stage Progress + 단계별 현황 - 하나의 카드로 통합 */}
-        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-          <div className="chart-title">
-            ▤ Stage Progress
-            <span className="chart-badge">클릭 시 목록</span>
+        {/* 좌측: Stage Progress + 단계별 현황 - flex 컬럼으로 분리 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+          <div className="chart-card" style={{ flex: '0 0 auto' }}>
+            <div className="chart-title">
+              ▤ Stage Progress
+              <span className="chart-badge">클릭 시 목록</span>
+            </div>
+            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
           </div>
-          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
-          <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
-          <div className="chart-title" style={{ marginBottom: 10 }}>≡ 단계별 현황</div>
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }}>
+            <div className="chart-title" style={{ flexShrink: 0 }}>≡ 단계별 현황</div>
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
           </div>
         </div>
@@ -1770,16 +1772,16 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
 
         {/* 우측: 지연 TOP5 + Due Soon */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div className="chart-title" style={{ color: 'var(--danger)' }}>
-              ⚠ 지연 TOP 5
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '14px 16px' }}>
+            <div className="chart-title">
+              <span style={{ color: 'var(--danger)' }}>⚠ 지연 TOP 5</span>
               <span className="chart-badge" style={{ color:'var(--danger)', borderColor:'rgba(220,38,38,0.2)' }}>지연일수 기준</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
             </div>
           </div>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '14px 16px' }}>
             <div className="chart-title">📅 이달 일정</div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
