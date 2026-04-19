@@ -216,19 +216,21 @@
     grid-template-columns: repeat(3, 1fr) 1.6fr;
     gap: 12px;
     align-items: stretch;
+    height: 110px;
   }
   .kpi-main-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 18px 20px; transition: box-shadow 0.2s; cursor: default;
-    border-top-width: 3px;
+    padding: 14px 18px; transition: box-shadow 0.2s; cursor: default;
+    border-top-width: 3px; display: flex; flex-direction: column; justify-content: space-between;
+    overflow: hidden;
   }
   .kpi-main-card.clickable { cursor: pointer; }
   .kpi-main-card.clickable:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
   .kpi-sub-stack { display: flex; flex-direction: column; gap: 8px; }
   .kpi-sub-card {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
-    flex: 1;
+    padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
+    flex: 1; min-height: 0;
   }
   .kpi-sub-card.clickable { cursor: pointer; }
   .kpi-sub-card.clickable:hover { background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -237,7 +239,7 @@
   .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
   .kpi-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
   .kpi-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
-  .kpi-val { font-size: 32px; font-weight: 900; font-family: var(--mono); letter-spacing: -1.5px; line-height: 1; }
+  .kpi-val { font-size: 28px; font-weight: 900; font-family: var(--mono); letter-spacing: -1.5px; line-height: 1; }
   .kpi-label { font-size: 12px; color: var(--text2,#475569); margin-top: 5px; font-weight: 500; }
   .kpi-desc { font-size: 10px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -256,11 +258,13 @@
   .dash-grid {
     display: grid;
     grid-template-columns: minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);
+    grid-template-rows: 380px;
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
   }
   .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    overflow: hidden; box-sizing: border-box;
   }
   .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
   .chart-badge {
@@ -268,7 +272,7 @@
     padding: 2px 7px; border-radius: 20px; font-weight: 500; margin-left: auto;
   }
   /* status distribution bars */
-  .sbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .sbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .sbar-label { width: 38px; font-size: 11px; text-align: right; flex-shrink: 0; font-weight: 600; }
   .sbar-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
   .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 8px; }
@@ -501,14 +505,14 @@
   }
 
   @media (max-width: 1280px) {
-    .dash-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-    .kpi-primary-row { grid-template-columns: repeat(2, 1fr); }
+    .dash-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: 380px 380px; }
+    .kpi-primary-row { grid-template-columns: repeat(2, 1fr); height: auto; }
   }
   @media (max-width: 900px) {
     .sidebar { width: 58px; }
     .sidebar-logo-text, .nav-item span:not(.nav-icon), .nav-section-label, .user-info { display: none; }
-    .dash-grid { grid-template-columns: 1fr; }
-    .kpi-primary-row { grid-template-columns: 1fr 1fr; }
+    .dash-grid { grid-template-columns: 1fr; grid-template-rows: none; }
+    .kpi-primary-row { grid-template-columns: 1fr 1fr; height: auto; }
     .drawer { width: 100vw; }
   }
 </style>
@@ -757,7 +761,7 @@ function KpiCards({ kpi, onCardClick }) {
           onClick={() => c.key && onCardClick(c.key)}
           style={{ borderTopColor: c.color }}
         >
-          <div className="kpi-top">
+          <div className="kpi-top" style={{ marginBottom: 6 }}>
             <div className="kpi-icon" style={{ background: `${c.color}14`, color: c.color }}>{c.icon}</div>
             {c.pct !== null && (
               <span className="kpi-badge" style={{ background: `${c.color}10`, color: c.color }}>{c.pct}%</span>
@@ -1015,7 +1019,7 @@ function delayBadgeClass(days) {
 }
 
 function UrgentDelaysList({ data, onSelect }) {
-  if (!data?.length) return <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
+  if (!data?.length) return <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {data.slice(0, 5).map((item, i) => (
@@ -1728,51 +1732,58 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       <div className="dash-grid">
-        {/* 좌측: Stage Progress + 단계별 현황 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="chart-card">
-            <div className="chart-title">
-              ▤ Stage Progress
-              <span className="chart-badge">클릭 시 목록</span>
-            </div>
-            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+        {/* 좌측: Stage Progress + 단계별 현황 - 하나의 카드로 통합 */}
+        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+          <div className="chart-title">
+            ▤ Stage Progress
+            <span className="chart-badge">클릭 시 목록</span>
           </div>
-          <div className="chart-card">
-            <div className="chart-title">≡ 단계별 현황</div>
+          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+          <div className="chart-title" style={{ marginBottom: 10 }}>≡ 단계별 현황</div>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
           </div>
         </div>
 
         {/* 중앙: 상태 분포 + 월별 출고예정 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="chart-card">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div className="chart-title">
               ● 전체 상태 분포
               <span className="chart-badge">클릭 시 목록</span>
             </div>
-            <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
+            </div>
           </div>
-          <div className="chart-card">
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div className="chart-title">
               📈 월별 출고예정
               <span className="chart-badge">요구납기일 기준</span>
             </div>
-            <MonthlyDeliveryChart data={monthlyDelivery} />
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              <MonthlyDeliveryChart data={monthlyDelivery} />
+            </div>
           </div>
         </div>
 
         {/* 우측: 지연 TOP5 + Due Soon */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="chart-card">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div className="chart-title" style={{ color: 'var(--danger)' }}>
               ⚠ 지연 TOP 5
               <span className="chart-badge" style={{ color:'var(--danger)', borderColor:'rgba(220,38,38,0.2)' }}>지연일수 기준</span>
             </div>
-            <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
+            </div>
           </div>
-          <div className="chart-card">
+          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div className="chart-title">📅 이달 일정</div>
-            <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
+            </div>
           </div>
         </div>
       </div>
