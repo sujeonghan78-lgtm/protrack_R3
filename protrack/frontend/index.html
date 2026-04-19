@@ -12,19 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #f1f5f9;
+    --bg:        #f0f4f8;
     --surface:   #ffffff;
-    --surface2:  #f8fafc;
+    --surface2:  #f7f9fc;
     --border:    #e2e8f0;
-    --accent:    #3b82f6;
-    --accent2:   #06b6d4;
-    --danger:    #ef4444;
-    --warn:      #f59e0b;
-    --success:   #10b981;
-    --text:      #1e293b;
+    --border2:   #cbd5e1;
+    --accent:    #2563eb;
+    --accent2:   #0891b2;
+    --danger:    #dc2626;
+    --warn:      #d97706;
+    --success:   #059669;
+    --purple:    #7c3aed;
+    --text:      #0f172a;
+    --text2:     #475569;
     --muted:     #94a3b8;
     --mono:      'JetBrains Mono', monospace;
     --sans:      'Noto Sans KR', sans-serif;
+    --radius:    12px;
+    --radius-sm: 8px;
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -206,17 +211,35 @@
   .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
 
   /* ─── KPI Cards ──────────────────────────────────────── */
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .kpi-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-    padding: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: default;
+  .kpi-primary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) 1.6fr;
+    gap: 12px;
+    align-items: stretch;
   }
-  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
-  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-  .kpi-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
-  .kpi-val { font-size: 32px; font-weight: 900; font-family: var(--mono); letter-spacing: -1px; }
-  .kpi-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+  .kpi-main-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; transition: box-shadow 0.2s; cursor: default;
+    border-top-width: 3px;
+  }
+  .kpi-main-card.clickable { cursor: pointer; }
+  .kpi-main-card.clickable:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+  .kpi-sub-stack { display: flex; flex-direction: column; gap: 8px; }
+  .kpi-sub-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+    flex: 1;
+  }
+  .kpi-sub-card.clickable { cursor: pointer; }
+  .kpi-sub-card.clickable:hover { background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .kpi-sub-label { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .kpi-sub-val { font-size: 20px; font-weight: 900; font-family: var(--mono); letter-spacing: -0.5px; }
+  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .kpi-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .kpi-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
+  .kpi-val { font-size: 32px; font-weight: 900; font-family: var(--mono); letter-spacing: -1.5px; line-height: 1; }
+  .kpi-label { font-size: 12px; color: var(--text2,#475569); margin-top: 5px; font-weight: 500; }
+  .kpi-desc { font-size: 10px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .bg-blue { background: rgba(59,130,246,0.15); }
   .bg-orange { background: rgba(249,115,22,0.15); }
@@ -229,32 +252,56 @@
   .badge-green { background: rgba(16,185,129,0.15); color: var(--success); }
   .badge-red { background: rgba(239,68,68,0.15); color: var(--danger); }
 
-  /* ─── Charts Grid ────────────────────────────────────── */
-  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-  .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden;
+  /* ─── Dashboard 3-col grid ──────────────────────────── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);
+    gap: 14px;
+    align-items: start;
   }
-  .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-  .chart-subtitle { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; overflow: hidden;
+  }
+  .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .chart-badge {
+    font-size: 10px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border);
+    padding: 2px 7px; border-radius: 20px; font-weight: 500; margin-left: auto;
+  }
+  /* status distribution bars */
+  .sbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .sbar-label { width: 38px; font-size: 11px; text-align: right; flex-shrink: 0; font-weight: 600; }
+  .sbar-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
+  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 8px; }
+  .sbar-count { font-size: 10px; font-weight: 700; color: #fff; font-family: var(--mono); }
+  .sbar-pct { width: 32px; font-size: 11px; font-family: var(--mono); font-weight: 700; text-align: right; flex-shrink: 0; }
 
-  /* ─── Alerts ─────────────────────────────────────────── */
-  .alert-list { display: flex; flex-direction: column; gap: 8px; }
-  .alert-item {
-    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  /* ─── Alerts / Delay cards ───────────────────────────── */
+  .alert-list { display: flex; flex-direction: column; gap: 6px; }
+  .delay-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px;
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
     cursor: pointer; transition: all 0.15s;
   }
-  .alert-item:hover { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
-  .alert-days {
-    background: rgba(239,68,68,0.15); color: var(--danger);
-    width: 44px; height: 40px; border-radius: 8px; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; font-family: var(--mono); flex-shrink: 0;
+  .delay-item:hover { border-color: rgba(220,38,38,0.25); background: rgba(220,38,38,0.03); }
+  .delay-badge {
+    border-radius: 6px; padding: 4px 7px; font-family: var(--mono);
+    font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
-  .alert-days-num { font-size: 15px; font-weight: 700; line-height: 1; }
-  .alert-days-label { font-size: 9px; color: #f87171; margin-top: 1px; }
-  .alert-info { flex: 1; min-width: 0; }
-  .alert-id { font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
-  .alert-desc { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .delay-badge.critical { background: rgba(185,28,28,0.12); color: #b91c1c; }
+  .delay-badge.high     { background: rgba(220,38,38,0.09); color: #dc2626; }
+  .delay-badge.medium   { background: rgba(217,119,6,0.1);  color: #b45309; }
+  .delay-badge.low      { background: rgba(217,119,6,0.07); color: #d97706; }
+  .delay-info { flex: 1; min-width: 0; }
+  .delay-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .delay-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .due-item {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 7px; transition: all 0.15s;
+  }
+  .due-item.clickable { cursor: pointer; }
+  .due-item.clickable:hover { background: var(--surface); }
+  .due-count { font-size: 22px; font-weight: 900; font-family: var(--mono); }
 
   /* ─── Table ──────────────────────────────────────────── */
   .table-card {
@@ -453,14 +500,15 @@
     font-size: 12px !important;
   }
 
-  @media (max-width: 1200px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .charts-grid { grid-template-columns: 1fr; }
+  @media (max-width: 1280px) {
+    .dash-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    .kpi-primary-row { grid-template-columns: repeat(2, 1fr); }
   }
-  @media (max-width: 768px) {
-    .sidebar { width: 64px; }
+  @media (max-width: 900px) {
+    .sidebar { width: 58px; }
     .sidebar-logo-text, .nav-item span:not(.nav-icon), .nav-section-label, .user-info { display: none; }
-    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .dash-grid { grid-template-columns: 1fr; }
+    .kpi-primary-row { grid-template-columns: 1fr 1fr; }
     .drawer { width: 100vw; }
   }
 </style>
@@ -481,7 +529,9 @@ function useDebounce(value, delay) {
 }
 
 const API = 'http://35.173.250.250:8000';
-const PIE_COLORS = ['#3b82f6','#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'];
+const PIE_COLORS = ['#2563eb','#0891b2','#7c3aed','#d97706','#059669','#dc2626','#0284c7','#db2777','#65a30d','#14b8a6'];
+const STATUS_COLORS = { 'On Track': '#059669', 'At Risk': '#d97706', '지연': '#dc2626', '완료': '#6366f1' };
+const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
 function exportToExcel(items, filename = 'protrack_export') {
@@ -681,37 +731,56 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
   );
 }
 
-// ── KPI Cards ─────────────────────────────────────────────────────────────────
+// ── KPI Cards (계층화: 주요3 + 보조3) ─────────────────────────────────────────
 function KpiCards({ kpi, onCardClick }) {
   if (!kpi) return null;
-  const cards = [
-    { label: '전체 수주', val: kpi.total, icon: '◈', color: '#3b82f6', key: null,
-      desc: kpi.system_counts ? Object.entries(kpi.system_counts).map(([k,v]) => `${k} ${v}`).join(' · ') : `평균 진척률 ${kpi.avg_progress}%` },
-    { label: '평균 진척률', val: `${kpi.avg_progress}%`, icon: '▶', color: '#06b6d4', key: null, desc: '전체 공정 진행률' },
-    { label: '진행중', val: kpi.on_track, icon: '✓', color: '#10b981', key: 'On Track', desc: '납기일 여유 있음' },
-    { label: '임박', val: kpi.at_risk, icon: '⚡', color: '#f59e0b', key: 'At Risk', desc: '납기 7일 이내' },
-    { label: '지연', val: kpi.delayed, icon: '⚠', color: '#ef4444', key: '지연', desc: '납기일 초과' },
-    { label: '완료', val: kpi.completed, icon: '★', color: '#6366f1', key: '완료',
-      desc: kpi.system_completed ? Object.entries(kpi.system_completed).map(([k,v]) => `${k} ${v}`).join(' · ') : '계산서 발행 완료' },
+  const total = kpi.total || 1;
+
+  const mainCards = [
+    { label: '전체 수주', val: kpi.total, color: '#2563eb', icon: '◈', pct: null, key: null,
+      desc: kpi.system_counts ? Object.entries(kpi.system_counts).map(([k,v]) => `${k} ${v}`).join(' · ') : '' },
+    { label: '지연', val: kpi.delayed, color: '#dc2626', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
+      desc: '납기일 초과 항목' },
+    { label: '임박', val: kpi.at_risk, color: '#d97706', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
+      desc: '7일 이내 납기' },
   ];
+  const subCards = [
+    { label: '진행중',   val: kpi.on_track,  color: '#059669', key: 'On Track' },
+    { label: '완료',     val: kpi.completed, color: '#6366f1', key: '완료' },
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#0891b2', key: null },
+  ];
+
   return (
-    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
-      {cards.map((c, i) => (
-        <div className="kpi-card" key={i}
+    <div className="kpi-primary-row">
+      {mainCards.map((c, i) => (
+        <div key={i} className={`kpi-main-card ${c.key ? 'clickable' : ''}`}
           onClick={() => c.key && onCardClick(c.key)}
-          style={{ cursor: c.key ? 'pointer' : 'default', borderTop: `3px solid ${c.color}` }}
+          style={{ borderTopColor: c.color }}
         >
           <div className="kpi-top">
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: c.color }}>{c.icon}</div>
-            <span style={{ fontSize: 10, fontWeight: 700, color: c.color, background: `${c.color}12`, padding: '2px 6px', borderRadius: 20 }}>
-              {typeof c.val === 'number' ? `${Math.round(c.val/Math.max(kpi.total,1)*100)}%` : ''}
-            </span>
+            <div className="kpi-icon" style={{ background: `${c.color}14`, color: c.color }}>{c.icon}</div>
+            {c.pct !== null && (
+              <span className="kpi-badge" style={{ background: `${c.color}10`, color: c.color }}>{c.pct}%</span>
+            )}
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'JetBrains Mono', color: c.color, letterSpacing: -1 }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
+          <div className="kpi-val" style={{ color: c.color }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
           <div className="kpi-label">{c.label}</div>
-          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.desc}</div>
+          {c.desc && <div className="kpi-desc">{c.desc}</div>}
         </div>
       ))}
+      <div className="kpi-sub-stack">
+        {subCards.map((c, i) => (
+          <div key={i} className={`kpi-sub-card ${c.key ? 'clickable' : ''}`}
+            onClick={() => c.key && onCardClick(c.key)}
+            style={{ flex: 1 }}
+          >
+            <span className="kpi-sub-label">{c.label}</span>
+            <span className="kpi-sub-val" style={{ color: c.color }}>
+              {typeof c.val === 'number' ? c.val.toLocaleString() : c.val}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -899,89 +968,64 @@ function MonthlyDeliveryChart({ data }) {
   );
 }
 
-function StatusPie({ data, onSliceClick }) {
-  const [hovered, setHovered] = useState(null);
-  if (!data?.total) return <div className="empty-state">데이터 없음</div>;
-
+function StatusDistribution({ data, onBarClick }) {
+  if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
-    { label: '진행중', val: data.on_track, color: '#10b981', key: 'On Track' },
-    { label: '임박', val: data.at_risk, color: '#f59e0b', key: 'At Risk' },
-    { label: '지연', val: data.delayed, color: '#ef4444', key: '지연' },
-    { label: '완료', val: data.completed, color: '#6366f1', key: '완료' },
+    { label: '진행중', val: data.on_track,  color: '#059669', key: 'On Track' },
+    { label: '임박',   val: data.at_risk,   color: '#d97706', key: 'At Risk' },
+    { label: '지연',   val: data.delayed,   color: '#dc2626', key: '지연' },
+    { label: '완료',   val: data.completed, color: '#6366f1', key: '완료' },
   ];
   const total = data.total;
-  const cx = 100, cy = 100, R = 85, r = 52;
-  let angle = -Math.PI / 2;
-
-  const slices = items.map((d, i) => {
-    const sweep = (d.val / total) * 2 * Math.PI;
-    if (sweep === 0) return null;
-    const a1 = angle, a2 = angle + sweep;
-    angle = a2;
-    const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
-    const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
-    const ix1 = cx + r * Math.cos(a1), iy1 = cy + r * Math.sin(a1);
-    const ix2 = cx + r * Math.cos(a2), iy2 = cy + r * Math.sin(a2);
-    const large = sweep > Math.PI ? 1 : 0;
-    const path = `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z`;
-    const mid = a1 + sweep / 2;
-    return { ...d, path, mid, pct: Math.round(d.val/total*100) };
-  }).filter(Boolean);
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-      <svg width={200} height={200} style={{ width: '100%', maxWidth: 200 }}>
-        {slices.map((s, i) => {
-          const isHov = hovered === i;
-          const pullX = isHov ? Math.cos(s.mid) * 5 : 0;
-          const pullY = isHov ? Math.sin(s.mid) * 5 : 0;
-          return (
-            <path key={i} d={s.path} fill={s.color} fillOpacity={isHov ? 1 : 0.82} stroke="none"
-              transform={`translate(${pullX},${pullY})`}
-              style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
-              onClick={() => onSliceClick && onSliceClick(s.key)}
-              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-            />
-          );
-        })}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={24} fontWeight="900" fill="var(--text)" fontFamily="JetBrains Mono">{total}</text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize={11} fill="var(--muted)" fontFamily="Noto Sans KR">전체</text>
-        {hovered !== null && slices[hovered] && (
-          <text x={cx} y={cy + 32} textAnchor="middle" fontSize={11} fill={slices[hovered].color} fontWeight="700" fontFamily="Noto Sans KR">
-            {slices[hovered].label} {slices[hovered].val}건 ({slices[hovered].pct}%)
-          </text>
-        )}
-      </svg>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {items.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{d.label}</span>
-            <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: d.color }}>{d.val}</span>
-            <span style={{ fontSize: 9, color: 'var(--muted)' }}>({Math.round(d.val/total*100)}%)</span>
+    <div>
+      {items.map((item, i) => {
+        const pct = Math.round(item.val / total * 100);
+        return (
+          <div key={i} className="sbar-row">
+            <div className="sbar-label" style={{ color: item.color }}>{item.label}</div>
+            <div className="sbar-track" onClick={() => onBarClick(item.key)}
+              title={`${item.label}: ${item.val}건 (${pct}%)`}
+              onMouseEnter={e => e.currentTarget.style.opacity='0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity='1'}
+            >
+              <div className="sbar-fill" style={{ width: `${pct}%`, background: item.color }}>
+                {pct >= 12 && <span className="sbar-count">{item.val}</span>}
+              </div>
+            </div>
+            <div className="sbar-pct" style={{ color: item.color }}>{pct}%</div>
           </div>
-        ))}
+        );
+      })}
+      <div style={{ marginTop: 10, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>전체</span>
+        <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'var(--mono)', color: 'var(--text)' }}>{total}</span>
       </div>
     </div>
   );
 }
 
+
 // ── Urgent Delays List ────────────────────────────────────────────────────────
+function delayBadgeClass(days) {
+  if (days >= 300) return 'critical';
+  if (days >= 100) return 'high';
+  if (days >= 30)  return 'medium';
+  return 'low';
+}
+
 function UrgentDelaysList({ data, onSelect }) {
-  if (!data?.length) return <div className="empty-state">지연 항목 없음 ✓</div>;
+  if (!data?.length) return <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {data.slice(0, 5).map((item, i) => (
-        <div key={i} onClick={() => onSelect(item)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid #ef4444', borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.05)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
-        >
-          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: 6, padding: '4px 8px', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>+{item._delay_days}일</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || item.수주번호}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명} · {item._current_step}</div>
+        <div key={i} className="delay-item" onClick={() => onSelect(item)}>
+          <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>+{item._delay_days}일</div>
+          <div className="delay-info">
+            <div className="delay-name">{item.프로젝트 || item.수주번호}</div>
+            <div className="delay-meta">{item.업체명} · {item._current_step}</div>
           </div>
-          <span style={{ color: 'var(--muted)', fontSize: 14 }}>›</span>
+          <span style={{ color: 'var(--muted)', fontSize: 13 }}>›</span>
         </div>
       ))}
     </div>
@@ -1425,7 +1469,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
     { key: '포장완료 (V)', label: '포장완료', type: 'date' },
   ];
 
-  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', 'On Track': 'var(--accent)', 'At Risk': 'var(--warn)', '진행중': 'var(--accent)' };
+  const statusColorMap = STATUS_COLORS;
 
   return (
     <div className="drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -1683,41 +1727,51 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
     <>
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, alignItems: 'stretch' }}>
-        {/* 1/4: StagePie + StageProgress 한 카드 */}
-        <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="chart-title">◉ 단계별 비중</div>
-          <StagePie data={stageByProcess} onStepClick={handleStepClick} />
-          <div className="chart-title" style={{ marginTop: 4 }}>▤ Stage Progress<span className="chart-subtitle">클릭하면 목록</span></div>
-          <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
-        </div>
-
-        {/* 2/4 */}
-        <div className="chart-card" style={{ minWidth: 0, overflow: 'hidden' }}>
-          <div className="chart-title">≡ Projects by Stage</div>
-          <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
-        </div>
-
-        {/* 3/4 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="chart-card" style={{ flex: 1 }}>
-            <div className="chart-title">● 전체 상태 분포</div>
-            <StatusPie data={statusDist} onSliceClick={handleKpiClick} />
+      <div className="dash-grid">
+        {/* 좌측: Stage Progress + 단계별 현황 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
+            <div className="chart-title">
+              ▤ Stage Progress
+              <span className="chart-badge">클릭 시 목록</span>
+            </div>
+            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
           </div>
           <div className="chart-card">
-            <div className="chart-title">📈 월별 출고예정<span className="chart-subtitle">요구납기일 기준</span></div>
+            <div className="chart-title">≡ 단계별 현황</div>
+            <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
+          </div>
+        </div>
+
+        {/* 중앙: 상태 분포 + 월별 출고예정 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
+            <div className="chart-title">
+              ● 전체 상태 분포
+              <span className="chart-badge">클릭 시 목록</span>
+            </div>
+            <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
+          </div>
+          <div className="chart-card">
+            <div className="chart-title">
+              📈 월별 출고예정
+              <span className="chart-badge">요구납기일 기준</span>
+            </div>
             <MonthlyDeliveryChart data={monthlyDelivery} />
           </div>
         </div>
 
-        {/* 4/4 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="chart-card" style={{ flex: 1 }}>
-            <div className="chart-title">⚠ 지연 TOP 5<span className="chart-subtitle" style={{ color: 'var(--danger)' }}>지연일수 기준</span></div>
+        {/* 우측: 지연 TOP5 + Due Soon */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
+            <div className="chart-title" style={{ color: 'var(--danger)' }}>
+              ⚠ 지연 TOP 5
+              <span className="chart-badge" style={{ color:'var(--danger)', borderColor:'rgba(220,38,38,0.2)' }}>지연일수 기준</span>
+            </div>
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
           </div>
           <div className="chart-card">
-            <div className="chart-title">📅 Due Soon</div>
+            <div className="chart-title">📅 이달 일정</div>
             <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
           </div>
         </div>
@@ -1797,7 +1851,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
 
   const SortIcon = ({ col }) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
 
-  const statusColorMap = { '완료': 'var(--success)', '지연': 'var(--danger)', 'On Track': 'var(--accent)', 'At Risk': 'var(--warn)', '진행중': 'var(--accent)' };
+  const statusColorMap = STATUS_COLORS;
 
   const visiblePages = () => {
     const total = data.total_pages;
@@ -1885,7 +1939,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
                     </td>
                     <td>
                       <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
-                      <span style={{ color: statusColorMap[item._status], fontWeight: 600, fontSize: 12 }}>{item._status === 'On Track' ? '정상' : item._status === 'At Risk' ? '임박' : item._status}</span>
+                      <span style={{ color: statusColorMap[item._status], fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
                     </td>
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono' }}>
                       {curDiff !== null && curDiff !== undefined ? (
