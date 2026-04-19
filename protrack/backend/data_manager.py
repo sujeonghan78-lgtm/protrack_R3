@@ -73,27 +73,6 @@ def infer_current_step(row) -> str:
     return '수주'
 
 
-def infer_status(row) -> str:
-    today = pd.Timestamp.now()
-
-    if pd.notna(row.get('계산서발행일')):
-        return '완료'
-
-    due_val = row.get('요구납기일')
-    if pd.notna(due_val):
-        try:
-            due_date = pd.Timestamp(due_val)
-            delta = (due_date - today).days
-            if delta < 0:
-                return '지연'
-            elif delta <= 7:
-                return 'At Risk'
-        except:
-            pass
-
-    return 'On Track'
-
-
 def calc_progress(row) -> int:
     weight_cols = list(PROGRESS_WEIGHTS.keys())
     last_idx = -1
@@ -250,6 +229,7 @@ class DataManager:
         df['_current_step'] = df.apply(infer_current_step, axis=1)
 
         def enrich_row(row):
+            # _current_step이 이미 세팅된 row를 기반으로 계산
             diff = calc_stage_diff(row)
             return pd.Series({
                 '_status': infer_status(row),
@@ -289,10 +269,12 @@ class DataManager:
             mask = (
                 df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
                 df['업체명'].astype(str).str.contains(search, case=False, na=False) |
-                df['프로젝트'].astype(str).str.contains(search, case=False, na=False) |
-                df['시스템명'].astype(str).str.contains(search, case=False, na=False) if '시스템명' in df.columns else pd.Series(False, index=df.index) |
-                df['시스템명'].astype(str).str.contains(search, case=False, na=False)
+                df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
             )
+            if '시스템명' in df.columns:
+                mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
+            if '품명' in df.columns:
+                mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
             df = df[mask]
 
         if status_filter and status_filter != "전체":
@@ -356,10 +338,17 @@ class DataManager:
                 self.df.loc[mask, col] = val
 
         for idx in self.df[mask].index:
-            self.df.at[idx, '_current_step'] = infer_current_step(self.df.loc[idx])
-            self.df.at[idx, '_status'] = infer_status(self.df.loc[idx])
-            self.df.at[idx, '_progress'] = calc_progress(self.df.loc[idx])
-            self.df.at[idx, '_delay_days'] = calc_delay_days(self.df.loc[idx])
+            row = self.df.loc[idx]
+            self.df.at[idx, '_current_step'] = infer_current_step(row)
+            # _current_step 반영 후 row 재조회
+            row = self.df.loc[idx]
+            diff = calc_stage_diff(row)
+            self.df.at[idx, '_status'] = infer_status(row)
+            self.df.at[idx, '_progress'] = calc_progress(row)
+            self.df.at[idx, '_delay_days'] = calc_delay_days(row)
+            self.df.at[idx, '_cur_diff'] = diff.get('cur_diff')
+            self.df.at[idx, '_cur_has_actual'] = diff.get('cur_has_actual', False)
+            self.df.at[idx, '_next_diff'] = diff.get('next_diff')
 
         try:
             save_df = self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
