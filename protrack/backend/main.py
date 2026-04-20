@@ -77,8 +77,8 @@ async def get_stage_progress(product_filter: str = "", current_user: User = Depe
 
 
 @app.get("/api/dashboard/stage-by-process")
-async def get_stage_by_process(product_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_stage_by_process(product_filter=product_filter)
+async def get_stage_by_process(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_stage_by_process(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/dashboard/status-distribution")
@@ -119,9 +119,12 @@ async def get_processes(
     sort_by: str = "수주번호",
     sort_dir: str = "asc",
     product_filter: str = "",
+    date_col: str = "",
+    date_from: str = "",
+    date_to: str = "",
     current_user: User = Depends(get_current_user)
 ):
-    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter)
+    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/processes/{order_no}/{ordseq}")
