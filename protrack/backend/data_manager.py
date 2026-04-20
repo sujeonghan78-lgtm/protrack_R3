@@ -705,8 +705,7 @@ class DataManager:
                         diff = (pd.Timestamp(actual) - pd.Timestamp(planned)).days
                     else:
                         diff = (today - pd.Timestamp(planned)).days
-                    if diff > 0:
-                        diffs.append(diff)
+                    diffs.append(max(0, diff))  # 미지연은 0으로 포함
                 avg_delay = round(sum(diffs) / len(diffs)) if diffs else 0
             result.append({
                 "step": step,
