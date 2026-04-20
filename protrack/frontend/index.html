@@ -302,7 +302,7 @@
     font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
   .delay-badge.critical { background: rgba(220,38,38,0.12); color: #dc2626; }
-  .delay-badge.high     { background: rgba(217,119,6,0.12);  color: #d97706; }
+  .delay-badge.high     { background: rgba(245,158,11,0.12); color: #d97706; }
   .delay-badge.medium   { background: rgba(100,116,139,0.1); color: #475569; }
   .delay-badge.low      { background: rgba(100,116,139,0.07); color: #64748b; }
   .delay-info { flex: 1; min-width: 0; }
@@ -795,7 +795,7 @@ function KpiCards({ kpi, onCardClick }) {
       })() },
     { label: '지연', val: kpi.delayed, color: '#dc2626', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
       desc: '납기일 초과 항목' },
-    { label: '임박', val: kpi.at_risk, color: '#d97706', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
+    { label: '임박', val: kpi.at_risk, color: '#f59e0b', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '7일 이내 납기' },
   ];
   const subCards = [
@@ -812,8 +812,7 @@ function KpiCards({ kpi, onCardClick }) {
           style={{
             borderTopColor: c.color,
             background: c.key === '지연' && kpi.delayed > 0
-              ? 'rgba(220,38,38,0.04)' : c.key === 'At Risk' && kpi.at_risk > 0
-              ? 'rgba(217,119,6,0.03)' : 'var(--surface)'
+              ? 'rgba(220,38,38,0.04)' : 'var(--surface)'
           }}
         >
           <div className="kpi-top" style={{ marginBottom: 6 }}>
@@ -953,7 +952,7 @@ function ProjectByStage({ data, onStepClick }) {
         const hasCount = d.project_count > 0;
         const avg = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
         const barPct = (avg && avg > 0) ? Math.round(avg / maxDelay * 100) : 0;
-        const barColor = avg > 90 ? '#dc2626' : avg > 30 ? '#d97706' : '#3b82f6';
+        const barColor = avg > 90 ? '#dc2626' : avg > 30 ? '#f59e0b' : '#3b82f6';
         const label = !hasCount ? '—' : avg == null ? '—' : avg > 0 ? `+${avg}일` : '정상';
         const labelColor = avg > 90 ? '#dc2626' : avg > 30 ? '#d97706' : avg > 0 ? '#3b82f6' : 'var(--muted)';
         return (
@@ -1050,9 +1049,9 @@ function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
     { label: '진행중', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk,   color: '#d97706', key: 'At Risk' },
+    { label: '임박',   val: data.at_risk,   color: '#f59e0b', key: 'At Risk' },
     { label: '지연',   val: data.delayed,   color: '#dc2626', key: '지연' },
-    { label: '완료',   val: data.completed, color: '#16a34a', key: '완료' },
+    { label: '완료',   val: data.completed, color: '#60a5fa', key: '완료' },
   ];
   const total = data.total;
   return (
@@ -1200,6 +1199,58 @@ function UrgentDelaysList({ data, onSelect }) {
   );
 }
 
+function ItemModal({ title, items, onClose, onSelectItem }) {
+  if (!items) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div className="modal-title">{title} ({items.length}건)</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-icon" onClick={() => exportToExcel(items, title)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="drawer-close" onClick={onClose}>×</button>
+          </div>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {items.length === 0 ? (
+            <div className="empty-state">해당 항목 없음</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '14%' }} /><col style={{ width: '24%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '20%' }} /><col style={{ width: '22%' }} /><col style={{ width: '8%' }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                  {['납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i} onClick={() => { onSelectItem(item); onClose(); }}
+                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
+                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
   if (!alerts) return null;
 
@@ -1262,7 +1313,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
 
   const sections = [
     { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#dc2626', items: alerts.delayed || [] },
-    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#d97706', items: alerts.at_risk || [] },
+    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#f59e0b', items: alerts.at_risk || [] },
     { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
   ];
@@ -1643,9 +1694,6 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
               <div className="drawer-section-title">기본 정보</div>
               <div className="info-grid">
                 {[
-                  { label: '품명', val: detail.품명 },
-                  { label: '모델명', val: detail.모델명 },
-                  { label: '수량', val: `${detail.수량} EA` },
                   { label: '시스템', val: detail.시스템명 },
                   { label: '구분', val: detail.구분 },
                   { label: '비고', val: detail.비고 || '—' },
