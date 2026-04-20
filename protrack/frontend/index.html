@@ -219,13 +219,13 @@
   }
   .kpi-main-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 16px 18px; transition: box-shadow 0.2s; cursor: default;
-    border-top-width: 3px; display: flex; flex-direction: column;
-    overflow: hidden;
+    padding: 14px 16px; transition: box-shadow 0.2s; cursor: default;
+    border-top-width: 3px; display: flex; flex-direction: column; justify-content: space-between;
+    overflow: hidden; min-height: 110px;
   }
   .kpi-main-card.clickable { cursor: pointer; }
   .kpi-main-card.clickable:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-  .kpi-sub-stack { display: flex; flex-direction: column; gap: 8px; }
+  .kpi-sub-stack { display: flex; flex-direction: column; gap: 6px; }
   .kpi-sub-card {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
     padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
@@ -874,7 +874,7 @@ function StageByProcessChart({ data, onStepClick }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ch-row-gap)', flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
         {data.map((d, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
             onClick={() => onStepClick(d.step)}
@@ -956,69 +956,57 @@ function StagePie({ data, onStepClick }) {
 
 // ── Project By Stage - div 방식 ───────────────────────────────────────────────
 function ProjectByStage({ data, onStepClick }) {
-  const [mode, setMode] = React.useState('cur'); // 'cur' | 'next'
+  const [mode, setMode] = React.useState('cur');
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
   const getValue = d => mode === 'cur'
-    ? (d.avg_cur_days  != null ? d.avg_cur_days  : d.avg_delay_days)
+    ? (d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days)
     : d.avg_next_days;
 
-  const maxVal = Math.max(...data.map(d => getValue(d) || 0), 1);
-  const H = 140;
+  const visible = data.filter(d => d.project_count > 0 && getValue(d) > 0);
+  if (!visible.length) return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'var(--muted)'}}>지연 단계 없음 ✓</div>;
+
+  const vals = visible.map(d => getValue(d)).sort((a,b) => a-b);
+  const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1];
+  const maxVal = Math.max(p80, 1);
+  const H = 130;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
-      {/* 모드 토글 */}
       <div style={{ display: 'flex', gap: 4, alignSelf: 'flex-end' }}>
         {[['cur', '현단계 지연'], ['next', '다음단계 D+']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} style={{
             fontSize: 10, padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
             border: '1px solid var(--border)', fontFamily: 'var(--sans)',
             background: mode === m ? 'var(--accent)' : 'var(--surface2)',
-            color: mode === m ? '#fff' : 'var(--muted)',
-            transition: 'all 0.15s',
+            color: mode === m ? '#fff' : 'var(--muted)', transition: 'all 0.15s',
           }}>{label}</button>
         ))}
       </div>
-
-      {/* 세로 막대 그래프 */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 4, paddingBottom: 20, position: 'relative', minHeight: H }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 10, paddingBottom: 22, position: 'relative', minHeight: H }}>
         {[0.5, 1].map(r => (
-          <div key={r} style={{
-            position: 'absolute', left: 0, right: 0,
-            bottom: 20 + (H * r),
-            borderTop: '0.5px dashed var(--border)',
-          }} />
+          <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 22 + H * r, borderTop: '0.5px dashed var(--border)' }} />
         ))}
-        {data.map((d, i) => {
-          const hasCount = d.project_count > 0;
-          const val = getValue(d);
-          const avg = val != null ? Math.round(val) : null;
-          const barH = (avg && avg > 0) ? Math.round((avg / maxVal) * H) : 0;
-          const label = !hasCount ? '' : avg == null ? '' : avg > 0 ? `+${avg}` : '';
+        {visible.map((d, i) => {
+          const avg = Math.round(getValue(d));
+          const clipped = Math.min(getValue(d), maxVal * 1.2);
+          const barH = Math.max(Math.round((clipped / maxVal) * H), 4);
           return (
-            <div key={i} onClick={() => hasCount && onStepClick(d.step)}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: hasCount ? 'pointer' : 'default' }}
-              onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.75')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            <div key={i} onClick={() => onStepClick(d.step)}
+              style={{ width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', flexShrink: 0 }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700,
-                color: avg > 0 ? 'var(--accent)' : 'transparent', minHeight: 12 }}>
-                {label}
-              </div>
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)', minHeight: 13 }}>+{avg}</div>
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
                 <div style={{
-                  width: '100%', height: barH || 2,
-                  background: barH > 0 ? 'var(--accent)' : 'var(--border)',
+                  width: '100%', height: barH,
+                  background: 'var(--accent)', opacity: 'var(--ch-bar-op)',
                   borderRadius: 'var(--ch-bar-r) var(--ch-bar-r) 0 0',
-                  opacity: hasCount ? (barH > 0 ? 'var(--ch-bar-op)' : 0.3) : 0.15,
                   transition: 'height 0.4s cubic-bezier(.4,0,.2,1)',
                 }} />
               </div>
-              <div style={{ fontSize: 10, color: hasCount ? 'var(--text)' : 'var(--muted)',
-                fontWeight: hasCount ? 600 : 400, textAlign: 'center', marginTop: 2 }}>
-                {d.step}
-              </div>
+              <div style={{ fontSize: 10, color: 'var(--text)', fontWeight: 600, textAlign: 'center' }}>{d.step}</div>
             </div>
           );
         })}
@@ -1029,24 +1017,35 @@ function ProjectByStage({ data, onStepClick }) {
 
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
+  const containerRef = useRef(null);
+  const [W, setW] = useState(300);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0].contentRect.width;
+      if (w > 0) setW(Math.floor(w));
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
-  const W = 300, H = 170, PL = 20, PR = 8, PT = 16, PB = 30;
+  const H = 170, PL = 24, PR = 12, PT = 16, PB = 32;
   const cW = W - PL - PR, cH = H - PT - PB;
   const n = sorted.length;
   const maxVal = Math.max(...sorted.map(d => d.count || 0), 1);
   const avgCount = Math.round(sorted.reduce((s, d) => s + (d.count || 0), 0) / n);
   const avgY = PT + cH - (avgCount / maxVal) * cH;
   const slotW = cW / n;
-  const barW = Math.max(6, Math.min(18, Math.floor(slotW * 0.6)));
+  const barW = Math.max(6, Math.min(24, Math.floor(slotW * 0.55)));
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+    <div ref={containerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
-        {/* 가로 평균선 */}
         <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#bfdbfe" strokeWidth={0.8} strokeDasharray="3 3" />
         <text x={W-PR+1} y={avgY+3} fontSize={7} fill="#93c5fd">avg</text>
-
         {sorted.map((d, i) => {
           const cx = PL + slotW * i + slotW / 2;
           const x = cx - barW / 2;
@@ -1054,34 +1053,27 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
           const doneH = Math.max(((d.completed || 0) / maxVal) * cH, d.completed > 0 ? 2 : 0);
           const baseY = PT + cH;
           const isHov = hovered === i;
-          const showLabel = n <= 6 || i % Math.ceil(n / 6) === 0 || i === n - 1;
+          const showLabel = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
           const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
           const thisYear = d.month?.slice(0,4);
           const isNewYear = thisYear && thisYear !== prevYear;
           const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : (d.month?.slice(5) + '월');
           return (
-            <g key={i}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => onBarClick && onBarClick(d)}
-              style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+              onClick={() => onBarClick && onBarClick(d)} style={{ cursor: onBarClick ? 'pointer' : 'default' }}
             >
               {isHov && <rect x={x - 4} y={PT} width={barW + 8} height={cH} fill="rgba(37,99,235,0.05)" rx={2} />}
               {planH > 0 && <rect x={x} y={baseY - planH} width={barW} height={planH} fill="#3b82f6" opacity={isHov ? 0.4 : 0.28} rx={1} />}
               {doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={isHov ? 0.9 : 0.75} rx={1} />}
-              {d.count > 0 && !isHov && (
-                <text x={cx} y={baseY - planH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{d.count}</text>
-              )}
-              {showLabel && (
-                <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
-                  fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
-                  fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>
-              )}
+              {d.count > 0 && !isHov && <text x={cx} y={baseY - planH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{d.count}</text>}
+              {showLabel && <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
+                fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
+                fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>}
               {isHov && (
                 <g>
-                  <rect x={Math.min(cx - 40, W - 84)} y={baseY - planH - 42} width={80} height={36} fill="#0f172a" rx={3} opacity={0.92} />
-                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
-                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
+                  <rect x={Math.min(cx - 40, W - 88)} y={baseY - planH - 42} width={84} height={36} fill="#0f172a" rx={3} opacity={0.92} />
+                  <text x={Math.min(cx, W - 46)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
+                  <text x={Math.min(cx, W - 46)} y={baseY - planH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
                 </g>
               )}
             </g>
@@ -1089,8 +1081,8 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
         })}
         <rect x={PL} y={H - PB + 18} width={7} height={5} fill="#1e40af" opacity={0.75} rx={1}/>
         <text x={PL + 9} y={H - PB + 23} fontSize={7} fill="#94a3b8">납품완료</text>
-        <rect x={PL + 44} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
-        <text x={PL + 53} y={H - PB + 23} fontSize={7} fill="#94a3b8">출고예정</text>
+        <rect x={PL + 48} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
+        <text x={PL + 57} y={H - PB + 23} fontSize={7} fill="#94a3b8">출고예정</text>
       </svg>
     </div>
   );
@@ -1106,7 +1098,7 @@ function StatusDistribution({ data, onBarClick }) {
   ];
   const total = data.total;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 'var(--ch-row-gap)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
       {items.map((item, i) => {
         const pct = Math.round(item.val / total * 100);
         return (
@@ -1312,7 +1304,7 @@ function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
       {sections.map(s => (
         <div key={s.key}
           onClick={() => s.items.length > 0 && onModalOpen({ title: s.label, items: s.items })}
