@@ -533,14 +533,24 @@ class DataManager:
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
     def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
+        """지연 TOP5: 항상 요구납기일 기준 지연일수로 정렬 (전역 납기기준 필터 무관)"""
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
-        df = apply_date_range(df, date_col, date_from, date_to)
+        # 요구납기일이 있는 건 중 지연 상태만 추출
+        today = pd.Timestamp.now()
         delayed = df[df['_status'] == '지연'].copy()
-        delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
+        # 요구납기일 기준 지연일수 재계산 (전역 날짜필터와 무관하게 고정)
+        def due_delay(row):
+            due = row.get('요구납기일')
+            if due is None or pd.isna(due):
+                return 0
+            return max(0, (today - pd.Timestamp(due)).days)
+        delayed['_due_delay'] = delayed.apply(due_delay, axis=1)
+        delayed = delayed[delayed['_due_delay'] > 0]
+        delayed = delayed.sort_values('_due_delay', ascending=False).head(limit)
         result = []
         for _, row in delayed.iterrows():
             result.append({
@@ -550,7 +560,7 @@ class DataManager:
                 "프로젝트": row.get('프로젝트', ''),
                 "시스템명": row.get('시스템명', ''),
                 "_current_step": row.get('_current_step', ''),
-                "_delay_days": int(row.get('_delay_days', 0)),
+                "_delay_days": int(row.get('_due_delay', 0)),
                 "_progress": int(row.get('_progress', 0)),
                 "요구납기일": safe_date(row.get('요구납기일')),
             })
@@ -636,7 +646,7 @@ class DataManager:
         }
 
     def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
-        """월별 출고예정(요구납기일) + 납품완료(최종납기일) 건수"""
+        """월별 출고예정(date_col) + 납품완료(최종납기일) 건수 및 상세"""
         if self.df.empty or date_col not in self.df.columns:
             if '요구납기일' not in self.df.columns:
                 return []
@@ -647,12 +657,25 @@ class DataManager:
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
 
+        def row_brief(row):
+            return {
+                "수주번호": row.get('수주번호', ''),
+                "ordseq": int(row.get('ordseq', 0)),
+                "업체명": row.get('업체명', ''),
+                "프로젝트": row.get('프로젝트', ''),
+                "시스템명": row.get('시스템명', ''),
+                "_current_step": row.get('_current_step', ''),
+                "_progress": int(row.get('_progress', 0)),
+                "요구납기일": safe_date(row.get('요구납기일')),
+                "최종납기일": safe_date(row.get('최종납기일')),
+            }
+
         # 출고예정: date_col 기준 + 날짜 범위
-        df = apply_date_range(df, date_col, date_from, date_to)
-        planned_df = df[df[date_col].notna()].copy()
+        df_filtered = apply_date_range(df, date_col, date_from, date_to) if (date_from or date_to) else df
+        planned_df = df_filtered[df_filtered[date_col].notna()].copy()
         planned_df['month'] = planned_df[date_col].dt.to_period('M').astype(str)
 
-        # 납품완료: 최종납기일(최종납기일) 기준
+        # 납품완료: 최종납기일 기준
         completed_df = pd.DataFrame()
         if '최종납기일' in df.columns:
             completed_df = df[df['최종납기일'].notna()].copy()
@@ -664,16 +687,17 @@ class DataManager:
 
         result = []
         for month in sorted(months):
-            planned_cnt = int((planned_df['month'] == month).sum())
-            completed_cnt = int((completed_df['month'] == month).sum()) if not completed_df.empty else 0
+            planned_rows = planned_df[planned_df['month'] == month]
+            completed_rows = completed_df[completed_df['month'] == month] if not completed_df.empty else pd.DataFrame()
             result.append({
                 'month': month,
-                'count': planned_cnt,
-                'completed': completed_cnt,
+                'count': len(planned_rows),
+                'completed': len(completed_rows),
+                'planned_items': [row_brief(r) for _, r in planned_rows.iterrows()],
+                'completed_items': [row_brief(r) for _, r in completed_rows.iterrows()],
             })
         result.sort(key=lambda x: x['month'])
         return result[-12:]
-
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
             return []
