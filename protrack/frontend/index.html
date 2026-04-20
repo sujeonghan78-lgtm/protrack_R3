@@ -259,9 +259,6 @@
     grid-template-columns: minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);
     gap: 14px;
     align-items: stretch;
-    /* 뷰포트 높이 - topbar(58px) - content padding(32px) - KPI영역(~130px) - gap(28px) */
-    grid-template-rows: calc(100vh - 58px - 32px - 130px - 28px);
-    min-height: 320px;
   }
   .chart-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
@@ -275,8 +272,8 @@
   /* status distribution bars */
   .sbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .sbar-label { width: 38px; font-size: 11px; text-align: right; flex-shrink: 0; font-weight: 600; }
-  .sbar-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
-  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 8px; }
+  .sbar-track { flex: 1; height: 18px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
+  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 8px; opacity: 0.85; }
   .sbar-count { font-size: 10px; font-weight: 700; color: #fff; font-family: var(--mono); }
   .sbar-pct { width: 32px; font-size: 11px; font-family: var(--mono); font-weight: 700; text-align: right; flex-shrink: 0; }
 
@@ -292,10 +289,10 @@
     border-radius: 6px; padding: 4px 7px; font-family: var(--mono);
     font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
-  .delay-badge.critical { background: rgba(185,28,28,0.12); color: #b91c1c; }
-  .delay-badge.high     { background: rgba(220,38,38,0.09); color: #dc2626; }
-  .delay-badge.medium   { background: rgba(217,119,6,0.1);  color: #b45309; }
-  .delay-badge.low      { background: rgba(217,119,6,0.07); color: #d97706; }
+  .delay-badge.critical { background: rgba(220,38,38,0.1); color: #b91c1c; }
+  .delay-badge.high     { background: rgba(220,38,38,0.07); color: #dc2626; }
+  .delay-badge.medium   { background: rgba(100,116,139,0.1); color: #475569; }
+  .delay-badge.low      { background: rgba(100,116,139,0.07); color: #64748b; }
   .delay-info { flex: 1; min-width: 0; }
   .delay-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .delay-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
@@ -763,7 +760,7 @@ function KpiCards({ kpi, onCardClick }) {
           style={{ borderTopColor: c.color }}
         >
           <div className="kpi-top" style={{ marginBottom: 6 }}>
-            <div className="kpi-icon" style={{ background: `${c.color}14`, color: c.color }}>{c.icon}</div>
+            <div className="kpi-icon" style={{ background: `${c.color}0d`, color: c.color }}>{c.icon}</div>
             {c.pct !== null && (
               <span className="kpi-badge" style={{ background: `${c.color}10`, color: c.color }}>{c.pct}%</span>
             )}
@@ -796,10 +793,12 @@ function StageByProcessChart({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
   const systems = data[0]?.by_system?.map(s => s.system) || [];
-  const colors = data[0]?.by_system?.map(s => s.color) || [];
+  // 모노톤 파랑 팔레트 (색수 최소화)
+  const MONO = ['#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe','#eff6ff'];
+  const colors = systems.map((_, i) => MONO[i % MONO.length]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         {systems.map((sys, i) => (
           <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
@@ -819,7 +818,7 @@ function StageByProcessChart({ data, onStepClick }) {
               {d.by_system.map((s, si) => (
                 s.count > 0 && (
                   <div key={si} title={`${s.system}: ${s.count}건`}
-                    style={{ width: `${d.project_count > 0 ? (s.count / d.project_count) * d.pct : 0}%`, height: '100%', background: s.color, opacity: 0.85 }}
+                    style={{ width: `${d.project_count > 0 ? (s.count / d.project_count) * d.pct : 0}%`, height: '100%', background: colors[si] || s.color, opacity: 0.9 }}
                   />
                 )
               ))}
@@ -1054,7 +1053,7 @@ function DueSoonPanel({ alerts, onSelect }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {sections.map(s => (
           <div key={s.key} onClick={() => s.items.length > 0 && setModal(s.key)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid var(--border2)', borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default' }}
             onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.background = `${s.color}08`)}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
           >
@@ -1164,7 +1163,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
         {sections.map(s => (
           <div key={s.key}
             onClick={() => s.items.length > 0 && setModal(s.key)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: `3px solid ${s.color}`, borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid var(--border2)', borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s' }}
             onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.background = `${s.color}08`)}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
           >
@@ -1733,59 +1732,51 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
       <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
 
       <div className="dash-grid">
-        {/* 좌측: Stage Progress + 단계별 현황 - flex 컬럼으로 분리 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          <div className="chart-card" style={{ flex: '0 0 auto' }}>
+        {/* 좌측: Stage Progress + 단계별 현황 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
             <div className="chart-title">
               ▤ Stage Progress
               <span className="chart-badge">클릭 시 목록</span>
             </div>
             <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
           </div>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }}>
-            <div className="chart-title" style={{ flexShrink: 0 }}>≡ 단계별 현황</div>
+          <div className="chart-card">
+            <div className="chart-title">≡ 단계별 현황</div>
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
           </div>
         </div>
 
         {/* 중앙: 상태 분포 + 월별 출고예정 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
             <div className="chart-title">
               ● 전체 상태 분포
               <span className="chart-badge">클릭 시 목록</span>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
-            </div>
+            <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
           </div>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div className="chart-card">
             <div className="chart-title">
               📈 월별 출고예정
               <span className="chart-badge">요구납기일 기준</span>
             </div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              <MonthlyDeliveryChart data={monthlyDelivery} />
-            </div>
+            <MonthlyDeliveryChart data={monthlyDelivery} />
           </div>
         </div>
 
         {/* 우측: 지연 TOP5 + Due Soon */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="chart-card">
             <div className="chart-title">
-              <span style={{ color: 'var(--danger)' }}>⚠ 지연 TOP 5</span>
+              ⚠ 지연 TOP 5
               <span className="chart-badge" style={{ color:'var(--danger)', borderColor:'rgba(220,38,38,0.2)' }}>지연일수 기준</span>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
-            </div>
+            <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
           </div>
-          <div className="chart-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '14px 16px' }}>
+          <div className="chart-card">
             <div className="chart-title">📅 이달 일정</div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
-            </div>
+            <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} />
           </div>
         </div>
       </div>
