@@ -329,7 +329,7 @@
   }
   .due-item.clickable { cursor: pointer; }
   .due-item.clickable:hover { background: var(--surface); }
-  .due-count { font-size: 18px; font-weight: 900; font-family: var(--mono); }
+  .due-count { font-size: 15px; font-weight: 900; font-family: var(--mono); }
 
   /* ─── Table ──────────────────────────────────────────── */
   .table-card {
@@ -998,14 +998,14 @@ function ProjectByStage({ data, onStepClick }) {
               onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.7')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? 'var(--accent)' : 'transparent', minHeight: 13 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#1e40af' : 'transparent', minHeight: 13 }}>
                 {avg > 0 ? `+${avg}` : ''}
               </div>
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                 <div style={{
                   width: 'min(24px, 80%)',
                   height: barH || (hasCount ? 2 : 0),
-                  background: barH > 0 ? 'var(--accent)' : 'var(--border)',
+                  background: barH > 0 ? '#1e40af' : 'var(--border)',
                   borderRadius: 'var(--ch-bar-r) var(--ch-bar-r) 0 0',
                   opacity: hasCount ? (barH > 0 ? 'var(--ch-bar-op)' : 0.25) : 0.1,
                   transition: 'height 0.45s cubic-bezier(.4,0,.2,1)',
@@ -1024,6 +1024,7 @@ function ProjectByStage({ data, onStepClick }) {
 
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
+  const [mode, setMode] = useState('all'); // 'all' | 'done' | 'plan'
   const containerRef = useRef(null);
   const [W, setW] = useState(300);
 
@@ -1039,58 +1040,82 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
-  const H = 170, PL = 24, PR = 12, PT = 16, PB = 32;
+  const H = 155, PL = 24, PR = 12, PT = 20, PB = 32;
   const cW = W - PL - PR, cH = H - PT - PB;
   const n = sorted.length;
-  const maxVal = Math.max(...sorted.map(d => d.count || 0), 1);
-  const avgCount = Math.round(sorted.reduce((s, d) => s + (d.count || 0), 0) / n);
+
+  const getVal = d => mode === 'all' ? Math.max(d.count || 0, d.completed || 0)
+    : mode === 'done' ? (d.completed || 0)
+    : (d.count || 0);
+
+  const maxVal = Math.max(...sorted.map(d => getVal(d)), 1);
+  const avgCount = Math.round(sorted.reduce((s, d) => s + getVal(d), 0) / n);
   const avgY = PT + cH - (avgCount / maxVal) * cH;
   const slotW = cW / n;
   const barW = Math.max(6, Math.min(24, Math.floor(slotW * 0.55)));
 
   return (
-    <div ref={containerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
-        <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#bfdbfe" strokeWidth={0.8} strokeDasharray="3 3" />
-        <text x={W-PR+1} y={avgY+3} fontSize={7} fill="#93c5fd">avg</text>
-        {sorted.map((d, i) => {
-          const cx = PL + slotW * i + slotW / 2;
-          const x = cx - barW / 2;
-          const planH = Math.max(((d.count || 0) / maxVal) * cH, d.count > 0 ? 2 : 0);
-          const doneH = Math.max(((d.completed || 0) / maxVal) * cH, d.completed > 0 ? 2 : 0);
-          const baseY = PT + cH;
-          const isHov = hovered === i;
-          const showLabel = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
-          const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
-          const thisYear = d.month?.slice(0,4);
-          const isNewYear = thisYear && thisYear !== prevYear;
-          const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : (d.month?.slice(5) + '월');
-          return (
-            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-              onClick={() => onBarClick && onBarClick(d)} style={{ cursor: onBarClick ? 'pointer' : 'default' }}
-            >
-              {isHov && <rect x={x - 4} y={PT} width={barW + 8} height={cH} fill="rgba(37,99,235,0.05)" rx={2} />}
-              {planH > 0 && <rect x={x} y={baseY - planH} width={barW} height={planH} fill="#3b82f6" opacity={isHov ? 0.4 : 0.28} rx={1} />}
-              {doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={isHov ? 0.9 : 0.75} rx={1} />}
-              {d.count > 0 && !isHov && <text x={cx} y={baseY - planH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{d.count}</text>}
-              {showLabel && <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
-                fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
-                fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>}
-              {isHov && (
-                <g>
-                  <rect x={Math.min(cx - 40, W - 88)} y={baseY - planH - 42} width={84} height={36} fill="#0f172a" rx={3} opacity={0.92} />
-                  <text x={Math.min(cx, W - 46)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
-                  <text x={Math.min(cx, W - 46)} y={baseY - planH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
-                </g>
-              )}
-            </g>
-          );
-        })}
-        <rect x={PL} y={H - PB + 18} width={7} height={5} fill="#1e40af" opacity={0.75} rx={1}/>
-        <text x={PL + 9} y={H - PB + 23} fontSize={7} fill="#94a3b8">납품완료</text>
-        <rect x={PL + 48} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
-        <text x={PL + 57} y={H - PB + 23} fontSize={7} fill="#94a3b8">출고예정</text>
-      </svg>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+      <div style={{ display: 'flex', gap: 3, alignSelf: 'flex-start' }}>
+        {[['all','전체'],['done','출고완료'],['plan','출고예정']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            fontSize: 10, padding: '2px 7px', borderRadius: 20, cursor: 'pointer',
+            border: '1px solid var(--border)', fontFamily: 'var(--sans)',
+            background: mode === m ? 'var(--accent)' : 'var(--surface2)',
+            color: mode === m ? '#fff' : 'var(--muted)', transition: 'all 0.15s',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div ref={containerRef} style={{ flex: 1, width: '100%' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+          <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#bfdbfe" strokeWidth={0.8} strokeDasharray="3 3" />
+          <text x={W-PR+1} y={avgY+3} fontSize={7} fill="#93c5fd">avg</text>
+          {sorted.map((d, i) => {
+            const cx = PL + slotW * i + slotW / 2;
+            const x = cx - barW / 2;
+            const val = getVal(d);
+            const valH = Math.max((val / maxVal) * cH, val > 0 ? 2 : 0);
+            const doneH = Math.max(((d.completed || 0) / maxVal) * cH, d.completed > 0 ? 2 : 0);
+            const baseY = PT + cH;
+            const isHov = hovered === i;
+            const showLabel = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
+            const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
+            const thisYear = d.month?.slice(0,4);
+            const isNewYear = thisYear && thisYear !== prevYear;
+            const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : (d.month?.slice(5) + '월');
+            return (
+              <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+                onClick={() => onBarClick && onBarClick(d)} style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+              >
+                {isHov && <rect x={x - 4} y={PT} width={barW + 8} height={cH} fill="rgba(37,99,235,0.05)" rx={2} />}
+                {/* 전체/예정: 연한 바 */}
+                {mode !== 'done' && valH > 0 && <rect x={x} y={baseY - valH} width={barW} height={valH} fill="#3b82f6" opacity={isHov ? 0.4 : 0.28} rx={1} />}
+                {/* 전체/완료: 진한 바 */}
+                {mode !== 'plan' && doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={isHov ? 0.9 : 0.82} rx={1} />}
+                {/* 출고완료만 모드: 단색 */}
+                {mode === 'done' && valH > 0 && <rect x={x} y={baseY - valH} width={barW} height={valH} fill="#1e40af" opacity={isHov ? 0.9 : 0.82} rx={1} />}
+                {val > 0 && !isHov && <text x={cx} y={baseY - valH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{val}</text>}
+                {showLabel && <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
+                  fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
+                  fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>}
+                {isHov && (
+                  <g>
+                    <rect x={Math.min(cx - 40, W - 88)} y={baseY - valH - 42} width={84} height={36} fill="#0f172a" rx={3} opacity={0.92} />
+                    <text x={Math.min(cx, W - 46)} y={baseY - valH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
+                    <text x={Math.min(cx, W - 46)} y={baseY - valH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+          {mode === 'all' && <>
+            <rect x={PL} y={H - PB + 18} width={7} height={5} fill="#1e40af" opacity={0.82} rx={1}/>
+            <text x={PL + 9} y={H - PB + 23} fontSize={7} fill="#94a3b8">납품완료</text>
+            <rect x={PL + 48} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
+            <text x={PL + 57} y={H - PB + 23} fontSize={7} fill="#94a3b8">출고예정</text>
+          </>}
+        </svg>
+      </div>
     </div>
   );
 }
@@ -1315,7 +1340,7 @@ function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
       {sections.map(s => (
         <div key={s.key}
           onClick={() => s.items.length > 0 && onModalOpen({ title: s.label, items: s.items })}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--ch-row-py) var(--ch-row-px)', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid var(--border2)', borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'background 0.15s' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderLeft: '3px solid var(--border2)', borderRadius: 8, cursor: s.items.length > 0 ? 'pointer' : 'default', transition: 'background 0.15s' }}
           onMouseEnter={e => s.items.length > 0 && (e.currentTarget.style.background = `${s.color}10`)}
           onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
         >
@@ -2004,7 +2029,6 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
         <div className="chart-card">
           <div className="chart-title">
             ⚠ 지연 TOP 5
-            <span className="chart-badge">지연일수 기준</span>
           </div>
           <div className="card-body">
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
@@ -2013,7 +2037,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
         {/* 행2-열1: 단계별 현황 */}
         <div className="chart-card">
-          <div className="chart-title">≡ 단계별 지연 현황<span className="chart-badge">요구납기일 기준</span></div>
+          <div className="chart-title">≡ 단계별 지연 현황</div>
           <div className="card-body">
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
           </div>
@@ -2023,7 +2047,6 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
         <div className="chart-card">
           <div className="chart-title">
             📈 월별 출고예정
-            <span className="chart-badge">{dueDateCol} 기준</span>
           </div>
           <div className="card-body" style={{ justifyContent: 'center' }}>
             <MonthlyDeliveryChart data={monthlyDelivery} onBarClick={setMonthlyModal} />
