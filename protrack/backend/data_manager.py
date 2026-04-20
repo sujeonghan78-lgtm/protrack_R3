@@ -329,6 +329,37 @@ class DataManager:
                 d[col] = val
         return d
 
+    def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="") -> pd.DataFrame:
+        df = self.df.copy()
+
+        if search:
+            mask = (
+                df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
+                df['업체명'].astype(str).str.contains(search, case=False, na=False) |
+                df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
+            )
+            if '시스템명' in df.columns:
+                mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
+            if '품명' in df.columns:
+                mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
+            df = df[mask]
+
+        if status_filter and status_filter != "전체":
+            df = df[df['_status'] == status_filter]
+
+        if company_filter and company_filter != "전체":
+            df = df[df['업체명'] == company_filter]
+
+        if step_filter and step_filter != "전체":
+            df = df[df['_current_step'] == step_filter]
+
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['시스템명'].isin(pf_list)]
+
+        return df
+
     def _refresh_dynamic(self, df: pd.DataFrame) -> pd.DataFrame:
         """조회 시점의 오늘 날짜로 상태·지연일수를 재계산."""
         df = df.copy()
