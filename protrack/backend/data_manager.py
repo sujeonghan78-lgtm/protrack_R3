@@ -319,8 +319,10 @@ class DataManager:
 
         return df
 
-    def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="") -> Dict:
+    def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="", date_col="", date_from="", date_to="") -> Dict:
         df = self.get_filtered_df(search, status_filter, company_filter, step_filter, product_filter)
+        if date_col and (date_from or date_to):
+            df = apply_date_range(df, date_col, date_from, date_to)
 
         total = len(df)
         total_pages = max(1, math.ceil(total / page_size))
@@ -554,7 +556,7 @@ class DataManager:
             })
         return result
 
-    def get_stage_by_process(self, product_filter: str = "") -> List[Dict]:
+    def get_stage_by_process(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "") -> List[Dict]:
         """공정 단계별 현재 건수 (누적 바차트용)"""
         if self.df.empty:
             return []
@@ -564,6 +566,8 @@ class DataManager:
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
 
+        if date_col and (date_from or date_to):
+            df = apply_date_range(df, date_col, date_from, date_to)
         total_count = len(df)
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
         system_colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899']
