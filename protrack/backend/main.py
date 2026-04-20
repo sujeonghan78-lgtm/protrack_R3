@@ -87,8 +87,8 @@ async def get_status_distribution(product_filter: str = "", current_user: User =
 
 
 @app.get("/api/dashboard/urgent-delays")
-async def get_urgent_delays(current_user: User = Depends(get_current_user)):
-    return dm.get_urgent_delays(limit=5)
+async def get_urgent_delays(product_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_urgent_delays(limit=5, product_filter=product_filter)
 
 
 @app.get("/api/dashboard/company-distribution")
@@ -97,8 +97,8 @@ async def get_company_distribution(product_filter: str = "", current_user: User 
 
 
 @app.get("/api/dashboard/monthly-delivery")
-async def get_monthly_delivery(product_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_monthly_delivery(product_filter=product_filter)
+async def get_monthly_delivery(product_filter: str = "", date_col: str = "요구납기일", current_user: User = Depends(get_current_user)):
+    return dm.get_monthly_delivery(product_filter=product_filter, date_col=date_col)
 
 
 @app.get("/api/dashboard/monthly-trend")
@@ -163,7 +163,7 @@ async def get_projects(current_user: User = Depends(get_current_user)):
 
 @app.get("/api/filters/products")
 async def get_products(current_user: User = Depends(get_current_user)):
-    return dm.get_unique_values("제품군")
+    return dm.get_unique_values("시스템명")
 
 
 # ─── Excel Upload ────────────────────────────────────────────────────────────
