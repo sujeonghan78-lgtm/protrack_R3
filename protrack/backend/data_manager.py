@@ -581,18 +581,27 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 해당 단계 건들의 평균 지연일수 (요구납기일 기준)
+            # 단계별 예상일 vs 실적일 기준 평균 지연일수
+            # 실적 있음: 실적일 - 예상일 / 실적 없음: 오늘 - 예상일
             avg_delay = None
-            if step_count > 0 and '요구납기일' in step_df.columns:
+            step_map = STEP_DATE_MAP.get(step, {})
+            planned_col = step_map.get('planned')
+            actual_col = step_map.get('actual')
+            if step_count > 0 and planned_col and planned_col in step_df.columns:
                 today = pd.Timestamp.now()
-                delays = []
+                diffs = []
                 for _, r in step_df.iterrows():
-                    due = r.get('요구납기일')
-                    if due is not None and pd.notna(due):
-                        d = (today - pd.Timestamp(due)).days
-                        if d > 0:
-                            delays.append(d)
-                avg_delay = round(sum(delays) / len(delays)) if delays else 0
+                    planned = r.get(planned_col)
+                    if planned is None or pd.isna(planned):
+                        continue
+                    actual = r.get(actual_col) if actual_col else None
+                    if actual is not None and pd.notna(actual):
+                        diff = (pd.Timestamp(actual) - pd.Timestamp(planned)).days
+                    else:
+                        diff = (today - pd.Timestamp(planned)).days
+                    if diff > 0:  # 지연 건만
+                        diffs.append(diff)
+                avg_delay = round(sum(diffs) / len(diffs)) if diffs else 0
             result.append({
                 "step": step,
                 "total": total_count,
