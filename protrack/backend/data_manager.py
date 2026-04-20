@@ -362,8 +362,9 @@ class DataManager:
             return False
 
         for col, val in updates.items():
-            if col in self.df.columns:
-                self.df.loc[mask, col] = val
+            if col not in self.df.columns:
+                self.df[col] = None  # 컬럼 없으면 신규 추가
+            self.df.loc[mask, col] = val
 
         for idx in self.df[mask].index:
             row = self.df.loc[idx]
