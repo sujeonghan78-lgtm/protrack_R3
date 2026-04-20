@@ -943,34 +943,76 @@ function StagePie({ data, onStepClick }) {
 
 // ── Project By Stage - div 방식 ───────────────────────────────────────────────
 function ProjectByStage({ data, onStepClick }) {
+  const [mode, setMode] = React.useState('cur'); // 'cur' | 'next'
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
-  const maxDelay = Math.max(...data.map(d => d.avg_delay_days || 0), 1);
+
+  const getValue = d => mode === 'cur'
+    ? (d.avg_cur_days  != null ? d.avg_cur_days  : d.avg_delay_days)
+    : d.avg_next_days;
+
+  const maxVal = Math.max(...data.map(d => getValue(d) || 0), 1);
+  const H = 140;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
-      {data.map((d, i) => {
-        const hasCount = d.project_count > 0;
-        const avg = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
-        const barPct = (avg && avg > 0) ? Math.round(avg / maxDelay * 100) : 0;
-        const barColor = '#2563eb';
-        const label = !hasCount ? '—' : avg == null ? '—' : avg > 0 ? `+${avg}일` : '정상';
-        const labelColor = avg > 0 ? 'var(--accent)' : 'var(--muted)';
-        return (
-          <div key={i}
-            onClick={() => hasCount && onStepClick(d.step)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s', background: '' }}
-            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.05)')}
-            onMouseLeave={e => (e.currentTarget.style.background = '')}
-          >
-            <div style={{ width: 36, fontSize: 11, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
-            <div style={{ flex: 1, height: 12, background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' }}>
-              {avg > 0 && <div style={{ width: `${barPct}%`, height: '100%', background: barColor, borderRadius: 3, opacity: 0.8, transition: 'width 0.4s' }} />}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
+      {/* 모드 토글 */}
+      <div style={{ display: 'flex', gap: 4, alignSelf: 'flex-end' }}>
+        {[['cur', '현단계 지연'], ['next', '다음단계 D+']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            fontSize: 10, padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
+            border: '1px solid var(--border)', fontFamily: 'var(--sans)',
+            background: mode === m ? 'var(--accent)' : 'var(--surface2)',
+            color: mode === m ? '#fff' : 'var(--muted)',
+            transition: 'all 0.15s',
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* 세로 막대 그래프 */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 4, paddingBottom: 20, position: 'relative', minHeight: H }}>
+        {/* Y축 기준선 */}
+        {[0.5, 1].map(r => (
+          <div key={r} style={{
+            position: 'absolute', left: 0, right: 0,
+            bottom: 20 + (H * r),
+            borderTop: '0.5px dashed var(--border)',
+          }} />
+        ))}
+        {data.map((d, i) => {
+          const hasCount = d.project_count > 0;
+          const val = getValue(d);
+          const avg = val != null ? Math.round(val) : null;
+          const barH = (avg && avg > 0) ? Math.round((avg / maxVal) * H) : 0;
+          const label = !hasCount ? '' : avg == null ? '' : avg > 0 ? `+${avg}` : '';
+          return (
+            <div key={i} onClick={() => hasCount && onStepClick(d.step)}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: hasCount ? 'pointer' : 'default' }}
+              onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.75')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              {/* 값 레이블 */}
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700,
+                color: avg > 0 ? 'var(--accent)' : 'transparent', minHeight: 12 }}>
+                {label}
+              </div>
+              {/* 막대 */}
+              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
+                <div style={{
+                  width: '100%', height: barH || 2,
+                  background: barH > 0 ? 'var(--accent)' : 'var(--border)',
+                  borderRadius: '3px 3px 0 0', opacity: hasCount ? (barH > 0 ? 0.85 : 0.3) : 0.15,
+                  transition: 'height 0.4s cubic-bezier(.4,0,.2,1)',
+                }} />
+              </div>
+              {/* 단계명 */}
+              <div style={{ fontSize: 10, color: hasCount ? 'var(--text)' : 'var(--muted)',
+                fontWeight: hasCount ? 600 : 400, textAlign: 'center', marginTop: 2 }}>
+                {d.step}
+              </div>
             </div>
-            <div style={{ width: 52, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: avg > 0 ? 700 : 400, color: labelColor, textAlign: 'right', flexShrink: 0 }}>
-              {label}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1962,7 +2004,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
         {/* 행2-열1: 단계별 현황 */}
         <div className="chart-card">
-          <div className="chart-title">≡ 단계별 평균 지연<span className="chart-badge">요구납기일 기준</span></div>
+          <div className="chart-title">≡ 단계별 지연 현황<span className="chart-badge">요구납기일 기준</span></div>
           <div className="card-body">
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
           </div>
