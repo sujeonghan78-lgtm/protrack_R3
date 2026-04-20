@@ -688,32 +688,25 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 단계별 평균 지연: 실적 없는 진행 중인 건만 (오늘 - 예상일, 양수만)
-            avg_delay = None
-            step_map = STEP_DATE_MAP.get(step, {})
-            planned_col = step_map.get("planned")
-            actual_col  = step_map.get("actual")
-            if step_count > 0 and planned_col and planned_col in df.columns:
-                today = pd.Timestamp.now()
-                diffs = []
-                for _, r in step_df.iterrows():
-                    actual = r.get(actual_col) if actual_col else None
-                    if actual is not None and pd.notna(actual):
-                        continue
-                    planned = r.get(planned_col)
-                    if planned is None or pd.isna(planned):
-                        continue
-                    diff = (today - pd.Timestamp(planned)).days
-                    if diff > 0:
-                        diffs.append(diff)
-                avg_delay = round(sum(diffs) / len(diffs)) if diffs else 0
+            # 모드1: 현단계 지연 평균 — _cur_diff > 0인 건들의 평균 (실적있든 없든)
+            cur_diffs = [r['_cur_diff'] for _, r in step_df.iterrows()
+                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0]
+            avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
+
+            # 모드2: 다음단계 D- 평균 — _next_diff > 0인 건들의 평균 (이미 D- 초과)
+            next_diffs = [r['_next_diff'] for _, r in step_df.iterrows()
+                          if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff'])) and r['_next_diff'] > 0]
+            avg_next = round(sum(next_diffs) / len(next_diffs)) if next_diffs else None
+
             result.append({
                 "step": step,
                 "total": total_count,
                 "project_count": step_count,
                 "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
                 "by_system": by_system,
-                "avg_delay_days": avg_delay,
+                "avg_delay_days": avg_cur,       # 현단계 지연 (기존 호환)
+                "avg_cur_days": avg_cur,          # 현단계 지연
+                "avg_next_days": avg_next,        # 다음단계 D- 초과
             })
         return result
 
