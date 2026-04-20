@@ -957,7 +957,7 @@ function ProjectByStage({ data, onStepClick }) {
   );
 }
 
-function MonthlyDeliveryChart({ data }) {
+function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const W = 300, H = 170, PL = 20, PR = 8, PT = 16, PB = 30;
@@ -983,12 +983,17 @@ function MonthlyDeliveryChart({ data }) {
           const doneH = Math.max(((d.completed || 0) / maxVal) * cH, d.completed > 0 ? 2 : 0);
           const baseY = PT + cH;
           const isHov = hovered === i;
-          // 레이블: 데이터 적으면 전부, 많으면 3개월마다
           const showLabel = n <= 6 || i % Math.ceil(n / 6) === 0 || i === n - 1;
           return (
-            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
-              {planH > 0 && <rect x={x} y={baseY - planH} width={barW} height={planH} fill="#3b82f6" opacity={0.28} rx={1} />}
-              {doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={0.75} rx={1} />}
+            <g key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => onBarClick && onBarClick(d)}
+              style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+            >
+              {isHov && <rect x={x - 4} y={PT} width={barW + 8} height={cH} fill="rgba(37,99,235,0.05)" rx={2} />}
+              {planH > 0 && <rect x={x} y={baseY - planH} width={barW} height={planH} fill="#3b82f6" opacity={isHov ? 0.4 : 0.28} rx={1} />}
+              {doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={isHov ? 0.9 : 0.75} rx={1} />}
               {d.count > 0 && !isHov && (
                 <text x={cx} y={baseY - planH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{d.count}</text>
               )}
@@ -997,16 +1002,14 @@ function MonthlyDeliveryChart({ data }) {
               )}
               {isHov && (
                 <g>
-                  <rect x={Math.min(cx - 36, W - 76)} y={baseY - planH - 36} width={72} height={30} fill="#0f172a" rx={3} opacity={0.92} />
-                  <text x={Math.min(cx, W - 40)} y={baseY - planH - 22} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(5)}월</text>
-                  <text x={Math.min(cx, W - 40)} y={baseY - planH - 11} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
+                  <rect x={Math.min(cx - 40, W - 84)} y={baseY - planH - 42} width={80} height={36} fill="#0f172a" rx={3} opacity={0.92} />
+                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(5)}월 · 클릭</text>
+                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
                 </g>
               )}
             </g>
           );
         })}
-
-        {/* 범례 */}
         <rect x={PL} y={H - PB + 18} width={7} height={5} fill="#1e40af" opacity={0.75} rx={1}/>
         <text x={PL + 9} y={H - PB + 23} fontSize={7} fill="#94a3b8">납품완료</text>
         <rect x={PL + 44} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
@@ -1054,6 +1057,84 @@ function StatusDistribution({ data, onBarClick }) {
 }
 
 
+// ── Monthly Modal (월별 출고 상세 팝업) ──────────────────────────────────────
+function MonthlyModal({ monthData, onClose, onSelect }) {
+  const [tab, setTab] = useState('planned'); // 'planned' | 'completed'
+  if (!monthData) return null;
+
+  const items = tab === 'planned' ? (monthData.planned_items || []) : (monthData.completed_items || []);
+  const tabLabel = { planned: `출고예정 (${monthData.count}건)`, completed: `납품완료 (${monthData.completed}건)` };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ width: 'min(760px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        {/* 헤더 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고 현황</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>출고예정 {monthData.count}건 · 납품완료 {monthData.completed}건</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_${tabLabel[tab]}`)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="drawer-close" onClick={onClose}>×</button>
+          </div>
+        </div>
+        {/* 탭 */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+          {['planned', 'completed'].map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: '8px 16px', fontSize: 12, fontWeight: tab === t ? 700 : 400, cursor: 'pointer',
+                color: tab === t ? 'var(--accent)' : 'var(--muted)',
+                borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
+                background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
+                fontFamily: 'var(--sans)', transition: 'color 0.15s' }}>
+              {tabLabel[t]}
+            </button>
+          ))}
+        </div>
+        {/* 테이블 */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {items.length === 0 ? (
+            <div className="empty-state">해당 항목 없음</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '14%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '18%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                  {[tab === 'planned' ? '요구납기일' : '최종납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i} onClick={() => { onSelect(item); onClose(); }}
+                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>
+                      {tab === 'planned' ? item.요구납기일 : item.최종납기일 || '—'}
+                    </td>
+                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Urgent Delays List ────────────────────────────────────────────────────────
 function delayBadgeClass(days) {
   if (days >= 300) return 'critical';
@@ -1066,9 +1147,14 @@ function UrgentDelaysList({ data, onSelect }) {
   if (!data?.length) return <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 6, paddingLeft: 2 }}>
+        요구납기일 기준 · 지연일수 내림차순
+      </div>
       {data.slice(0, 5).map((item, i) => (
         <div key={i} className="delay-item" onClick={() => onSelect(item)}>
-          <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>+{item._delay_days}일</div>
+          <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>
+            +{item._delay_days}일
+          </div>
           <div className="delay-info">
             <div className="delay-name">{item.프로젝트 || item.수주번호}</div>
             <div className="delay-meta">{item.업체명} · {item._current_step}{item.요구납기일 ? ` · ${item.요구납기일}` : ''}</div>
@@ -1080,7 +1166,6 @@ function UrgentDelaysList({ data, onSelect }) {
   );
 }
 
-// ── Due Soon Panel ────────────────────────────────────────────────────────────
 function DueSoonPanel({ alerts, onSelect }) {
   const [modal, setModal] = useState(null);
   if (!alerts) return null;
@@ -1690,6 +1775,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   const [statusDist, setStatusDist] = useState(null);
   const [urgentDelays, setUrgentDelays] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
+  const [monthlyModal, setMonthlyModal] = useState(null);
   const [kpiModal, setKpiModal] = useState(null);
   const [kpiModalItems, setKpiModalItems] = useState([]);
   const [kpiModalLoading, setKpiModalLoading] = useState(false);
@@ -1832,7 +1918,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
             <span className="chart-badge">{dueDateCol} 기준</span>
           </div>
           <div className="card-body" style={{ justifyContent: 'center' }}>
-            <MonthlyDeliveryChart data={monthlyDelivery} />
+            <MonthlyDeliveryChart data={monthlyDelivery} onBarClick={setMonthlyModal} />
           </div>
         </div>
 
@@ -1844,6 +1930,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
           </div>
         </div>
       </div>
+
+      {monthlyModal && <MonthlyModal monthData={monthlyModal} onClose={() => setMonthlyModal(null)} onSelect={setSelectedItem} />}
 
       {kpiModal && <ModalTable items={kpiModalItems} loading={kpiModalLoading} title={kpiLabelMap[kpiModal] || kpiModal} onClose={() => setKpiModal(null)} />}
       {stepModal && <ModalTable items={stepModalItems} loading={stepModalLoading} title={`${stepModal} 단계`} onClose={() => setStepModal(null)} />}
