@@ -1860,7 +1860,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   );
 }
 // ── List Tab ──────────────────────────────────────────────────────────────────
-function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, productFilter }) {
+function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(searchProp || '');
@@ -1895,6 +1895,9 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
       search: debouncedSearch, status_filter: statusFilter, company_filter: companyFilter,
       step_filter: stepFilter, sort_by: sortBy, sort_dir: sortDir,
       product_filter: Array.isArray(productFilter) ? productFilter.join(',') : (productFilter || '전체'),
+      date_col: dueDateCol !== '요구납기일' ? dueDateCol : '',
+      date_from: dateFrom,
+      date_to: dateTo,
     });
     try {
       const res = await api.get(`/api/processes?${params}`);
@@ -1902,7 +1905,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
     } finally { setLoading(false); }
   }, [page, search, statusFilter, companyFilter, stepFilter, sortBy, sortDir]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, companyFilter, stepFilter, productFilter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, companyFilter, stepFilter, productFilter, dueDateCol, dateFrom, dateTo]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleSort = (col) => {
@@ -2197,6 +2200,9 @@ function App() {
               search={searchQuery}
               onToast={showToast}
               productFilter={productFilter}
+              dueDateCol={dueDateCol}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
             />
           )}
         </div>
