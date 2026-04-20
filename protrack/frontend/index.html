@@ -19,9 +19,9 @@
     --border2:   #cbd5e1;
     --accent:    #2563eb;
     --accent2:   #2563eb;
-    --danger:    #dc2626;
-    --warn:      #d97706;
-    --success:   #16a34a;
+    --danger:    #2563eb;
+    --warn:      #2563eb;
+    --success:   #3b82f6;
     --purple:    #2563eb;
     --text:      #0f172a;
     --text2:     #475569;
@@ -243,15 +243,15 @@
   .kpi-desc { font-size: 10px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
   .bg-blue { background: rgba(59,130,246,0.15); }
-  .bg-orange { background: rgba(217,119,6,0.15); }
-  .bg-red { background: rgba(220,38,38,0.12); }
-  .bg-green { background: rgba(22,163,74,0.12); }
+  .bg-orange { background: rgba(59,130,246,0.15); }
+  .bg-red { background: rgba(37,99,235,0.1); }
+  .bg-green { background: rgba(59,130,246,0.12); }
   .text-blue { color: var(--accent); }
-  .text-orange { color: #d97706; }
-  .text-red { color: #dc2626; }
-  .text-green { color: #16a34a; }
-  .badge-green { background: rgba(22,163,74,0.12); color: #16a34a; }
-  .badge-red { background: rgba(220,38,38,0.12); color: #dc2626; }
+  .text-orange { color: #3b82f6; }
+  .text-red { color: var(--accent); }
+  .text-green { color: #3b82f6; }
+  .badge-green { background: rgba(59,130,246,0.12); color: #3b82f6; }
+  .badge-red { background: rgba(37,99,235,0.1); color: var(--accent); }
 
   /* ─── Dashboard 3-col grid ──────────────────────────── */
   .dash-grid {
@@ -301,8 +301,8 @@
     border-radius: 6px; padding: 4px 7px; font-family: var(--mono);
     font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
-  .delay-badge.critical { background: rgba(220,38,38,0.12); color: #dc2626; }
-  .delay-badge.high     { background: rgba(245,158,11,0.12); color: #d97706; }
+  .delay-badge.critical { background: rgba(37,99,235,0.1); color: #1e40af; }
+  .delay-badge.high     { background: rgba(37,99,235,0.07); color: #2563eb; }
   .delay-badge.medium   { background: rgba(100,116,139,0.1); color: #475569; }
   .delay-badge.low      { background: rgba(100,116,139,0.07); color: #64748b; }
   .delay-info { flex: 1; min-width: 0; }
@@ -793,9 +793,9 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: kpi.delayed, color: '#dc2626', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
+    { label: '지연', val: kpi.delayed, color: '#1e40af', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
       desc: '납기일 초과 항목' },
-    { label: '임박', val: kpi.at_risk, color: '#f59e0b', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
+    { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '7일 이내 납기' },
   ];
   const subCards = [
@@ -811,8 +811,7 @@ function KpiCards({ kpi, onCardClick }) {
           onClick={() => c.key && onCardClick(c.key)}
           style={{
             borderTopColor: c.color,
-            background: c.key === '지연' && kpi.delayed > 0
-              ? 'rgba(220,38,38,0.04)' : 'var(--surface)'
+            background: 'var(--surface)'
           }}
         >
           <div className="kpi-top" style={{ marginBottom: 6 }}>
@@ -952,14 +951,14 @@ function ProjectByStage({ data, onStepClick }) {
         const hasCount = d.project_count > 0;
         const avg = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
         const barPct = (avg && avg > 0) ? Math.round(avg / maxDelay * 100) : 0;
-        const barColor = avg > 90 ? '#dc2626' : avg > 30 ? '#f59e0b' : '#3b82f6';
+        const barColor = '#2563eb';
         const label = !hasCount ? '—' : avg == null ? '—' : avg > 0 ? `+${avg}일` : '정상';
-        const labelColor = avg > 90 ? '#dc2626' : avg > 30 ? '#d97706' : avg > 0 ? '#3b82f6' : 'var(--muted)';
+        const labelColor = avg > 0 ? 'var(--accent)' : 'var(--muted)';
         return (
           <div key={i}
             onClick={() => hasCount && onStepClick(d.step)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s', background: avg > 90 ? 'rgba(220,38,38,0.05)' : avg > 30 ? 'rgba(217,119,6,0.04)' : '' }}
-            onMouseEnter={e => hasCount && (e.currentTarget.style.background = avg > 90 ? 'rgba(220,38,38,0.1)' : avg > 30 ? 'rgba(217,119,6,0.08)' : 'rgba(37,99,235,0.05)')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s', background: '' }}
+            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.05)')}
             onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
             <div style={{ width: 36, fontSize: 11, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
@@ -1049,8 +1048,8 @@ function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
     { label: '진행중', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk,   color: '#f59e0b', key: 'At Risk' },
-    { label: '지연',   val: data.delayed,   color: '#dc2626', key: '지연' },
+    { label: '임박',   val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
+    { label: '지연',   val: data.delayed,   color: '#1e40af', key: '지연' },
     { label: '완료',   val: data.completed, color: '#60a5fa', key: '완료' },
   ];
   const total = data.total;
@@ -1312,8 +1311,8 @@ function AlertsPanel({ alerts, onSelectItem }) {
   if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
 
   const sections = [
-    { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#dc2626', items: alerts.delayed || [] },
-    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#f59e0b', items: alerts.at_risk || [] },
+    { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#1e40af', items: alerts.delayed || [] },
+    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#2563eb', items: alerts.at_risk || [] },
     { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
   ];
@@ -2051,7 +2050,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
       const res = await api.get(`/api/processes?${params}`);
       setData(res);
     } finally { setLoading(false); }
-  }, [page, search, statusFilter, companyFilter, stepFilter, sortBy, sortDir]);
+  }, [page, debouncedSearch, statusFilter, companyFilter, stepFilter, sortBy, sortDir, productFilter, dueDateCol, dateFrom, dateTo]);
 
   useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, companyFilter, stepFilter, productFilter, dueDateCol, dateFrom, dateTo]);
   useEffect(() => { loadData(); }, [loadData]);
