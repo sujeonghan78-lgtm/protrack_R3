@@ -182,19 +182,23 @@ def calc_delay_days(row) -> int:
 
 
 def apply_date_range(df: pd.DataFrame, date_col: str, date_from: str, date_to: str) -> pd.DataFrame:
-    """date_col 기준으로 date_from~date_to 범위 필터 적용"""
+    """date_col 기준으로 date_from~date_to 범위 필터 적용.
+    date_col 값이 없는(NaT/None) 행은 제외 - 해당 날짜 실적이 없는 건은 조회하지 않음."""
     if date_col not in df.columns:
         return df
+    if not date_from and not date_to:
+        return df
+    # 날짜가 없는 행은 제외 (isna 조건 제거)
+    df = df[df[date_col].notna()]
     if date_from:
         try:
-            df = df[df[date_col].isna() | (df[date_col] >= pd.Timestamp(date_from))]
+            df = df[df[date_col] >= pd.Timestamp(date_from)]
         except: pass
     if date_to:
         try:
-            df = df[df[date_col].isna() | (df[date_col] <= pd.Timestamp(date_to))]
+            df = df[df[date_col] <= pd.Timestamp(date_to)]
         except: pass
     return df
-
 
 class DataManager:
     def __init__(self, filepath: str):
@@ -464,7 +468,7 @@ class DataManager:
         result.sort(key=lambda x: x['rate'], reverse=True)
         return result
 
-    def get_alerts(self, product_filter: str = "", date_from: str = "", date_to: str = "") -> Dict:
+    def get_alerts(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
         if self.df.empty:
             return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
 
@@ -474,7 +478,7 @@ class DataManager:
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
 
-        df = apply_date_range(df, '요구납기일', date_from, date_to)
+        df = apply_date_range(df, date_col, date_from, date_to)
         today = pd.Timestamp.now()
         this_month_start = today.replace(day=1)
         next_month_start = this_month_start + pd.DateOffset(months=1)
@@ -522,13 +526,13 @@ class DataManager:
         counts = df['업체명'].value_counts().head(10)
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
-    def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_from: str = "", date_to: str = "") -> List[Dict]:
+    def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
-        df = apply_date_range(df, '요구납기일', date_from, date_to)
+        df = apply_date_range(df, date_col, date_from, date_to)
         delayed = df[df['_status'] == '지연'].copy()
         delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
         result = []
@@ -595,7 +599,7 @@ class DataManager:
             })
         return result
 
-    def get_status_distribution(self, product_filter: str = "", date_from: str = "", date_to: str = "") -> Dict:
+    def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:
             return {}
@@ -604,7 +608,7 @@ class DataManager:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
-        df = apply_date_range(df, '요구납기일', date_from, date_to)
+        df = apply_date_range(df, date_col, date_from, date_to)
         total = len(df)
         return {
             "total": total,
