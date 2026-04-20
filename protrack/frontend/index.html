@@ -963,11 +963,10 @@ function ProjectByStage({ data, onStepClick }) {
     ? (d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days)
     : d.avg_next_days;
 
-  const visible = data.filter(d => d.project_count > 0 && getValue(d) > 0);
-  if (!visible.length) return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'var(--muted)'}}>지연 단계 없음 ✓</div>;
+  const visible = data; // 전체 단계 표시
 
-  const vals = visible.map(d => getValue(d)).sort((a,b) => a-b);
-  const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1];
+  const vals = data.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
+  const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
   const maxVal = Math.max(p80, 1);
   const H = 130;
 
@@ -983,30 +982,38 @@ function ProjectByStage({ data, onStepClick }) {
           }}>{label}</button>
         ))}
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 10, paddingBottom: 22, position: 'relative', minHeight: H }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, paddingBottom: 22, position: 'relative', minHeight: H }}>
         {[0.5, 1].map(r => (
           <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 22 + H * r, borderTop: '0.5px dashed var(--border)' }} />
         ))}
-        {visible.map((d, i) => {
-          const avg = Math.round(getValue(d));
-          const clipped = Math.min(getValue(d), maxVal * 1.2);
-          const barH = Math.max(Math.round((clipped / maxVal) * H), 4);
+        {data.map((d, i) => {
+          const hasCount = d.project_count > 0;
+          const val = getValue(d);
+          const avg = val != null ? Math.round(val) : null;
+          const clipped = val ? Math.min(val, maxVal * 1.2) : 0;
+          const barH = (avg && avg > 0) ? Math.max(Math.round((clipped / maxVal) * H), 4) : 0;
           return (
-            <div key={i} onClick={() => onStepClick(d.step)}
-              style={{ width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', flexShrink: 0 }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            <div key={i} onClick={() => hasCount && onStepClick(d.step)}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: hasCount ? 'pointer' : 'default' }}
+              onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.7')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)', minHeight: 13 }}>+{avg}</div>
-              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? 'var(--accent)' : 'transparent', minHeight: 13 }}>
+                {avg > 0 ? `+${avg}` : ''}
+              </div>
+              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                 <div style={{
-                  width: '100%', height: barH,
-                  background: 'var(--accent)', opacity: 'var(--ch-bar-op)',
+                  width: 'min(24px, 80%)',
+                  height: barH || (hasCount ? 2 : 0),
+                  background: barH > 0 ? 'var(--accent)' : 'var(--border)',
                   borderRadius: 'var(--ch-bar-r) var(--ch-bar-r) 0 0',
-                  transition: 'height 0.4s cubic-bezier(.4,0,.2,1)',
+                  opacity: hasCount ? (barH > 0 ? 'var(--ch-bar-op)' : 0.25) : 0.1,
+                  transition: 'height 0.45s cubic-bezier(.4,0,.2,1)',
                 }} />
               </div>
-              <div style={{ fontSize: 10, color: 'var(--text)', fontWeight: 600, textAlign: 'center' }}>{d.step}</div>
+              <div style={{ fontSize: 10, color: hasCount ? 'var(--text)' : 'var(--muted)', fontWeight: hasCount ? 600 : 400, textAlign: 'center' }}>
+                {d.step}
+              </div>
             </div>
           );
         })}
