@@ -1707,9 +1707,9 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
     api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
     api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
     api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery);
-    api.get(`/api/dashboard/alerts${pf}${dateRange}`).then(setAlerts);
-    api.get(`/api/dashboard/status-distribution${pf}${dateRange}`).then(setStatusDist);
-    api.get(`/api/dashboard/urgent-delays${pf}${dateRange}`).then(setUrgentDelays);
+    api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts);
+    api.get(`/api/dashboard/status-distribution${pf}${dateParam}${dateRange}`).then(setStatusDist);
+    api.get(`/api/dashboard/urgent-delays${pf}${dateParam}${dateRange}`).then(setUrgentDelays);
   }, [productFilter]);
 
   useEffect(() => { load(); }, [load]);
