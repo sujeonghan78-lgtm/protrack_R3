@@ -211,6 +211,8 @@ class DataManager:
             engine = 'xlrd' if str(self.filepath).endswith('.xls') else 'openpyxl'
             df = pd.read_excel(self.filepath, engine=engine)
 
+            if '제품군' in df.columns:
+                df = df[df['제품군'] != 'TLGS']
             if '시스템명' in df.columns:
                 df = df[df['시스템명'] != 'TLGS']
 
@@ -382,13 +384,15 @@ class DataManager:
 
         return True
 
-    def get_kpi(self, product_filter: str = "") -> Dict:
+    def get_kpi(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "") -> Dict:
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
 
+        if date_col and (date_from or date_to):
+            df = apply_date_range(df, date_col, date_from, date_to)
         total = len(df)
         on_track = len(df[df['_status'] == 'On Track'])
         at_risk = len(df[df['_status'] == 'At Risk'])
