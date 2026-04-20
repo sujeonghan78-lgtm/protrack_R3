@@ -170,10 +170,15 @@ def infer_status(row) -> str:
 
 
 def calc_delay_days(row) -> int:
-    diff = calc_stage_diff(row)
-    cur_diff = diff.get('cur_diff') or 0
-    next_diff = diff.get('next_diff') or 0
-    return max(0, cur_diff, next_diff)
+    """요구납기일 기준 지연일수 (오늘 - 요구납기일, 양수면 지연)"""
+    due = row.get('요구납기일')
+    if due is None or (isinstance(due, float) and pd.isna(due)):
+        return 0
+    try:
+        delta = (pd.Timestamp.now() - pd.Timestamp(due)).days
+        return max(0, delta)
+    except:
+        return 0
 
 
 class DataManager:
@@ -187,8 +192,8 @@ class DataManager:
             engine = 'xlrd' if str(self.filepath).endswith('.xls') else 'openpyxl'
             df = pd.read_excel(self.filepath, engine=engine)
 
-            if '제품군' in df.columns:
-                df = df[df['제품군'] != 'TLGS']
+            if '시스템명' in df.columns:
+                df = df[df['시스템명'] != 'TLGS']
 
             if 'dlvdt' in df.columns:
                 df = df.rename(columns={'dlvdt': '요구납기일'})
@@ -286,10 +291,10 @@ class DataManager:
         if step_filter and step_filter != "전체":
             df = df[df['_current_step'] == step_filter]
 
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
 
         return df
 
@@ -360,10 +365,10 @@ class DataManager:
 
     def get_kpi(self, product_filter: str = "") -> Dict:
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
 
         total = len(df)
         on_track = len(df[df['_status'] == 'On Track'])
@@ -380,7 +385,9 @@ class DataManager:
                 system_counts[str(sys)] = len(grp)
                 system_completed[str(sys)] = len(grp[grp['_status'] == '완료'])
 
-        return {"total": total, "on_track": on_track, "at_risk": at_risk, "delayed": delayed,
+        in_progress = on_track + at_risk + delayed
+        return {"total": total, "in_progress": in_progress, "on_track": on_track,
+                "at_risk": at_risk, "delayed": delayed,
                 "completed": completed, "avg_progress": avg_progress,
                 "system_counts": system_counts, "system_completed": system_completed}
 
@@ -388,10 +395,10 @@ class DataManager:
         if self.df.empty:
             return []
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
 
         today = pd.Timestamp.now()
         result = []
@@ -426,10 +433,10 @@ class DataManager:
         if self.df.empty:
             return []
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
         if '시스템명' not in df.columns:
             return []
 
@@ -447,10 +454,10 @@ class DataManager:
             return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
 
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
 
         today = pd.Timestamp.now()
         this_month_start = today.replace(day=1)
@@ -481,25 +488,45 @@ class DataManager:
             mask = df['OTP예상일'].notna() & (df['OTP예상일'] >= this_month_start) & (df['OTP예상일'] < next_month_start) & (df['_status'] != '완료')
             due_soon_otp = [row_summary(row) for _, row in df[mask].iterrows()]
 
-        return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp}}
+        due_soon_생산 = []
+        if '생산예상일' in df.columns:
+            mask = df['생산예상일'].notna() & (df['생산예상일'] >= this_month_start) & (df['생산예상일'] < next_month_start) & (df['_status'] != '완료')
+            due_soon_생산 = [row_summary(row) for _, row in df[mask].iterrows()]
+
+        return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp, "생산": due_soon_생산}}
 
     def get_company_distribution(self, product_filter: str = "") -> List[Dict]:
         if self.df.empty:
             return []
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
         counts = df['업체명'].value_counts().head(10)
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
-    def get_urgent_delays(self, limit: int = 5) -> List[Dict]:
-        delayed = self.df[self.df['_status'] == '지연'].copy()
+    def get_urgent_delays(self, limit: int = 5, product_filter: str = "") -> List[Dict]:
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['시스템명'].isin(pf_list)]
+        delayed = df[df['_status'] == '지연'].copy()
         delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
         result = []
         for _, row in delayed.iterrows():
-            result.append({"수주번호": row.get('수주번호', ''), "ordseq": int(row.get('ordseq', 0)), "업체명": row.get('업체명', ''), "프로젝트": row.get('프로젝트', ''), "_current_step": row.get('_current_step', ''), "_delay_days": int(row.get('_delay_days', 0)), "_progress": int(row.get('_progress', 0))})
+            result.append({
+                "수주번호": row.get('수주번호', ''),
+                "ordseq": int(row.get('ordseq', 0)),
+                "업체명": row.get('업체명', ''),
+                "프로젝트": row.get('프로젝트', ''),
+                "시스템명": row.get('시스템명', ''),
+                "_current_step": row.get('_current_step', ''),
+                "_delay_days": int(row.get('_delay_days', 0)),
+                "_progress": int(row.get('_progress', 0)),
+                "요구납기일": safe_date(row.get('요구납기일')),
+            })
         return result
 
     def get_stage_by_process(self, product_filter: str = "") -> List[Dict]:
@@ -507,10 +534,10 @@ class DataManager:
         if self.df.empty:
             return []
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
 
         total_count = len(df)
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
@@ -529,12 +556,25 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
+            # 해당 단계 건들의 평균 지연일수 (요구납기일 기준)
+            avg_delay = None
+            if step_count > 0 and '요구납기일' in step_df.columns:
+                today = pd.Timestamp.now()
+                delays = []
+                for _, r in step_df.iterrows():
+                    due = r.get('요구납기일')
+                    if due is not None and pd.notna(due):
+                        d = (today - pd.Timestamp(due)).days
+                        if d > 0:
+                            delays.append(d)
+                avg_delay = round(sum(delays) / len(delays)) if delays else 0
             result.append({
                 "step": step,
                 "total": total_count,
                 "project_count": step_count,
                 "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
                 "by_system": by_system,
+                "avg_delay_days": avg_delay,
             })
         return result
 
@@ -543,10 +583,10 @@ class DataManager:
         if self.df.empty:
             return {}
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
+                df = df[df['시스템명'].isin(pf_list)]
         total = len(df)
         return {
             "total": total,
@@ -556,24 +596,41 @@ class DataManager:
             "completed": int(len(df[df['_status'] == '완료'])),
         }
 
-    def get_monthly_delivery(self, product_filter: str = "") -> List[Dict]:
-        """요구납기일 기준 월별 출고예정 건수 + 시스템별"""
-        if self.df.empty or '요구납기일' not in self.df.columns:
-            return []
+    def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일") -> List[Dict]:
+        """월별 출고예정(요구납기일) + 납품완료(최종납기일) 건수"""
+        if self.df.empty or date_col not in self.df.columns:
+            if '요구납기일' not in self.df.columns:
+                return []
+            date_col = '요구납기일'
         df = self.df.copy()
-        if product_filter and product_filter != "전체" and '제품군' in df.columns:
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
-                df = df[df['제품군'].isin(pf_list)]
-        df = df[df['요구납기일'].notna() & (df['_status'] != '완료')]
-        df['month'] = df['요구납기일'].dt.to_period('M').astype(str)
+                df = df[df['시스템명'].isin(pf_list)]
+
+        # 출고예정: date_col 기준
+        planned_df = df[df[date_col].notna()].copy()
+        planned_df['month'] = planned_df[date_col].dt.to_period('M').astype(str)
+
+        # 납품완료: 최종납기일(최종납기일) 기준
+        completed_df = pd.DataFrame()
+        if '최종납기일' in df.columns:
+            completed_df = df[df['최종납기일'].notna()].copy()
+            completed_df['month'] = completed_df['최종납기일'].dt.to_period('M').astype(str)
+
+        months = set(planned_df['month'].tolist())
+        if not completed_df.empty:
+            months |= set(completed_df['month'].tolist())
+
         result = []
-        for month, grp in df.groupby('month'):
-            by_system = {}
-            if '시스템명' in grp.columns:
-                for sys, cnt in grp['시스템명'].value_counts().items():
-                    by_system[str(sys)] = int(cnt)
-            result.append({'month': str(month), 'count': len(grp), 'by_system': by_system})
+        for month in sorted(months):
+            planned_cnt = int((planned_df['month'] == month).sum())
+            completed_cnt = int((completed_df['month'] == month).sum()) if not completed_df.empty else 0
+            result.append({
+                'month': month,
+                'count': planned_cnt,
+                'completed': completed_cnt,
+            })
         result.sort(key=lambda x: x['month'])
         return result[-12:]
 
