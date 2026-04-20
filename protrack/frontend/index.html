@@ -927,39 +927,30 @@ function StagePie({ data, onStepClick }) {
 function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
+  const maxCount = Math.max(...data.map(d => d.project_count), 1);
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 12 }}>
-      <thead>
-        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'left' }}>단계</th>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'right', width: '20%' }}>건수</th>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'right', width: '20%' }}>비중</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((d, i) => {
-          const pct = Math.round(d.project_count / total * 100);
-          const hasCount = d.project_count > 0;
-          return (
-            <tr key={i}
-              onClick={() => hasCount && onStepClick(d.step)}
-              style={{ borderBottom: '1px solid var(--border)', cursor: hasCount ? 'pointer' : 'default' }}
-              onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
-            >
-              <td style={{ padding: '5px 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: hasCount ? 'var(--accent)' : 'var(--border2)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)' }}>{d.step}</span>
-                </div>
-              </td>
-              <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)' }}>{d.project_count}</td>
-              <td style={{ padding: '5px 8px', textAlign: 'right', fontSize: 11, color: 'var(--muted)' }}>{pct}%</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+      {data.map((d, i) => {
+        const pct = Math.round(d.project_count / total * 100);
+        const barPct = Math.round(d.project_count / maxCount * 100);
+        const hasCount = d.project_count > 0;
+        return (
+          <div key={i}
+            onClick={() => hasCount && onStepClick(d.step)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s' }}
+            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.05)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '')}
+          >
+            <div style={{ width: 36, fontSize: 11, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
+            <div style={{ flex: 1, height: 12, background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' }}>
+              {hasCount && <div style={{ width: `${barPct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3, opacity: 0.75, transition: 'width 0.4s' }} />}
+            </div>
+            <div style={{ width: 28, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.project_count}</div>
+            <div style={{ width: 28, fontSize: 10, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
