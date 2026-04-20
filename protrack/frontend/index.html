@@ -267,16 +267,16 @@
     gap: 14px;
   }
   .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px;
     overflow: hidden; box-sizing: border-box;
   }
   .dash-grid > .chart-card {
     display: flex; flex-direction: column;
   }
   .card-body {
-    flex: 1; display: flex; flex-direction: column; min-height: 0;
+    flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
   }
-  .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
   .chart-badge {
     font-size: 10px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border);
     padding: 2px 7px; border-radius: 20px; font-weight: 500; margin-left: auto;
@@ -284,15 +284,15 @@
   /* status distribution bars */
   .sbar-row { display: flex; align-items: center; gap: 10px; }
   .sbar-label { width: 38px; font-size: 11px; text-align: right; flex-shrink: 0; font-weight: 600; }
-  .sbar-track { flex: 1; height: 18px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
-  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 8px; opacity: 0.85; }
+  .sbar-track { flex: 1; height: 16px; background: var(--bg); border-radius: 4px; overflow: hidden; cursor: pointer; }
+  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 7px; opacity: 0.85; }
   .sbar-count { font-size: 10px; font-weight: 700; color: #fff; font-family: var(--mono); }
   .sbar-pct { width: 32px; font-size: 11px; font-family: var(--mono); font-weight: 700; text-align: right; flex-shrink: 0; }
 
   /* ─── Alerts / Delay cards ───────────────────────────── */
   .alert-list { display: flex; flex-direction: column; gap: 6px; }
   .delay-item {
-    display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+    display: flex; align-items: center; gap: 8px; padding: 6px 9px;
     background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
     cursor: pointer; transition: all 0.15s;
   }
@@ -311,7 +311,7 @@
   .due-item {
     display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    margin-bottom: 6px; transition: all 0.15s;
+    margin-bottom: 5px; transition: all 0.15s;
   }
   .due-item.clickable { cursor: pointer; }
   .due-item.clickable:hover { background: var(--surface); }
@@ -928,12 +928,12 @@ function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 12 }}>
       <thead>
         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'left' }}>단계</th>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'right', width: '20%' }}>건수</th>
-          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'right', width: '20%' }}>비중</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'left' }}>단계</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'right', width: '20%' }}>건수</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '4px 8px', textAlign: 'right', width: '20%' }}>비중</th>
         </tr>
       </thead>
       <tbody>
@@ -947,14 +947,14 @@ function ProjectByStage({ data, onStepClick }) {
               onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <td style={{ padding: '7px 8px' }}>
+              <td style={{ padding: '5px 8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: hasCount ? 'var(--accent)' : 'var(--border2)', flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)' }}>{d.step}</span>
                 </div>
               </td>
-              <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)' }}>{d.project_count}</td>
-              <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: 11, color: 'var(--muted)' }}>{pct}%</td>
+              <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)' }}>{d.project_count}</td>
+              <td style={{ padding: '5px 8px', textAlign: 'right', fontSize: 11, color: 'var(--muted)' }}>{pct}%</td>
             </tr>
           );
         })}
