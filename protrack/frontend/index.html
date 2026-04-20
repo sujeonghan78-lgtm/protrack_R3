@@ -1708,12 +1708,12 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
   const load = useCallback(() => {
     api.get(`/api/dashboard/kpi${pf}${dateParam}${dateRange}`).then(setKpi);
-    api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
+    api.get(`/api/dashboard/stage-by-process${pf}${dateParam}${dateRange}`).then(setStageByProcess);
     api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery);
     api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts);
     api.get(`/api/dashboard/status-distribution${pf}${dateParam}${dateRange}`).then(setStatusDist);
     api.get(`/api/dashboard/urgent-delays${pf}${dateParam}${dateRange}`).then(setUrgentDelays);
-  }, [productFilter]);
+  }, [productFilter, dueDateCol, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1721,7 +1721,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
     setKpiModal(statusKey);
     setKpiModalLoading(true);
     const sep = pf ? '&' : '?';
-    const res = await api.get(`/api/processes${pf}${sep}status_filter=${encodeURIComponent(statusKey)}&page_size=500`);
+    const res = await api.get(`/api/processes${pf}${dateParam}${dateRange}${(pf||dateParam||dateRange)?'&':'?'}status_filter=${encodeURIComponent(statusKey)}&page_size=500`);
     setKpiModalItems(res.items || []);
     setKpiModalLoading(false);
   };
