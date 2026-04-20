@@ -52,25 +52,25 @@ def safe_date(val):
 
 
 def infer_current_step(row) -> str:
-    if pd.notna(row.get('계산서발행일')):
-        return '계산서'
-    if pd.notna(row.get('OTP일자')):
-        return 'OTP'
-    if pd.notna(row.get('최종납기일')):
-        return '출고'
-    if pd.notna(row.get('포장완료일')):
-        return '포장'
-    if pd.notna(row.get('품질검사일')):
-        return '검사'
-    if pd.notna(row.get('생산완료일')):
-        return '생산'
-    if pd.notna(row.get('자재입고일')):
-        return '자재'
-    if pd.notna(row.get('시방출도일')):
-        return '시방'
-    if pd.notna(row.get('수주일자')):
-        return '수주'
-    return '수주'
+    """진행 중인 단계(실적이 없는 첫 번째 단계)를 반환.
+    모든 단계가 완료된 경우 마지막 단계('계산서')를 반환."""
+    actual_cols = [
+        ('수주',  '수주일자'),
+        ('시방',  '시방출도일'),
+        ('자재',  '자재입고일'),
+        ('생산',  '생산완료일'),
+        ('검사',  '품질검사일'),
+        ('포장',  '포장완료일'),
+        ('출고',  '최종납기일'),
+        ('OTP',  'OTP일자'),
+        ('계산서', '계산서발행일'),
+    ]
+    for step, col in actual_cols:
+        if pd.isna(row.get(col)):
+            # 수주일자조차 없으면 수주 단계
+            return step
+    # 모든 실적 완료 → 마지막 단계
+    return '계산서'
 
 
 def calc_progress(row) -> int:
@@ -114,15 +114,23 @@ def get_current_next_step_info(row):
 
 
 def calc_stage_diff(row) -> dict:
-    """현재/다음 단계 날짜 차이 계산"""
+    """현재/다음 단계 날짜 차이 계산.
+    planned 없는 단계(수주/포장/계산서)는 요구납기일로 fallback."""
     info = get_current_next_step_info(row)
     today = info['today']
     result = {'cur_diff': None, 'cur_has_actual': False, 'next_diff': None}
-    
+
     # 현재 단계: 실적 있으면 실적-예상, 없으면 오늘-예상
-    if info['cur_planned']:
+    cur_planned = info['cur_planned']
+    # planned 없는 단계 → 요구납기일 fallback
+    if not cur_planned:
+        due = row.get('요구납기일')
+        if due is not None and pd.notna(due):
+            cur_planned = due
+
+    if cur_planned:
         try:
-            planned = pd.Timestamp(info['cur_planned'])
+            planned = pd.Timestamp(cur_planned)
             if info['cur_actual']:
                 result['cur_diff'] = int((pd.Timestamp(info['cur_actual']) - planned).days)
                 result['cur_has_actual'] = True
@@ -131,35 +139,37 @@ def calc_stage_diff(row) -> dict:
                 result['cur_has_actual'] = False
         except:
             pass
-    
+
     # 다음 단계: 오늘-예상
     if info['next_planned']:
         try:
             result['next_diff'] = int((today - pd.Timestamp(info['next_planned'])).days)
         except:
             pass
-    
+
     return result
 
 
 def infer_status(row) -> str:
-    """완료: 계산서발행일, 지연/임박/정상: 현재+다음 단계 기준"""
+    """완료: 계산서발행일 또는 최종납기일(출고완료)
+    지연/임박/정상: 현재+다음 단계 기준"""
     today = pd.Timestamp.now()
 
     if pd.notna(row.get('계산서발행일')):
         return '완료'
+    # 최종납기일(출고)이 있으면 실질 납품 완료
+    if pd.notna(row.get('최종납기일')):
+        return '완료'
 
     diff = calc_stage_diff(row)
-    
-    # 지연 판단: 현재단계 실적이 예상보다 늦거나, 실적없고 예상일 초과
-    cur_diff = diff.get('cur_diff')
+    cur_diff  = diff.get('cur_diff')
     next_diff = diff.get('next_diff')
-    
+
     if cur_diff is not None and cur_diff > 0:
         return '지연'
     if next_diff is not None and next_diff > 0:
         return '지연'
-    
+
     # 임박: 다음 단계 예상일 7일 이내
     if next_diff is not None and next_diff >= -7:
         return 'At Risk'
@@ -170,15 +180,42 @@ def infer_status(row) -> str:
 
 
 def calc_delay_days(row) -> int:
-    """요구납기일 기준 지연일수 (오늘 - 요구납기일, 양수면 지연)"""
+    """현재 단계 기준 지연일수.
+    실적 있음: 실적일 - 예상일 (양수면 지연)
+    실적 없음: 오늘 - 예상일 (양수면 지연)
+    예상일 없음: 요구납기일 기준 fallback"""
+    today = pd.Timestamp.now()
+    current_step = row.get('_current_step') or infer_current_step(row)
+
+    # 완료 건은 0
+    if row.get('_status') == '완료' or pd.notna(row.get('계산서발행일')):
+        return 0
+
+    step_map = STEP_DATE_MAP.get(current_step, {})
+    planned_col = step_map.get('planned')
+    actual_col  = step_map.get('actual')
+
+    if planned_col:
+        planned = row.get(planned_col)
+        if planned is not None and pd.notna(planned):
+            actual = row.get(actual_col) if actual_col else None
+            try:
+                if actual is not None and pd.notna(actual):
+                    diff = (pd.Timestamp(actual) - pd.Timestamp(planned)).days
+                else:
+                    diff = (today - pd.Timestamp(planned)).days
+                return max(0, diff)
+            except:
+                pass
+
+    # fallback: 요구납기일 기준
     due = row.get('요구납기일')
-    if due is None or (isinstance(due, float) and pd.isna(due)):
-        return 0
-    try:
-        delta = (pd.Timestamp.now() - pd.Timestamp(due)).days
-        return max(0, delta)
-    except:
-        return 0
+    if due is not None and pd.notna(due):
+        try:
+            return max(0, (today - pd.Timestamp(due)).days)
+        except:
+            pass
+    return 0
 
 
 def apply_date_range(df: pd.DataFrame, date_col: str, date_from: str, date_to: str) -> pd.DataFrame:
@@ -288,7 +325,39 @@ class DataManager:
                 d[col] = val
         return d
 
-    def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="") -> pd.DataFrame:
+    def _refresh_dynamic(self, df: pd.DataFrame) -> pd.DataFrame:
+        """조회 시점의 오늘 날짜로 상태·지연일수를 재계산."""
+        df = df.copy()
+        # _current_step은 실적 기반이라 날짜 무관 — 재계산 불필요
+        def recompute(row):
+            status = infer_status(row)
+            row = row.copy()
+            row['_status'] = status  # infer_status 내부에서 _status 참조 안 하므로 안전
+            delay = calc_delay_days(row)
+            diff = calc_stage_diff(row)
+            return pd.Series({
+                '_status': status,
+                '_delay_days': delay,
+                '_cur_diff': diff.get('cur_diff'),
+                '_cur_has_actual': diff.get('cur_has_actual', False),
+                '_next_diff': diff.get('next_diff'),
+            })
+        refreshed = df.apply(recompute, axis=1)
+        for col in refreshed.columns:
+            df[col] = refreshed[col]
+        return df
+
+    def _get_fresh_df(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "") -> pd.DataFrame:
+        """필터 적용 + 날짜 재계산된 df 반환."""
+        df = self.df.copy()
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['시스템명'].isin(pf_list)]
+        df = self._refresh_dynamic(df)
+        if date_col and (date_from or date_to):
+            df = apply_date_range(df, date_col, date_from, date_to)
+        return df
         df = self.df.copy()
 
         if search:
@@ -388,14 +457,7 @@ class DataManager:
         return True
 
     def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-
-        if (date_from or date_to):
-            df = apply_date_range(df, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
         total = len(df)
         on_track = len(df[df['_status'] == 'On Track'])
         at_risk = len(df[df['_status'] == 'At Risk'])
@@ -479,13 +541,7 @@ class DataManager:
         if self.df.empty:
             return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
 
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-
-        df = apply_date_range(df, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
         today = pd.Timestamp.now()
         this_month_start = today.replace(day=1)
         next_month_start = this_month_start + pd.DateOffset(months=1)
@@ -534,24 +590,12 @@ class DataManager:
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
     def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
-        """지연 TOP5: 항상 요구납기일 기준 지연일수로 정렬 (전역 납기기준 필터 무관)"""
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-        # 요구납기일이 있는 건 중 지연 상태만 추출
+        """지연 TOP5: 단계별 지연일수 기준 정렬"""
+        df = self._get_fresh_df(product_filter)  # 날짜 필터 미적용 — 전체 지연 건 대상
         today = pd.Timestamp.now()
         delayed = df[df['_status'] == '지연'].copy()
-        # 요구납기일 기준 지연일수 재계산 (전역 날짜필터와 무관하게 고정)
-        def due_delay(row):
-            due = row.get('요구납기일')
-            if due is None or pd.isna(due):
-                return 0
-            return max(0, (today - pd.Timestamp(due)).days)
-        delayed['_due_delay'] = delayed.apply(due_delay, axis=1)
-        delayed = delayed[delayed['_due_delay'] > 0]
-        delayed = delayed.sort_values('_due_delay', ascending=False).head(limit)
+        delayed = delayed[delayed['_delay_days'] > 0]
+        delayed = delayed.sort_values('_delay_days', ascending=False).head(limit)
         result = []
         for _, row in delayed.iterrows():
             result.append({
@@ -561,7 +605,7 @@ class DataManager:
                 "프로젝트": row.get('프로젝트', ''),
                 "시스템명": row.get('시스템명', ''),
                 "_current_step": row.get('_current_step', ''),
-                "_delay_days": int(row.get('_due_delay', 0)),
+                "_delay_days": int(row.get('_delay_days', 0)),
                 "_progress": int(row.get('_progress', 0)),
                 "요구납기일": safe_date(row.get('요구납기일')),
             })
@@ -571,14 +615,7 @@ class DataManager:
         """공정 단계별 현재 건수 (누적 바차트용)"""
         if self.df.empty:
             return []
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-
-        if (date_from or date_to):
-            df = apply_date_range(df, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
         total_count = len(df)
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
         system_colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899']
@@ -596,25 +633,33 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 단계별 예상일 vs 실적일 기준 평균 지연일수
-            # 실적 있음: 실적일 - 예상일 / 실적 없음: 오늘 - 예상일
+            # 단계별 평균 지연: 현재 이 단계 + 이미 통과한 건 모두 포함
+            # actual_col이 있으면 실적일-예상일, 없고 현재 단계면 오늘-예상일
             avg_delay = None
             step_map = STEP_DATE_MAP.get(step, {})
             planned_col = step_map.get('planned')
-            actual_col = step_map.get('actual')
-            if step_count > 0 and planned_col and planned_col in step_df.columns:
+            actual_col  = step_map.get('actual')
+            if planned_col and planned_col in df.columns:
                 today = pd.Timestamp.now()
                 diffs = []
-                for _, r in step_df.iterrows():
+                # 이 단계를 거쳤거나 현재 이 단계인 모든 건
+                if actual_col and actual_col in df.columns:
+                    passed_df = df[df[actual_col].notna()]  # 이미 통과한 건
+                else:
+                    passed_df = pd.DataFrame()
+                candidate_df = pd.concat([step_df, passed_df]).drop_duplicates()
+                for _, r in candidate_df.iterrows():
                     planned = r.get(planned_col)
                     if planned is None or pd.isna(planned):
                         continue
                     actual = r.get(actual_col) if actual_col else None
                     if actual is not None and pd.notna(actual):
                         diff = (pd.Timestamp(actual) - pd.Timestamp(planned)).days
-                    else:
+                    elif r.get('_current_step') == step:
                         diff = (today - pd.Timestamp(planned)).days
-                    if diff > 0:  # 지연 건만
+                    else:
+                        continue  # 통과했고 실적도 없으면 집계 제외
+                    if diff > 0:
                         diffs.append(diff)
                 avg_delay = round(sum(diffs) / len(diffs)) if diffs else 0
             result.append({
@@ -631,12 +676,7 @@ class DataManager:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:
             return {}
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-        df = apply_date_range(df, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
         total = len(df)
         return {
             "total": total,
