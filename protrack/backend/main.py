@@ -67,8 +67,8 @@ async def get_process_load(product_filter: str = "", current_user: User = Depend
 
 
 @app.get("/api/dashboard/alerts")
-async def get_alerts(product_filter: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_alerts(product_filter=product_filter, date_from=date_from, date_to=date_to)
+async def get_alerts(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_alerts(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/dashboard/stage-progress")
@@ -82,13 +82,13 @@ async def get_stage_by_process(product_filter: str = "", current_user: User = De
 
 
 @app.get("/api/dashboard/status-distribution")
-async def get_status_distribution(product_filter: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_status_distribution(product_filter=product_filter, date_from=date_from, date_to=date_to)
+async def get_status_distribution(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_status_distribution(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/dashboard/urgent-delays")
-async def get_urgent_delays(product_filter: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_urgent_delays(limit=5, product_filter=product_filter, date_from=date_from, date_to=date_to)
+async def get_urgent_delays(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_urgent_delays(limit=5, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/dashboard/company-distribution")
