@@ -934,6 +934,7 @@ function ProjectByStage({ data, onStepClick }) {
         const pct = Math.round(d.project_count / total * 100);
         const barPct = Math.round(d.project_count / maxCount * 100);
         const hasCount = d.project_count > 0;
+        const avgDelay = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
         return (
           <div key={i}
             onClick={() => hasCount && onStepClick(d.step)}
@@ -945,8 +946,13 @@ function ProjectByStage({ data, onStepClick }) {
             <div style={{ flex: 1, height: 12, background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' }}>
               {hasCount && <div style={{ width: `${barPct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3, opacity: 0.75, transition: 'width 0.4s' }} />}
             </div>
-            <div style={{ width: 28, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.project_count}</div>
+            <div style={{ width: 26, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.project_count}</div>
             <div style={{ width: 28, fontSize: 10, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
+            <div style={{ width: 38, fontSize: 10, fontFamily: 'var(--mono)', textAlign: 'right', flexShrink: 0,
+              color: avgDelay > 30 ? '#1e40af' : avgDelay > 0 ? '#3b82f6' : 'var(--muted)',
+              fontWeight: avgDelay > 0 ? 700 : 400 }}>
+              {hasCount && avgDelay != null ? (avgDelay > 0 ? `+${avgDelay}일` : '정상') : ''}
+            </div>
           </div>
         );
       })}
@@ -957,7 +963,7 @@ function ProjectByStage({ data, onStepClick }) {
 function MonthlyDeliveryChart({ data }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
-  const W = 300, H = 130, PL = 20, PR = 8, PT = 20, PB = 32;
+  const W = 300, H = 170, PL = 20, PR = 8, PT = 16, PB = 30;
   const cW = W - PL - PR, cH = H - PT - PB;
   const n = data.length;
   const maxVal = Math.max(...data.map(d => d.count || 0), 1);
@@ -1704,7 +1710,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
     : '';
 
   const load = useCallback(() => {
-    api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
+    api.get(`/api/dashboard/kpi${pf}${dateParam}${dateRange}`).then(setKpi);
     api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
     api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery);
     api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts);
