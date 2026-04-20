@@ -19,9 +19,9 @@
     --border2:   #cbd5e1;
     --accent:    #2563eb;
     --accent2:   #2563eb;
-    --danger:    #1e40af;
-    --warn:      #2563eb;
-    --success:   #3b82f6;
+    --danger:    #dc2626;
+    --warn:      #d97706;
+    --success:   #16a34a;
     --purple:    #2563eb;
     --text:      #0f172a;
     --text2:     #475569;
@@ -243,15 +243,15 @@
   .kpi-desc { font-size: 10px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
   .bg-blue { background: rgba(59,130,246,0.15); }
-  .bg-orange { background: rgba(249,115,22,0.15); }
-  .bg-red { background: rgba(37,99,235,0.1); }
-  .bg-green { background: rgba(16,185,129,0.15); }
+  .bg-orange { background: rgba(217,119,6,0.15); }
+  .bg-red { background: rgba(220,38,38,0.12); }
+  .bg-green { background: rgba(22,163,74,0.12); }
   .text-blue { color: var(--accent); }
-  .text-orange { color: #3b82f6; }
-  .text-red { color: var(--accent); }
-  .text-green { color: #3b82f6; }
-  .badge-green { background: rgba(16,185,129,0.15); color: #3b82f6; }
-  .badge-red { background: rgba(37,99,235,0.1); color: var(--accent); }
+  .text-orange { color: #d97706; }
+  .text-red { color: #dc2626; }
+  .text-green { color: #16a34a; }
+  .badge-green { background: rgba(22,163,74,0.12); color: #16a34a; }
+  .badge-red { background: rgba(220,38,38,0.12); color: #dc2626; }
 
   /* ─── Dashboard 3-col grid ──────────────────────────── */
   .dash-grid {
@@ -301,8 +301,8 @@
     border-radius: 6px; padding: 4px 7px; font-family: var(--mono);
     font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
-  .delay-badge.critical { background: rgba(37,99,235,0.1); color: #1e40af; }
-  .delay-badge.high     { background: rgba(37,99,235,0.07); color: #2563eb; }
+  .delay-badge.critical { background: rgba(220,38,38,0.12); color: #dc2626; }
+  .delay-badge.high     { background: rgba(217,119,6,0.12);  color: #d97706; }
   .delay-badge.medium   { background: rgba(100,116,139,0.1); color: #475569; }
   .delay-badge.low      { background: rgba(100,116,139,0.07); color: #64748b; }
   .delay-info { flex: 1; min-width: 0; }
@@ -659,10 +659,18 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
 
-  const navItems = [
-    { id: 'dashboard', icon: '◈', label: '종합 대시보드' },
-    { id: 'list', icon: '≡', label: '공정 목록' },
-    ...(isAdmin ? [{ id: 'upload', icon: '↑', label: '데이터 업로드' }] : []),
+  const navGroups = [
+    {
+      label: '모니터링',
+      items: [
+        { id: 'dashboard', icon: '◈', label: '종합 대시보드' },
+        { id: 'list', icon: '≡', label: '공정 목록' },
+      ]
+    },
+    ...(isAdmin ? [{
+      label: '관리',
+      items: [{ id: 'upload', icon: '↑', label: '데이터 업로드' }]
+    }] : []),
   ];
 
   const selected = productFilter === '전체' ? [] : (Array.isArray(productFilter) ? productFilter : [productFilter]);
@@ -681,19 +689,26 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
         {!collapsed && <span className="sidebar-logo-text">PRO-TRACK</span>}
       </div>
       <nav className="sidebar-nav">
-        {!collapsed && <div className="nav-section-label">Navigation</div>}
-        {navItems.map(item => (
-          <div key={item.id}
-            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => onTab(item.id)}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            {!collapsed && <span>{item.label}</span>}
+        {navGroups.map((group, gi) => (
+          <div key={gi}>
+            {!collapsed && (
+              <div className="nav-section-label" style={{ marginTop: gi > 0 ? 12 : 0 }}>{group.label}</div>
+            )}
+            {group.items.map(item => (
+              <div key={item.id}
+                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => onTab(item.id)}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {!collapsed && <span>{item.label}</span>}
+              </div>
+            ))}
           </div>
         ))}
         {!collapsed && products?.length > 0 && (
           <>
-            <div className="nav-section-label" style={{ marginTop: 12 }}>납기 기준</div>
+            <div className="nav-section-label" style={{ marginTop: 12 }}>설정</div>
+            <div className="nav-section-label" style={{ marginTop: 4, fontSize: 9 }}>납기 기준</div>
             <div style={{ padding: '4px 8px' }}>
               <select
                 value={dueDateCol}
@@ -705,14 +720,14 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
                 <option value="OTP예상일">OTP예상일</option>
               </select>
             </div>
-            <div className="nav-section-label" style={{ marginTop: 8 }}>날짜 범위</div>
+            <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>날짜 범위</div>
             <div style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <input type="date" value={dateFrom} onChange={e => onDateFrom(e.target.value)}
                 style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '4px 8px', fontFamily: 'var(--sans)', outline: 'none', cursor: 'pointer' }} />
               <input type="date" value={dateTo} onChange={e => onDateTo(e.target.value)}
                 style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '4px 8px', fontFamily: 'var(--sans)', outline: 'none', cursor: 'pointer' }} />
             </div>
-            <div className="nav-section-label" style={{ marginTop: 8 }}>시스템 필터</div>
+            <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>시스템 필터</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 8px' }}>
               <button
                 onClick={() => onProductFilter('전체')}
@@ -778,9 +793,9 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: kpi.delayed, color: '#1e40af', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
+    { label: '지연', val: kpi.delayed, color: '#dc2626', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
       desc: '납기일 초과 항목' },
-    { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
+    { label: '임박', val: kpi.at_risk, color: '#d97706', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '7일 이내 납기' },
   ];
   const subCards = [
@@ -794,7 +809,12 @@ function KpiCards({ kpi, onCardClick }) {
       {mainCards.map((c, i) => (
         <div key={i} className={`kpi-main-card ${c.key ? 'clickable' : ''}`}
           onClick={() => c.key && onCardClick(c.key)}
-          style={{ borderTopColor: c.color }}
+          style={{
+            borderTopColor: c.color,
+            background: c.key === '지연' && kpi.delayed > 0
+              ? 'rgba(220,38,38,0.04)' : c.key === 'At Risk' && kpi.at_risk > 0
+              ? 'rgba(217,119,6,0.03)' : 'var(--surface)'
+          }}
         >
           <div className="kpi-top" style={{ marginBottom: 6 }}>
             <div className="kpi-icon" style={{ background: `${c.color}0d`, color: c.color }}>{c.icon}</div>
@@ -933,14 +953,14 @@ function ProjectByStage({ data, onStepClick }) {
         const hasCount = d.project_count > 0;
         const avg = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
         const barPct = (avg && avg > 0) ? Math.round(avg / maxDelay * 100) : 0;
-        const barColor = avg > 90 ? '#1e3a8a' : avg > 30 ? '#1e40af' : '#3b82f6';
+        const barColor = avg > 90 ? '#dc2626' : avg > 30 ? '#d97706' : '#3b82f6';
         const label = !hasCount ? '—' : avg == null ? '—' : avg > 0 ? `+${avg}일` : '정상';
-        const labelColor = avg > 90 ? '#1e3a8a' : avg > 30 ? '#1e40af' : avg > 0 ? '#3b82f6' : 'var(--muted)';
+        const labelColor = avg > 90 ? '#dc2626' : avg > 30 ? '#d97706' : avg > 0 ? '#3b82f6' : 'var(--muted)';
         return (
           <div key={i}
             onClick={() => hasCount && onStepClick(d.step)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s' }}
-            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.05)')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasCount ? 'pointer' : 'default', borderRadius: 4, padding: '2px 4px', transition: 'background 0.12s', background: avg > 90 ? 'rgba(220,38,38,0.05)' : avg > 30 ? 'rgba(217,119,6,0.04)' : '' }}
+            onMouseEnter={e => hasCount && (e.currentTarget.style.background = avg > 90 ? 'rgba(220,38,38,0.1)' : avg > 30 ? 'rgba(217,119,6,0.08)' : 'rgba(37,99,235,0.05)')}
             onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
             <div style={{ width: 36, fontSize: 11, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{d.step}</div>
@@ -960,11 +980,12 @@ function ProjectByStage({ data, onStepClick }) {
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+  const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
   const W = 300, H = 170, PL = 20, PR = 8, PT = 16, PB = 30;
   const cW = W - PL - PR, cH = H - PT - PB;
-  const n = data.length;
-  const maxVal = Math.max(...data.map(d => d.count || 0), 1);
-  const avgCount = Math.round(data.reduce((s, d) => s + (d.count || 0), 0) / n);
+  const n = sorted.length;
+  const maxVal = Math.max(...sorted.map(d => d.count || 0), 1);
+  const avgCount = Math.round(sorted.reduce((s, d) => s + (d.count || 0), 0) / n);
   const avgY = PT + cH - (avgCount / maxVal) * cH;
   const slotW = cW / n;
   const barW = Math.max(6, Math.min(18, Math.floor(slotW * 0.6)));
@@ -976,7 +997,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
         <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#bfdbfe" strokeWidth={0.8} strokeDasharray="3 3" />
         <text x={W-PR+1} y={avgY+3} fontSize={7} fill="#93c5fd">avg</text>
 
-        {data.map((d, i) => {
+        {sorted.map((d, i) => {
           const cx = PL + slotW * i + slotW / 2;
           const x = cx - barW / 2;
           const planH = Math.max(((d.count || 0) / maxVal) * cH, d.count > 0 ? 2 : 0);
@@ -984,6 +1005,10 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
           const baseY = PT + cH;
           const isHov = hovered === i;
           const showLabel = n <= 6 || i % Math.ceil(n / 6) === 0 || i === n - 1;
+          const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
+          const thisYear = d.month?.slice(0,4);
+          const isNewYear = thisYear && thisYear !== prevYear;
+          const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : (d.month?.slice(5) + '월');
           return (
             <g key={i}
               onMouseEnter={() => setHovered(i)}
@@ -998,12 +1023,14 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
                 <text x={cx} y={baseY - planH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{d.count}</text>
               )}
               {showLabel && (
-                <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={8} fill={isHov ? 'var(--text)' : '#94a3b8'}>{d.month?.slice(5)}월</text>
+                <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
+                  fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
+                  fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>
               )}
               {isHov && (
                 <g>
                   <rect x={Math.min(cx - 40, W - 84)} y={baseY - planH - 42} width={80} height={36} fill="#0f172a" rx={3} opacity={0.92} />
-                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(5)}월 · 클릭</text>
+                  <text x={Math.min(cx, W - 44)} y={baseY - planH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
                   <text x={Math.min(cx, W - 44)} y={baseY - planH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
                 </g>
               )}
@@ -1023,9 +1050,9 @@ function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
     { label: '진행중', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
-    { label: '지연',   val: data.delayed,   color: '#1e40af', key: '지연' },
-    { label: '완료',   val: data.completed, color: '#60a5fa', key: '완료' },
+    { label: '임박',   val: data.at_risk,   color: '#d97706', key: 'At Risk' },
+    { label: '지연',   val: data.delayed,   color: '#dc2626', key: '지연' },
+    { label: '완료',   val: data.completed, color: '#16a34a', key: '완료' },
   ];
   const total = data.total;
   return (
@@ -1159,6 +1186,13 @@ function UrgentDelaysList({ data, onSelect }) {
             <div className="delay-name">{item.프로젝트 || item.수주번호}</div>
             <div className="delay-meta">{item.업체명} · {item._current_step}{item.요구납기일 ? ` · ${item.요구납기일}` : ''}</div>
           </div>
+          <button
+            onClick={e => { e.stopPropagation(); onSelect({ ...item, _openNote: true }); }}
+            title="메모 작성"
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', fontSize: 11, color: 'var(--muted)', flexShrink: 0, transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+          >✏</button>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>›</span>
         </div>
       ))}
@@ -1227,8 +1261,8 @@ function AlertsPanel({ alerts, onSelectItem }) {
   if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
 
   const sections = [
-    { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#1e40af', items: alerts.delayed || [] },
-    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#2563eb', items: alerts.at_risk || [] },
+    { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#dc2626', items: alerts.delayed || [] },
+    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#d97706', items: alerts.at_risk || [] },
     { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
   ];
@@ -1525,12 +1559,29 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
+  const noteRef = useRef(null);
+  const editSectionRef = useRef(null);
 
   useEffect(() => {
     if (!item) return;
     api.get(`/api/processes/${encodeURIComponent(item.수주번호)}/${item.ordseq}`)
-      .then(d => { setDetail(d); setEditData({}); });
+      .then(d => {
+        setDetail(d);
+        setEditData({});
+        if (item._openNote && isAdmin) {
+          setEditMode(true);
+        }
+      });
   }, [item]);
+
+  useEffect(() => {
+    if (editMode && item?._openNote && noteRef.current) {
+      setTimeout(() => {
+        editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        noteRef.current?.focus();
+      }, 150);
+    }
+  }, [editMode, detail]);
 
   const handleSave = async () => {
     if (!Object.keys(editData).length) { setEditMode(false); return; }
@@ -1547,6 +1598,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
   };
 
   const editableFields = [
+    { key: '비고', label: '비고 (메모)', type: 'text', isNote: true },
     { key: '시방출도 (O)', label: '시방출도', type: 'text' },
     { key: '자재입고일 (R)', label: '자재입고일', type: 'date' },
     { key: '생산완료일 (S)', label: '생산완료일', type: 'date' },
@@ -1616,7 +1668,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
 
             {/* Edit (Admin only) */}
             {isAdmin && (
-              <div>
+              <div ref={editSectionRef}>
                 <div className="drawer-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   공정 일자 수정
                   {!editMode && (
@@ -1632,9 +1684,12 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
                         <div className="edit-item" key={f.key}>
                           <label>{f.label}</label>
                           <input
+                            ref={f.isNote ? noteRef : null}
                             type={f.type === 'date' ? 'date' : 'text'}
                             defaultValue={detail[f.key] || ''}
+                            placeholder={f.isNote ? '메모를 입력하세요...' : ''}
                             onChange={e => setEditData(prev => ({ ...prev, [f.key]: e.target.value || null }))}
+                            style={f.isNote ? { borderColor: item?._openNote ? 'var(--accent)' : undefined } : {}}
                           />
                         </div>
                       ))}
@@ -1719,7 +1774,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
+function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '', onLastLoaded }) {
   const [kpi, setKpi] = useState(null);
   const [stageByProcess, setStageByProcess] = useState([]);
   const [monthlyDelivery, setMonthlyDelivery] = useState([]);
@@ -1747,12 +1802,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
     : '';
 
   const load = useCallback(() => {
-    api.get(`/api/dashboard/kpi${pf}${dateParam}${dateRange}`).then(setKpi);
-    api.get(`/api/dashboard/stage-by-process${pf}${dateParam}${dateRange}`).then(setStageByProcess);
-    api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery);
-    api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts);
-    api.get(`/api/dashboard/status-distribution${pf}${dateParam}${dateRange}`).then(setStatusDist);
-    api.get(`/api/dashboard/urgent-delays${pf}${dateParam}${dateRange}`).then(setUrgentDelays);
+    Promise.all([
+      api.get(`/api/dashboard/kpi${pf}${dateParam}${dateRange}`).then(setKpi),
+      api.get(`/api/dashboard/stage-by-process${pf}${dateParam}${dateRange}`).then(setStageByProcess),
+      api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery),
+      api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts),
+      api.get(`/api/dashboard/status-distribution${pf}${dateParam}${dateRange}`).then(setStatusDist),
+      api.get(`/api/dashboard/urgent-delays${pf}${dateParam}${dateRange}`).then(setUrgentDelays),
+    ]).then(() => { if (onLastLoaded) onLastLoaded(new Date()); });
   }, [productFilter, dueDateCol, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
@@ -2125,6 +2182,13 @@ function App() {
   const [productFilter, setProductFilter] = useState('전체');
   const [products, setProducts] = useState([]);
   const [dueDateCol, setDueDateCol] = useState('요구납기일');
+  const [lastLoaded, setLastLoaded] = useState(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
   const today = new Date();
   const fmt = d => d.toISOString().slice(0, 10);
   const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
@@ -2215,6 +2279,20 @@ function App() {
             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono' }}>
               {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
             </span>
+            {lastLoaded && (
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                업데이트 {Math.max(0, Math.round((now - lastLoaded) / 60000))}분 전
+              </span>
+            )}
+            {activeTab === 'dashboard' && (
+              <button
+                onClick={() => setRefreshKey(k => k + 1)}
+                title="새로고침"
+                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: 'var(--muted)', fontSize: 13, lineHeight: 1, transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >↺</button>
+            )}
             {activeTab === 'dashboard' && dueDateCol !== '요구납기일' && (
               <span style={{ fontSize: 11, background: 'rgba(37,99,235,0.1)', color: 'var(--accent)', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>기준: {dueDateCol}</span>
             )}
@@ -2233,6 +2311,7 @@ function App() {
               dueDateCol={dueDateCol}
               dateFrom={dateFrom}
               dateTo={dateTo}
+              onLastLoaded={setLastLoaded}
             />
           )}
           {activeTab === 'list' && (
