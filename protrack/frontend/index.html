@@ -655,7 +655,7 @@ function LoginPage({ onLogin }) {
 }
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products }) {
+function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products, dueDateCol, onDueDateCol }) {
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
 
@@ -693,7 +693,19 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
         ))}
         {!collapsed && products?.length > 0 && (
           <>
-            <div className="nav-section-label" style={{ marginTop: 12 }}>제품군 필터</div>
+            <div className="nav-section-label" style={{ marginTop: 12 }}>납기 기준</div>
+            <div style={{ padding: '4px 8px' }}>
+              <select
+                value={dueDateCol}
+                onChange={e => onDueDateCol(e.target.value)}
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '5px 8px', fontFamily: 'var(--sans)', cursor: 'pointer', outline: 'none' }}
+              >
+                <option value="요구납기일">요구납기일</option>
+                <option value="최종납기일">최종납기일</option>
+                <option value="OTP예상일">OTP예상일</option>
+              </select>
+            </div>
+            <div className="nav-section-label" style={{ marginTop: 8 }}>시스템 필터</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 8px' }}>
               <button
                 onClick={() => onProductFilter('전체')}
@@ -759,7 +771,7 @@ function KpiCards({ kpi, onCardClick }) {
       desc: '7일 이내 납기' },
   ];
   const subCards = [
-    { label: '진행중',   val: kpi.on_track,  color: '#3b82f6', key: 'On Track' },
+    { label: '진행중',   val: kpi.in_progress ?? (kpi.on_track + kpi.at_risk + kpi.delayed), color: '#3b82f6', key: null },
     { label: '완료',     val: kpi.completed, color: '#60a5fa', key: '완료' },
     { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
   ];
@@ -902,83 +914,108 @@ function StagePie({ data, onStepClick }) {
 function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const total = data[0]?.total || 1;
-  const COLORS = ['#3b82f6','#3b82f6','#2563eb','#1e40af','#3b82f6','#3b82f6','#2563eb','#3b82f6','#60a5fa'];
-  const slices = data.filter(d => d.project_count > 0).map((d, i) => ({ ...d, color: COLORS[i % COLORS.length] }));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div style={{ display: 'flex', padding: '5px 0', borderBottom: '2px solid var(--border)', marginBottom: 2 }}>
-        <span style={{ flex: 2, fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>단계</span>
-        <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textAlign: 'center' }}>건수</span>
-        <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textAlign: 'center' }}>비중</span>
-      </div>
-      {data.map((d, i) => {
-        const pct = Math.round(d.project_count / total * 100);
-        const color = slices.find(s => s.step === d.step)?.color || 'var(--muted)';
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-            onClick={() => onStepClick(d.step)}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-            onMouseLeave={e => e.currentTarget.style.background = ''}
-          >
-            <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, fontWeight: 600 }}>{d.step}</span>
-            </div>
-            <span style={{ flex: 1, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent)', textAlign: 'center' }}>{d.project_count}</span>
-            <span style={{ flex: 1, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>{pct}%</span>
-          </div>
-        );
-      })}
-    </div>
+    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+      <thead>
+        <tr style={{ borderBottom: '1px solid var(--border)' }}>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'left', width: '40%' }}>단계</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>건수</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>평균지연</th>
+          <th style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>비중</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((d, i) => {
+          const pct = Math.round(d.project_count / total * 100);
+          const hasCount = d.project_count > 0;
+          const avgDelay = d.avg_delay_days != null ? Math.round(d.avg_delay_days) : null;
+          return (
+            <tr key={i}
+              onClick={() => hasCount && onStepClick(d.step)}
+              style={{ borderBottom: '1px solid var(--border)', cursor: hasCount ? 'pointer' : 'default' }}
+              onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
+              <td style={{ padding: '7px 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: hasCount ? 'var(--accent)' : 'var(--border2)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: hasCount ? 600 : 400, color: hasCount ? 'var(--text)' : 'var(--muted)' }}>{d.step}</span>
+                </div>
+              </td>
+              <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: hasCount ? 'var(--accent)' : 'var(--muted)' }}>{d.project_count}</td>
+              <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12,
+                color: avgDelay == null ? 'var(--muted)' : avgDelay > 30 ? '#1e40af' : avgDelay > 0 ? '#3b82f6' : 'var(--muted)',
+                fontWeight: avgDelay > 0 ? 700 : 400 }}>
+                {avgDelay == null ? '—' : avgDelay > 0 ? `+${avgDelay}일` : '정상'}
+              </td>
+              <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: 11, color: 'var(--muted)' }}>{pct}%</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
-// ── Monthly Delivery Chart ────────────────────────────────────────────────────
 function MonthlyDeliveryChart({ data }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
-  const W = 260, H = 120, PL = 28, PR = 8, PT = 20, PB = 24;
-  const cW = W-PL-PR, cH = H-PT-PB;
-  const max = Math.max(...data.map(d => d.count), 1);
-  const pts = data.map((d, i) => ({
-    x: PL + (i / Math.max(data.length-1, 1)) * cW,
-    y: PT + cH - (d.count / max) * cH,
-    ...d
-  }));
-  const pathD = pts.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
-  const areaD = `${pathD} L${pts[pts.length-1].x},${PT+cH} L${pts[0].x},${PT+cH} Z`;
-  const hov = hovered !== null ? pts[hovered] : null;
+  const W = 300, H = 130, PL = 28, PR = 10, PT = 18, PB = 28;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const maxVal = Math.max(...data.map(d => d.count || 0), 1);
+  const avgCount = Math.round(data.reduce((s,d) => s + (d.count||0), 0) / data.length);
+  const avgY = PT + cH - (avgCount / maxVal) * cH;
+  const barW = Math.max(8, Math.floor(cW / data.length * 0.55));
+  const gap = cW / Math.max(data.length - 1, 1);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
         <defs>
-          <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+          <linearGradient id="bar-planned" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.5"/>
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.25"/>
+          </linearGradient>
+          <linearGradient id="bar-done" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1e40af" stopOpacity="0.85"/>
+            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.7"/>
           </linearGradient>
         </defs>
-        <path d={areaD} fill="url(#mg)" />
-        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} />
-        {pts.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r={4} fill={hovered===i ? '#2563eb' : '#3b82f6'} style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
-            <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize={9} fill="#3b82f6" fontWeight="700">{p.count}</text>
-            <text x={p.x} y={H-6} textAnchor="middle" fontSize={8} fill="#94a3b8">
-              {p.month?.slice(5)}월
-            </text>
-          </g>
-        ))}
-        {hov && (
-          <g>
-            <rect x={Math.min(hov.x+6, W-90)} y={hov.y-10} width={84} height={Object.keys(hov.by_system||{}).length*12+20} fill="#1e293b" rx={4} opacity={0.92} />
-            <text x={Math.min(hov.x+14, W-82)} y={hov.y+6} fontSize={10} fill="#fff" fontWeight="700">{hov.month?.slice(5)}월 {hov.count}건</text>
-            {Object.entries(hov.by_system||{}).map(([sys, cnt], si) => (
-              <text key={si} x={Math.min(hov.x+14, W-82)} y={hov.y+18+si*12} fontSize={9} fill="#94a3b8">{sys}: {cnt}</text>
-            ))}
-          </g>
-        )}
+        {/* 가로 평균선 */}
+        <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#93c5fd" strokeWidth={1} strokeDasharray="4 3" />
+        <text x={W-PR+2} y={avgY+4} fontSize={8} fill="#93c5fd">avg</text>
+        {data.map((d, i) => {
+          const x = PL + i * gap - barW/2;
+          const planH = Math.max((( d.count||0) / maxVal) * cH, d.count > 0 ? 3 : 0);
+          const doneH = Math.max(((d.completed||0) / maxVal) * cH, d.completed > 0 ? 3 : 0);
+          const baseY = PT + cH;
+          const isHov = hovered === i;
+          return (
+            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
+              {/* 예정 바 (연한) */}
+              {planH > 0 && <rect x={x} y={baseY - planH} width={barW} height={planH} fill="url(#bar-planned)" rx={2} />}
+              {/* 완료 바 (진한, 위에 겹침) */}
+              {doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="url(#bar-done)" rx={2} />}
+              {/* 예정 건수 */}
+              {d.count > 0 && <text x={x + barW/2} y={baseY - planH - 3} textAnchor="middle" fontSize={9} fill={isHov ? '#2563eb' : '#3b82f6'} fontWeight="700">{d.count}</text>}
+              {/* X축 */}
+              <text x={x + barW/2} y={H - 6} textAnchor="middle" fontSize={9} fill={isHov ? 'var(--text)' : '#94a3b8'}>{d.month?.slice(5)}월</text>
+              {/* 호버 툴팁 */}
+              {isHov && (
+                <g>
+                  <rect x={Math.min(x - 4, W - 88)} y={baseY - planH - 38} width={84} height={32} fill="#0f172a" rx={4} opacity={0.9} />
+                  <text x={Math.min(x + 38, W - 48)} y={baseY - planH - 24} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="700">{d.month?.slice(5)}월</text>
+                  <text x={Math.min(x + 38, W - 48)} y={baseY - planH - 12} textAnchor="middle" fontSize={9} fill="#93c5fd">예정 {d.count} / 완료 {d.completed||0}</text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+        {/* 범례 */}
+        <rect x={PL} y={H-14} width={8} height={6} fill="#1e40af" opacity={0.8} rx={1}/>
+        <text x={PL+10} y={H-9} fontSize={8} fill="#94a3b8">납품완료</text>
+        <rect x={PL+50} y={H-14} width={8} height={6} fill="#3b82f6" opacity={0.4} rx={1}/>
+        <text x={PL+60} y={H-9} fontSize={8} fill="#94a3b8">출고예정</text>
       </svg>
     </div>
   );
@@ -1039,7 +1076,7 @@ function UrgentDelaysList({ data, onSelect }) {
           <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>+{item._delay_days}일</div>
           <div className="delay-info">
             <div className="delay-name">{item.프로젝트 || item.수주번호}</div>
-            <div className="delay-meta">{item.업체명} · {item._current_step}</div>
+            <div className="delay-meta">{item.업체명} · {item._current_step}{item.요구납기일 ? ` · ${item.요구납기일}` : ''}</div>
           </div>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>›</span>
         </div>
@@ -1056,6 +1093,7 @@ function DueSoonPanel({ alerts, onSelect }) {
   const sections = [
     { key: '출고', label: '이달 출고 예정', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'OTP', label: '이달 OTP 예정', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
+    { key: '생산', label: '이달 생산완료 예정', color: '#93c5fd', items: alerts.due_soon?.생산 || [] },
   ];
   const modalItems = modal === '출고' ? alerts.due_soon?.출고 : alerts.due_soon?.OTP;
   const modalTitle = sections.find(s => s.key === modal)?.label || '';
@@ -1649,7 +1687,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
+function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDateCol = '요구납기일' }) {
   const [kpi, setKpi] = useState(null);
   const [stageByProcess, setStageByProcess] = useState([]);
   const [monthlyDelivery, setMonthlyDelivery] = useState([]);
@@ -1666,14 +1704,16 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter }) {
 
   const pfVal = Array.isArray(productFilter) ? productFilter.join(',') : (productFilter !== '전체' ? productFilter : '');
   const pf = pfVal ? `?product_filter=${encodeURIComponent(pfVal)}` : '';
+  const sep = pf ? '&' : '?';
+  const dateParam = dueDateCol !== '요구납기일' ? `${sep}date_col=${encodeURIComponent(dueDateCol)}` : '';
 
   const load = useCallback(() => {
     api.get(`/api/dashboard/kpi${pf}`).then(setKpi);
     api.get(`/api/dashboard/stage-by-process${pf}`).then(setStageByProcess);
-    api.get(`/api/dashboard/monthly-delivery${pf}`).then(setMonthlyDelivery);
+    api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}`).then(setMonthlyDelivery);
     api.get(`/api/dashboard/alerts${pf}`).then(setAlerts);
     api.get(`/api/dashboard/status-distribution${pf}`).then(setStatusDist);
-    api.get(`/api/dashboard/urgent-delays`).then(setUrgentDelays);
+    api.get(`/api/dashboard/urgent-delays${pf}`).then(setUrgentDelays);
   }, [productFilter]);
 
   useEffect(() => { load(); }, [load]);
@@ -2039,6 +2079,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [productFilter, setProductFilter] = useState('전체');
   const [products, setProducts] = useState([]);
+  const [dueDateCol, setDueDateCol] = useState('요구납기일');
   const api = useApi();
 
   useEffect(() => {
@@ -2088,6 +2129,8 @@ function App() {
         productFilter={productFilter}
         onProductFilter={(p) => { setProductFilter(p); setRefreshKey(k => k + 1); }}
         products={products}
+        dueDateCol={dueDateCol}
+        onDueDateCol={(v) => { setDueDateCol(v); setRefreshKey(k => k + 1); }}
       />
 
       <div className="main">
@@ -2120,6 +2163,9 @@ function App() {
             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono' }}>
               {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
             </span>
+            {activeTab === 'dashboard' && dueDateCol !== '요구납기일' && (
+              <span style={{ fontSize: 11, background: 'rgba(37,99,235,0.1)', color: 'var(--accent)', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>기준: {dueDateCol}</span>
+            )}
           </div>
         </div>
 
@@ -2132,6 +2178,7 @@ function App() {
               onFilterStep={handleBarClick}
               onToast={showToast}
               productFilter={productFilter}
+              dueDateCol={dueDateCol}
             />
           )}
           {activeTab === 'list' && (
