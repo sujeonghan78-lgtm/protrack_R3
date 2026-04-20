@@ -57,8 +57,8 @@ async def get_me(current_user: User = Depends(get_current_user)):
 # ─── KPI & Dashboard ─────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard/kpi")
-async def get_kpi(product_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_kpi(product_filter=product_filter)
+async def get_kpi(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_kpi(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
 
 
 @app.get("/api/dashboard/process-load")
