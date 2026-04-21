@@ -693,9 +693,9 @@ class DataManager:
                          if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff']))]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
 
-            # 모드2: 다음단계 D- 평균 — _next_diff > 0인 건들의 평균 (이미 D- 초과)
-            next_diffs = [r['_next_diff'] for _, r in step_df.iterrows()
-                          if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff'])) and r['_next_diff'] > 0]
+            # 모드2: 다음 일정 초과 평균 — 전체 건 기준, 미초과=0 포함
+            next_diffs = [max(0, r['_next_diff']) for _, r in step_df.iterrows()
+                          if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff']))]
             avg_next = round(sum(next_diffs) / len(next_diffs)) if next_diffs else None
 
             result.append({
