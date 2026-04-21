@@ -372,6 +372,7 @@
   .status-진행중 { background: var(--accent); }
   .status-지연 { background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
   .status-완료 { background: #3b82f6; }
+  @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.4; } }
 
   .progress-bar { height: 4px; background: var(--border); border-radius: 2px; min-width: 80px; }
@@ -956,14 +957,9 @@ function StagePie({ data, onStepClick }) {
 
 // ── Project By Stage - div 방식 ───────────────────────────────────────────────
 function ProjectByStage({ data, onStepClick }) {
-  const [mode, setMode] = React.useState('cur');
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
-  const getValue = d => mode === 'cur'
-    ? (d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days)
-    : d.avg_next_days;
-
-  const visible = data; // 전체 단계 표시
+  const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
 
   const vals = data.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
   const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
@@ -971,17 +967,7 @@ function ProjectByStage({ data, onStepClick }) {
   const H = 130;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
-      <div style={{ display: 'flex', gap: 4, alignSelf: 'flex-end' }}>
-        {[['cur', '예정일 초과'], ['next', '다음 일정 초과']].map(([m, label]) => (
-          <button key={m} onClick={() => setMode(m)} style={{
-            fontSize: 10, padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
-            border: '1px solid var(--border)', fontFamily: 'var(--sans)',
-            background: mode === m ? 'var(--accent)' : 'var(--surface2)',
-            color: mode === m ? '#fff' : 'var(--muted)', transition: 'all 0.15s',
-          }}>{label}</button>
-        ))}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, paddingBottom: 22, position: 'relative', minHeight: H }}>
         {[0.5, 1].map(r => (
           <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 22 + H * r, borderTop: '0.5px dashed var(--border)' }} />
@@ -1001,7 +987,7 @@ function ProjectByStage({ data, onStepClick }) {
               <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#1e40af' : 'transparent', minHeight: 13 }}>
                 {avg > 0 ? `+${avg}` : ''}
               </div>
-              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
                 <div style={{
                   width: 'min(24px, 80%)',
                   height: barH || (hasCount ? 2 : 0),
@@ -1024,39 +1010,23 @@ function ProjectByStage({ data, onStepClick }) {
 
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
-  const [mode, setMode] = useState('all'); // 'all' | 'done' | 'plan'
-  const containerRef = useRef(null);
-  const [W, setW] = useState(300);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(entries => {
-      const w = entries[0].contentRect.width;
-      if (w > 0) setW(Math.floor(w));
-    });
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
+  const [mode, setMode] = useState('all');
 
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
-  const H = 155, PL = 24, PR = 12, PT = 20, PB = 32;
-  const cW = W - PL - PR, cH = H - PT - PB;
-  const n = sorted.length;
 
   const getVal = d => mode === 'all' ? Math.max(d.count || 0, d.completed || 0)
-    : mode === 'done' ? (d.completed || 0)
-    : (d.count || 0);
+    : mode === 'done' ? (d.completed || 0) : (d.count || 0);
+  const getDone = d => mode === 'done' ? (d.completed || 0) : 0;
 
+  const H = 120;
   const maxVal = Math.max(...sorted.map(d => getVal(d)), 1);
-  const avgCount = Math.round(sorted.reduce((s, d) => s + getVal(d), 0) / n);
-  const avgY = PT + cH - (avgCount / maxVal) * cH;
-  const slotW = cW / n;
-  const barW = Math.max(6, Math.min(24, Math.floor(slotW * 0.55)));
+  const avgVal = Math.round(sorted.reduce((s, d) => s + getVal(d), 0) / sorted.length);
+  const avgPct = avgVal / maxVal;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
-      <div style={{ display: 'flex', gap: 3, alignSelf: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 3 }}>
         {[['all','전체'],['done','출고완료'],['plan','출고예정']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} style={{
             fontSize: 10, padding: '2px 7px', borderRadius: 20, cursor: 'pointer',
@@ -1066,55 +1036,73 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
           }}>{label}</button>
         ))}
       </div>
-      <div ref={containerRef} style={{ flex: 1, width: '100%' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
-          <line x1={PL} x2={W-PR} y1={avgY} y2={avgY} stroke="#bfdbfe" strokeWidth={0.8} strokeDasharray="3 3" />
-          <text x={W-PR+1} y={avgY+3} fontSize={7} fill="#93c5fd">avg</text>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* avg 기준선 */}
+        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 3, paddingBottom: 20 }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 20 + avgPct * H,
+            borderTop: '0.5px dashed #bfdbfe', pointerEvents: 'none' }}>
+            <span style={{ position: 'absolute', right: 0, top: -10, fontSize: 7, color: '#93c5fd' }}>avg</span>
+          </div>
           {sorted.map((d, i) => {
-            const cx = PL + slotW * i + slotW / 2;
-            const x = cx - barW / 2;
             const val = getVal(d);
-            const valH = Math.max((val / maxVal) * cH, val > 0 ? 2 : 0);
-            const doneH = Math.max(((d.completed || 0) / maxVal) * cH, d.completed > 0 ? 2 : 0);
-            const baseY = PT + cH;
+            const done = d.completed || 0;
+            const barH = Math.max((val / maxVal) * H, val > 0 ? 3 : 0);
+            const doneH = Math.max((done / maxVal) * H, done > 0 ? 3 : 0);
             const isHov = hovered === i;
-            const showLabel = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
             const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
             const thisYear = d.month?.slice(0,4);
             const isNewYear = thisYear && thisYear !== prevYear;
-            const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : (d.month?.slice(5) + '월');
+            const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : d.month?.slice(5)+'월';
+            const showLabel = sorted.length <= 8 || i % Math.ceil(sorted.length / 8) === 0 || i === sorted.length - 1;
             return (
-              <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-                onClick={() => onBarClick && onBarClick(d)} style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+              <div key={`${mode}-${i}`}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: onBarClick ? 'pointer' : 'default' }}
+                onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+                onClick={() => onBarClick && onBarClick(d)}
               >
-                {isHov && <rect x={x - 4} y={PT} width={barW + 8} height={cH} fill="rgba(37,99,235,0.05)" rx={2} />}
-                {/* 전체/예정: 연한 바 */}
-                {mode !== 'done' && valH > 0 && <rect x={x} y={baseY - valH} width={barW} height={valH} fill="#3b82f6" opacity={isHov ? 0.4 : 0.28} rx={1} />}
-                {/* 전체/완료: 진한 바 */}
-                {mode !== 'plan' && doneH > 0 && <rect x={x} y={baseY - doneH} width={barW} height={doneH} fill="#1e40af" opacity={isHov ? 0.9 : 0.82} rx={1} />}
-                {/* 출고완료만 모드: 단색 */}
-                {mode === 'done' && valH > 0 && <rect x={x} y={baseY - valH} width={barW} height={valH} fill="#1e40af" opacity={isHov ? 0.9 : 0.82} rx={1} />}
-                {val > 0 && !isHov && <text x={cx} y={baseY - valH - 3} textAnchor="middle" fontSize={8} fill="#3b82f6" fontWeight="600">{val}</text>}
-                {showLabel && <text x={cx} y={H - PB + 10} textAnchor="middle" fontSize={isNewYear ? 7 : 8}
-                  fill={isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8'}
-                  fontWeight={isNewYear ? '700' : '400'}>{xLabel}</text>}
-                {isHov && (
-                  <g>
-                    <rect x={Math.min(cx - 40, W - 88)} y={baseY - valH - 42} width={84} height={36} fill="#0f172a" rx={3} opacity={0.92} />
-                    <text x={Math.min(cx, W - 46)} y={baseY - valH - 28} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{d.month?.slice(2,7)} · 클릭</text>
-                    <text x={Math.min(cx, W - 46)} y={baseY - valH - 16} textAnchor="middle" fontSize={8} fill="#93c5fd">예정 {d.count} · 완료 {d.completed || 0}</text>
-                  </g>
-                )}
-              </g>
+                {val > 0 && !isHov && <div style={{ fontSize: 8, color: '#3b82f6', fontFamily: 'var(--mono)', fontWeight: 600, minHeight: 11 }}>{val}</div>}
+                {isHov && <div style={{ fontSize: 8, color: '#fff', background: '#0f172a', borderRadius: 3, padding: '2px 5px', whiteSpace: 'nowrap', minHeight: 11, fontSize: 7 }}>예정{d.count||0}·완료{done}</div>}
+                {!isHov && val === 0 && <div style={{ minHeight: 11 }} />}
+                <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <div style={{ position: 'relative', width: 'min(20px, 80%)', height: barH || 0 }}>
+                    {/* 출고예정 연한 바 */}
+                    {mode !== 'done' && barH > 0 && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
+                        background: '#3b82f6', opacity: isHov ? 0.45 : 0.28, borderRadius: '2px 2px 0 0',
+                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
+                    )}
+                    {/* 납품완료 진한 바 */}
+                    {mode !== 'plan' && doneH > 0 && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(doneH / barH) * 100}%`,
+                        background: '#1e40af', opacity: isHov ? 0.95 : 0.82, borderRadius: '2px 2px 0 0',
+                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
+                    )}
+                    {/* 단일 완료 바 */}
+                    {mode === 'done' && barH > 0 && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
+                        background: '#1e40af', opacity: isHov ? 0.95 : 0.82, borderRadius: '2px 2px 0 0',
+                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
+                    )}
+                  </div>
+                </div>
+                {showLabel && <div style={{ fontSize: isNewYear ? 7 : 8, color: isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8',
+                  fontWeight: isNewYear ? 700 : 400, position: 'absolute', bottom: 2, textAlign: 'center', width: 'max-content' }}>{xLabel}</div>}
+              </div>
             );
           })}
-          {mode === 'all' && <>
-            <rect x={PL} y={H - PB + 18} width={7} height={5} fill="#1e40af" opacity={0.82} rx={1}/>
-            <text x={PL + 9} y={H - PB + 23} fontSize={7} fill="#94a3b8">납품완료</text>
-            <rect x={PL + 48} y={H - PB + 18} width={7} height={5} fill="#3b82f6" opacity={0.28} rx={1}/>
-            <text x={PL + 57} y={H - PB + 23} fontSize={7} fill="#94a3b8">출고예정</text>
-          </>}
-        </svg>
+        </div>
+        {mode === 'all' && (
+          <div style={{ display: 'flex', gap: 10, paddingLeft: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 7, height: 5, background: '#1e40af', opacity: 0.82, borderRadius: 1 }} />
+              <span style={{ fontSize: 7, color: '#94a3b8' }}>납품완료</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 7, height: 5, background: '#3b82f6', opacity: 0.28, borderRadius: 1 }} />
+              <span style={{ fontSize: 7, color: '#94a3b8' }}>출고예정</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
