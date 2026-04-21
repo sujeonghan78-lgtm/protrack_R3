@@ -688,9 +688,9 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 모드1: 현단계 지연 평균 — _cur_diff > 0인 건들의 평균 (실적있든 없든)
-            cur_diffs = [r['_cur_diff'] for _, r in step_df.iterrows()
-                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0]
+            # 모드1: 현단계 지연 평균 — 전체 건 기준, 미지연=0 포함
+            cur_diffs = [max(0, r['_cur_diff']) for _, r in step_df.iterrows()
+                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff']))]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
 
             # 모드2: 다음단계 D- 평균 — _next_diff > 0인 건들의 평균 (이미 D- 초과)
