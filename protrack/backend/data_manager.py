@@ -749,9 +749,9 @@ class DataManager:
                 "최종납기일": safe_date(row.get('최종납기일')),
             }
 
-        # 출고예정: date_col 기준 + 날짜 범위
+        # 출고예정: date_col 기준 + 날짜 범위 + 아직 출고 안 된 건만 (중복 제거)
         df_filtered = apply_date_range(df, date_col, date_from, date_to) if (date_from or date_to) else df
-        planned_df = df_filtered[df_filtered[date_col].notna()].copy()
+        planned_df = df_filtered[df_filtered[date_col].notna() & df_filtered['최종납기일'].isna()].copy()
         planned_df['month'] = planned_df[date_col].dt.to_period('M').astype(str)
 
         # 납품완료: 최종납기일 기준
