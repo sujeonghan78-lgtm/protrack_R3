@@ -973,7 +973,7 @@ function ProjectByStage({ data, onStepClick }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
       <div style={{ display: 'flex', gap: 4, alignSelf: 'flex-end' }}>
-        {[['cur', '현단계 지연'], ['next', '다음단계 D+']].map(([m, label]) => (
+        {[['cur', '예정일 초과'], ['next', '다음 일정 초과']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} style={{
             fontSize: 10, padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
             border: '1px solid var(--border)', fontFamily: 'var(--sans)',
