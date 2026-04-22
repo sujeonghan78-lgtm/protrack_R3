@@ -79,48 +79,48 @@ async def get_me(current_user: User = Depends(get_current_user)):
 # ─── KPI & Dashboard ─────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard/kpi")
-async def get_kpi(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_kpi(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_kpi(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_kpi(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/process-load")
-async def get_process_load(product_filter: str = "", current_user: User = Depends(get_current_user)):
+async def get_process_load(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_process_load(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/alerts")
-async def get_alerts(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_alerts(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_alerts(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_alerts(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/stage-progress")
-async def get_stage_progress(product_filter: str = "", current_user: User = Depends(get_current_user)):
+async def get_stage_progress(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_stage_progress(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/stage-by-process")
-async def get_stage_by_process(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_stage_by_process(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_stage_by_process(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_stage_by_process(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/status-distribution")
-async def get_status_distribution(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_status_distribution(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_status_distribution(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_status_distribution(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/urgent-delays")
-async def get_urgent_delays(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_urgent_delays(limit=5, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_urgent_delays(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_urgent_delays(limit=5, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/company-distribution")
-async def get_company_distribution(product_filter: str = "", current_user: User = Depends(get_current_user)):
+async def get_company_distribution(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_company_distribution(product_filter=product_filter)
 
 
 @app.get("/api/dashboard/monthly-delivery")
-async def get_monthly_delivery(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_monthly_delivery(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+async def get_monthly_delivery(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_monthly_delivery(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/monthly-trend")
@@ -144,9 +144,10 @@ async def get_processes(
     date_col: str = "",
     date_from: str = "",
     date_to: str = "",
+    vendor_filter: str = "",
     current_user: User = Depends(get_current_user)
 ):
-    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to)
+    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/processes/{order_no}/{ordseq}")
@@ -363,6 +364,7 @@ async def update_vendor(name: str, data: dict, current_user: User = Depends(requ
     vendors = load_vendors()
     vendors[name] = data.get("type", "국내")
     save_vendors(vendors)
+    dm.reload_vendors()
     return {"ok": True}
 
 @app.post("/api/vendors")
@@ -373,6 +375,7 @@ async def add_vendor(data: dict, current_user: User = Depends(require_admin)):
     vendors = load_vendors()
     vendors[name] = data.get("type", "국내")
     save_vendors(vendors)
+    dm.reload_vendors()
     return {"ok": True}
 
 @app.delete("/api/vendors/{name}")
@@ -381,6 +384,7 @@ async def delete_vendor(name: str, current_user: User = Depends(require_admin)):
     if name in vendors:
         del vendors[name]
         save_vendors(vendors)
+        dm.reload_vendors()
     return {"ok": True}
 
 @app.post("/api/vendors/upload")
@@ -406,6 +410,7 @@ async def upload_vendors(
                 vendors[name] = vtype
                 count += 1
         save_vendors(vendors)
+        dm.reload_vendors()
         return {"message": f"{count}개 업체 등록 완료.", "count": count}
     except HTTPException:
         raise
