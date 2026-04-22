@@ -5,6 +5,8 @@ from fastapi.responses import StreamingResponse
 import pandas as pd
 import io
 import os
+import json
+import shutil
 from datetime import datetime, timedelta
 from typing import Optional, List
 import math
@@ -27,7 +29,27 @@ app.add_middleware(
 )
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "../data/sample.xlsx")
+VERSIONS_DIR = os.path.join(os.path.dirname(__file__), "../data/versions")
+VERSIONS_META = os.path.join(os.path.dirname(__file__), "../data/versions.json")
+MAX_VERSIONS = 10
+
+os.makedirs(VERSIONS_DIR, exist_ok=True)
 dm = DataManager(DATA_FILE)
+
+
+def load_versions() -> list:
+    if not os.path.exists(VERSIONS_META):
+        return []
+    try:
+        with open(VERSIONS_META, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_versions(versions: list):
+    with open(VERSIONS_META, 'w', encoding='utf-8') as f:
+        json.dump(versions, f, ensure_ascii=False, indent=2)
 
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
@@ -169,7 +191,7 @@ async def get_products(current_user: User = Depends(get_current_user)):
     return dm.get_unique_values("시스템명")
 
 
-# ─── Excel Upload ────────────────────────────────────────────────────────────
+# ─── Excel Upload (버전 관리 포함) ───────────────────────────────────────────
 
 @app.post("/api/upload")
 async def upload_excel(
@@ -178,7 +200,7 @@ async def upload_excel(
 ):
     if not file.filename.lower().endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.")
-    
+
     contents = await file.read()
     try:
         engine = 'xlrd' if file.filename.lower().endswith('.xls') else 'openpyxl'
@@ -187,20 +209,105 @@ async def upload_excel(
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
             raise HTTPException(status_code=400, detail=f"필수 컬럼 누락: {', '.join(missing)}")
-        
-        # ordseq 없으면 수주번호 기준 자동 생성
+
         if 'ordseq' not in df.columns:
             df['ordseq'] = df.groupby('수주번호').cumcount() + 1
 
-        save_path = os.path.join(os.path.dirname(__file__), "../data/sample.xlsx")
-        df.to_excel(save_path, index=False)
-        
-        dm.reload(save_path)
-        return {"message": f"업로드 완료. {len(df)}행 로드됨.", "rows": len(df)}
+        # 버전 파일로 저장
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        version_filename = f"v_{ts}.xlsx"
+        version_path = os.path.join(VERSIONS_DIR, version_filename)
+        df.to_excel(version_path, index=False)
+        file_size = os.path.getsize(version_path)
+
+        # 메타데이터 기록
+        versions = load_versions()
+        new_version = {
+            "id": ts,
+            "filename": file.filename,
+            "stored_as": version_filename,
+            "uploaded_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "rows": len(df),
+            "size_bytes": file_size,
+            "is_active": True,
+            "uploaded_by": current_user.username,
+        }
+        # 기존 버전 비활성화
+        for v in versions:
+            v["is_active"] = False
+        versions.insert(0, new_version)
+
+        # 최대 10개 초과 시 오래된 것 삭제
+        if len(versions) > MAX_VERSIONS:
+            for old in versions[MAX_VERSIONS:]:
+                old_path = os.path.join(VERSIONS_DIR, old["stored_as"])
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            versions = versions[:MAX_VERSIONS]
+
+        save_versions(versions)
+
+        # 현재 활성 데이터로 적용
+        shutil.copy2(version_path, DATA_FILE)
+        dm.reload(DATA_FILE)
+
+        return {"message": f"업로드 완료. {len(df)}행 로드됨.", "rows": len(df), "version_id": ts}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"파일 처리 오류: {str(e)}")
+
+
+@app.get("/api/versions")
+async def get_versions(current_user: User = Depends(get_current_user)):
+    versions = load_versions()
+    return versions
+
+
+@app.post("/api/versions/{version_id}/activate")
+async def activate_version(
+    version_id: str,
+    current_user: User = Depends(require_admin)
+):
+    versions = load_versions()
+    target = next((v for v in versions if v["id"] == version_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="버전을 찾을 수 없습니다.")
+
+    version_path = os.path.join(VERSIONS_DIR, target["stored_as"])
+    if not os.path.exists(version_path):
+        raise HTTPException(status_code=404, detail="버전 파일이 존재하지 않습니다.")
+
+    for v in versions:
+        v["is_active"] = (v["id"] == version_id)
+    save_versions(versions)
+
+    shutil.copy2(version_path, DATA_FILE)
+    dm.reload(DATA_FILE)
+
+    return {"message": f"버전 {version_id} 활성화 완료."}
+
+
+@app.delete("/api/versions/{version_id}")
+async def delete_version(
+    version_id: str,
+    current_user: User = Depends(require_admin)
+):
+    versions = load_versions()
+    target = next((v for v in versions if v["id"] == version_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="버전을 찾을 수 없습니다.")
+    if target.get("is_active"):
+        raise HTTPException(status_code=400, detail="활성 버전은 삭제할 수 없습니다.")
+
+    version_path = os.path.join(VERSIONS_DIR, target["stored_as"])
+    if os.path.exists(version_path):
+        os.remove(version_path)
+
+    versions = [v for v in versions if v["id"] != version_id]
+    save_versions(versions)
+    return {"message": "삭제 완료."}
+
 
 
 # ─── Excel Download ──────────────────────────────────────────────────────────
