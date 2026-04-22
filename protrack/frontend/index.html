@@ -672,7 +672,7 @@ function LoginPage({ onLogin }) {
 }
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products, dueDateCol, onDueDateCol, dateFrom, dateTo, onDateFrom, onDateTo }) {
+function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products, dueDateCol, onDueDateCol, dateFrom, dateTo, onDateFrom, onDateTo, vendorFilter, onVendorFilter }) {
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
 
@@ -746,6 +746,18 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
                 style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '4px 8px', fontFamily: 'var(--sans)', outline: 'none', cursor: 'pointer' }} />
               <input type="date" value={dateTo} onChange={e => onDateTo(e.target.value)}
                 style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '4px 8px', fontFamily: 'var(--sans)', outline: 'none', cursor: 'pointer' }} />
+            </div>
+            <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>거래처 구분</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 8px' }}>
+              {['전체','국내','해외','미분류'].map(v => (
+                <button key={v} onClick={() => onVendorFilter(v)} style={{
+                  padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                  border: '1px solid var(--border)', fontFamily: 'var(--sans)',
+                  background: vendorFilter === v ? 'var(--accent)' : 'var(--surface2)',
+                  color: vendorFilter === v ? '#fff' : 'var(--muted)',
+                  transition: 'all 0.15s',
+                }}>{v}</button>
+              ))}
             </div>
             <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>시스템 필터</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 8px' }}>
@@ -1916,7 +1928,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '', onLastLoaded }) {
+function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorFilter = '전체', dueDateCol = '요구납기일', dateFrom = '', dateTo = '', onLastLoaded }) {
   const [kpi, setKpi] = useState(null);
   const [stageByProcess, setStageByProcess] = useState([]);
   const [monthlyDelivery, setMonthlyDelivery] = useState([]);
@@ -1935,6 +1947,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
   const pfVal = Array.isArray(productFilter) ? productFilter.join(',') : (productFilter !== '전체' ? productFilter : '');
   const pf = pfVal ? `?product_filter=${encodeURIComponent(pfVal)}` : '';
+  const vf = vendorFilter && vendorFilter !== '전체' ? `&vendor_filter=${encodeURIComponent(vendorFilter)}` : '';
   const sep = pf ? '&' : '?';
   // date_col은 항상 전달 (요구납기일도 명시적으로)
   const dateParam = `${sep}date_col=${encodeURIComponent(dueDateCol)}`;
@@ -1945,14 +1958,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
   const load = useCallback(() => {
     Promise.all([
-      api.get(`/api/dashboard/kpi${pf}${dateParam}${dateRange}`).then(setKpi),
-      api.get(`/api/dashboard/stage-by-process${pf}${dateParam}${dateRange}`).then(setStageByProcess),
-      api.get(`/api/dashboard/monthly-delivery${pf}${dateParam}${dateRange}`).then(setMonthlyDelivery),
-      api.get(`/api/dashboard/alerts${pf}${dateParam}${dateRange}`).then(setAlerts),
-      api.get(`/api/dashboard/status-distribution${pf}${dateParam}${dateRange}`).then(setStatusDist),
-      api.get(`/api/dashboard/urgent-delays${pf}${dateParam}${dateRange}`).then(setUrgentDelays),
+      api.get(`/api/dashboard/kpi${pf}${vf}${dateParam}${dateRange}`).then(setKpi),
+      api.get(`/api/dashboard/stage-by-process${pf}${vf}${dateParam}${dateRange}`).then(setStageByProcess),
+      api.get(`/api/dashboard/monthly-delivery${pf}${vf}${dateParam}${dateRange}`).then(setMonthlyDelivery),
+      api.get(`/api/dashboard/alerts${pf}${vf}${dateParam}${dateRange}`).then(setAlerts),
+      api.get(`/api/dashboard/status-distribution${pf}${vf}${dateParam}${dateRange}`).then(setStatusDist),
+      api.get(`/api/dashboard/urgent-delays${pf}${vf}${dateParam}${dateRange}`).then(setUrgentDelays),
     ]).then(() => { if (onLastLoaded) onLastLoaded(new Date()); });
-  }, [productFilter, dueDateCol, dateFrom, dateTo]);
+  }, [productFilter, vendorFilter, dueDateCol, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -2103,7 +2116,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   );
 }
 // ── List Tab ──────────────────────────────────────────────────────────────────
-function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: searchProp, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
+function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: searchProp, onToast, productFilter, vendorFilter = '전체', dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(searchProp || '');
@@ -2147,14 +2160,15 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
       date_col: dueDateCol !== '요구납기일' ? dueDateCol : '',
       date_from: dateFrom,
       date_to: dateTo,
+      vendor_filter: vendorFilter || '전체',
     });
     try {
       const res = await api.get(`/api/processes?${params}`);
       setData(res);
     } finally { setLoading(false); }
-  }, [page, debouncedSearch, statusFilter, companyFilter, stepFilter, sortBy, sortDir, productFilter, dueDateCol, dateFrom, dateTo]);
+  }, [page, debouncedSearch, statusFilter, companyFilter, stepFilter, sortBy, sortDir, productFilter, vendorFilter, dueDateCol, dateFrom, dateTo]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, companyFilter, stepFilter, productFilter, dueDateCol, dateFrom, dateTo]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, companyFilter, stepFilter, productFilter, vendorFilter, dueDateCol, dateFrom, dateTo]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleSort = (col) => {
@@ -2478,6 +2492,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [productFilter, setProductFilter] = useState('전체');
+  const [vendorFilter, setVendorFilter] = useState('전체');
   const [products, setProducts] = useState([]);
   const [dueDateCol, setDueDateCol] = useState('요구납기일');
   const [lastLoaded, setLastLoaded] = useState(null);
@@ -2548,6 +2563,8 @@ function App() {
         dateFrom={dateFrom} dateTo={dateTo}
         onDateFrom={(v) => { setDateFrom(v); setRefreshKey(k => k + 1); }}
         onDateTo={(v)   => { setDateTo(v);   setRefreshKey(k => k + 1); }}
+        vendorFilter={vendorFilter}
+        onVendorFilter={(v) => { setVendorFilter(v); setRefreshKey(k => k + 1); }}
       />
 
       <div className="main">
@@ -2609,6 +2626,7 @@ function App() {
               onFilterStep={handleBarClick}
               onToast={showToast}
               productFilter={productFilter}
+              vendorFilter={vendorFilter}
               dueDateCol={dueDateCol}
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -2624,6 +2642,7 @@ function App() {
               search={searchQuery}
               onToast={showToast}
               productFilter={productFilter}
+              vendorFilter={vendorFilter}
               dueDateCol={dueDateCol}
               dateFrom={dateFrom}
               dateTo={dateTo}
