@@ -1961,7 +1961,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const vf = vendorFilter && vendorFilter !== '전체'
     ? `${pf ? '&' : '?'}vendor_filter=${encodeURIComponent(vendorFilter)}`
     : '';
-  const sep = (pf || vf) ? '\const sep = pf ? '&' : '?';' : '?';
+  const sep = (pf || vf) ? '&' : '?';
   // date_col은 항상 전달 (요구납기일도 명시적으로)
   const dateParam = `${sep}date_col=${encodeURIComponent(dueDateCol)}`;
   const sep2 = '&';
