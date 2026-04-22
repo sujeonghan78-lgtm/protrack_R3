@@ -592,13 +592,15 @@ function useApi() {
 
   const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers, body: JSON.stringify(body) }).then(r => r.json());
 
+  const del = (path) => fetch(`${API}${path}`, { method: 'DELETE', headers }).then(r => r.json());
+
   const upload = (path, formData) => fetch(`${API}${path}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   }).then(r => r.json());
 
-  return { get, put, post, upload };
+  return { get, put, post, del: del, delete: del, upload };
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -966,7 +968,7 @@ function ProjectByStage({ data, onStepClick }) {
   const vals = data.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
   const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
   const maxVal = Math.max(p80, 1);
-  const H = 110;
+  const H = 120;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -1018,9 +1020,13 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
 
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
-  const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
+  const today = new Date();
+  const thisMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const sorted = [...data]
+    .sort((a, b) => (a.month || '').localeCompare(b.month || ''))
+    .filter(d => (d.month || '') >= thisMonth);
 
-  const H = 130;
+  const H = 120;
   const maxVal = Math.max(...sorted.map(d => d.count || 0), 1);
   const avgVal = Math.round(sorted.reduce((s, d) => s + (d.count || 0), 0) / sorted.length);
   const avgPct = avgVal / maxVal;
@@ -1118,52 +1124,31 @@ function StatusDistribution({ data, onBarClick }) {
 
 // ── Monthly Modal (월별 출고 상세 팝업) ──────────────────────────────────────
 function MonthlyModal({ monthData, onClose, onSelect }) {
-  const [tab, setTab] = useState('planned'); // 'planned' | 'completed'
   if (!monthData) return null;
-
-  const items = tab === 'planned' ? (monthData.planned_items || []) : (monthData.completed_items || []);
-  const tabLabel = { planned: `출고예정 (${monthData.count}건)`, completed: `납품완료 (${monthData.completed}건)` };
+  const items = [...(monthData.planned_items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'min(760px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-        {/* 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div>
-            <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고 현황</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>출고예정 {monthData.count}건 · 납품완료 {monthData.completed}건</div>
-          </div>
+          <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고예정 ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_${tabLabel[tab]}`)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_출고예정`)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
-        {/* 탭 */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
-          {['planned', 'completed'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: '8px 16px', fontSize: 12, fontWeight: tab === t ? 700 : 400, cursor: 'pointer',
-                color: tab === t ? 'var(--accent)' : 'var(--muted)',
-                borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-                background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-                fontFamily: 'var(--sans)', transition: 'color 0.15s' }}>
-              {tabLabel[t]}
-            </button>
-          ))}
-        </div>
-        {/* 테이블 */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {items.length === 0 ? (
             <div className="empty-state">해당 항목 없음</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '14%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
-                <col style={{ width: '18%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {[tab === 'planned' ? '요구납기일' : '최종납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
+                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
                     <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
@@ -1175,14 +1160,12 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>
-                      {tab === 'planned' ? item.요구납기일 : item.최종납기일 || '—'}
-                    </td>
-                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
                     <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
+                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || '—'}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1800,7 +1783,12 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [activating, setActivating] = useState(null);
   const inputRef = useRef();
+
+  const loadVersions = () => api.get('/api/versions').then(v => setVersions(v || []));
+  useEffect(() => { loadVersions(); }, []);
 
   const handleFile = (f) => {
     if (f && (f.name.toLowerCase().endsWith('.xlsx') || f.name.toLowerCase().endsWith('.xls'))) setFile(f);
@@ -1816,8 +1804,9 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
       const res = await api.upload('/api/upload', form);
       if (res.rows) {
         onToast(`업로드 완료. ${res.rows.toLocaleString()}행 로드됨.`, 'success');
+        setFile(null);
+        loadVersions();
         onRefresh();
-        onClose();
       } else {
         onToast(res.detail || '업로드 실패', 'error');
       }
@@ -1825,28 +1814,98 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
     finally { setLoading(false); }
   };
 
+  const handleActivate = async (versionId) => {
+    setActivating(versionId);
+    try {
+      await api.post(`/api/versions/${versionId}/activate`, {});
+      onToast('버전 전환 완료.', 'success');
+      loadVersions();
+      onRefresh();
+    } catch { onToast('버전 전환 실패', 'error'); }
+    finally { setActivating(null); }
+  };
+
+  const handleDelete = async (versionId) => {
+    if (!confirm('이 버전을 삭제할까요?')) return;
+    try {
+      await api.delete(`/api/versions/${versionId}`);
+      onToast('삭제 완료.', 'success');
+      loadVersions();
+    } catch (e) { onToast(e?.detail || '삭제 실패', 'error'); }
+  };
+
+  const fmtSize = (b) => b < 1024*1024 ? `${(b/1024).toFixed(1)}KB` : `${(b/1024/1024).toFixed(1)}MB`;
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-title">데이터 업로드</div>
-        <div className="modal-subtitle">엑셀 파일을 업로드하여 공정 데이터를 교체합니다. 기존 데이터는 덮어씁니다.</div>
-        <div
-          className={`upload-zone ${drag ? 'dragover' : ''}`}
+      <div className="modal" style={{ width: 'min(680px, 92vw)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div className="modal-title">데이터 업로드 · 버전 관리</div>
+          <button className="drawer-close" onClick={onClose}>×</button>
+        </div>
+
+        {/* 업로드 영역 */}
+        <div className={`upload-zone ${drag ? 'dragover' : ''}`}
           onClick={() => inputRef.current.click()}
           onDragOver={e => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
           onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}
+          style={{ marginBottom: 12 }}
         >
           <div className="upload-icon">📊</div>
           <div className="upload-text">{file ? file.name : '파일을 드래그하거나 클릭하여 선택'}</div>
-          <div className="upload-sub">.xlsx, .xls 형식 지원</div>
+          <div className="upload-sub">.xlsx, .xls 형식 · 최대 10개 버전 저장</div>
           <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
         </div>
-        <div className="modal-actions">
-          <button className="btn-cancel" style={{ flex: 1, padding: '11px 0' }} onClick={onClose}>취소</button>
-          <button className="btn-save" style={{ flex: 2 }} onClick={handleUpload} disabled={!file || loading}>
-            {loading ? '업로드 중...' : '업로드 실행'}
-          </button>
+        <button className="btn-save" onClick={handleUpload} disabled={!file || loading} style={{ marginBottom: 20 }}>
+          {loading ? '업로드 중...' : '업로드 실행'}
+        </button>
+
+        {/* 버전 목록 */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          저장된 버전 ({versions.length}/10)
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {versions.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: 20 }}>업로드 기록 없음</div>
+          )}
+          {versions.map(v => (
+            <div key={v.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+              background: v.is_active ? 'rgba(37,99,235,0.06)' : 'var(--surface2)',
+              border: `1px solid ${v.is_active ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`,
+              borderRadius: 10, transition: 'all 0.15s',
+            }}>
+              {/* 활성 뱃지 */}
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: v.is_active ? 'var(--accent)' : 'var(--border)', flexShrink: 0 }} />
+              {/* 정보 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {v.filename}
+                  {v.is_active && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(37,99,235,0.15)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 10 }}>현재</span>}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                  {v.uploaded_at} · {v.rows?.toLocaleString()}행 · {fmtSize(v.size_bytes)} · {v.uploaded_by}
+                </div>
+              </div>
+              {/* 액션 버튼 */}
+              {!v.is_active && (
+                <button onClick={() => handleActivate(v.id)} disabled={activating === v.id}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)',
+                    background: 'var(--surface)', cursor: 'pointer', color: 'var(--accent)', fontFamily: 'var(--sans)',
+                    transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+                  {activating === v.id ? '전환 중...' : '이 버전으로'}
+                </button>
+              )}
+              {!v.is_active && (
+                <button onClick={() => handleDelete(v.id)}
+                  style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)',
+                    background: 'none', cursor: 'pointer', color: 'var(--muted)', fontFamily: 'var(--sans)' }}>
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -1904,7 +1963,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   };
 
   const handleStepClick = (step) => {
-    onFilterStep(step);
+    onFilterStep(step, '지연');
   };
 
   const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
@@ -1970,7 +2029,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
             <span className="chart-badge">클릭 시 목록</span>
           </div>
           <div className="card-body">
-            <StageByProcessChart data={stageByProcess} onStepClick={handleStepClick} />
+            <StageByProcessChart data={stageByProcess} onStepClick={step => onFilterStep(step, '전체')} />
           </div>
         </div>
 
@@ -2041,14 +2100,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   );
 }
 // ── List Tab ──────────────────────────────────────────────────────────────────
-function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
+function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: searchProp, onToast, productFilter, dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(searchProp || '');
   const debouncedSearch = useDebounce(search, 400);
 
   useEffect(() => { setSearch(searchProp || ''); }, [searchProp]);
-  const [statusFilter, setStatusFilter] = useState('전체');
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || '전체');
   const [stepFilter, setStepFilter] = useState(initialStepFilter || '전체');
   const [companies, setCompanies] = useState([]);
   const [companyFilter, setCompanyFilter] = useState('전체');
@@ -2068,6 +2127,7 @@ function ListTab({ api, user, initialStepFilter, search: searchProp, onToast, pr
 
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
+  useEffect(() => { setStatusFilter(initialStatusFilter || '전체'); }, [initialStatusFilter]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -2257,6 +2317,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [stepFilter, setStepFilter] = useState('전체');
+  const [statusFilterFromDash, setStatusFilterFromDash] = useState('전체');
   const [showUpload, setShowUpload] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -2299,8 +2360,10 @@ function App() {
 
   const handleLogout = () => { localStorage.removeItem('pt_token'); setUser(null); };
 
-  const handleBarClick = (step) => {
-    if (step) { setStepFilter(step); setActiveTab('list'); }
+  const handleBarClick = (step, statusFilter) => {
+    if (step) { setStepFilter(step); }
+    setStatusFilterFromDash(statusFilter || '전체');
+    setActiveTab('list');
   };
 
   const pageTitles = {
@@ -2400,6 +2463,7 @@ function App() {
               api={api}
               user={user}
               initialStepFilter={stepFilter}
+              initialStatusFilter={statusFilterFromDash}
               search={searchQuery}
               onToast={showToast}
               productFilter={productFilter}
