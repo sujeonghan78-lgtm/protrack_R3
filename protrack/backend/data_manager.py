@@ -305,8 +305,14 @@ class DataManager:
         df = df.copy()
         df['_current_step'] = df.apply(infer_current_step, axis=1)
 
+        # 거래처 구분 적용
+        vendors = self._load_vendors()
+        def get_vendor_type(name):
+            if pd.isna(name): return '미분류'
+            return vendors.get(str(name).strip(), '미분류')
+        df['_vendor_type'] = df['업체명'].apply(get_vendor_type)
+
         def enrich_row(row):
-            # _current_step이 이미 세팅된 row를 기반으로 계산
             diff = calc_stage_diff(row)
             return pd.Series({
                 '_status': infer_status(row),
@@ -321,6 +327,26 @@ class DataManager:
         df = pd.concat([df, enriched], axis=1)
         df['_row_id'] = df.index
         return df
+
+    def _load_vendors(self) -> dict:
+        import json, os
+        vendors_file = os.path.join(os.path.dirname(self.filepath), 'vendors.json')
+        if not os.path.exists(vendors_file):
+            return {}
+        try:
+            with open(vendors_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+
+    def reload_vendors(self):
+        """거래처 파일 변경 시 _vendor_type 재계산"""
+        if self.df.empty: return
+        vendors = self._load_vendors()
+        def get_vendor_type(name):
+            if pd.isna(name): return '미분류'
+            return vendors.get(str(name).strip(), '미분류')
+        self.df['_vendor_type'] = self.df['업체명'].apply(get_vendor_type)
 
     def _row_to_dict(self, row) -> Dict[str, Any]:
         d = {}
@@ -339,8 +365,11 @@ class DataManager:
                 d[col] = val
         return d
 
-    def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="") -> pd.DataFrame:
+    def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="", vendor_filter="") -> pd.DataFrame:
         df = self.df.copy()
+
+        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+            df = df[df['_vendor_type'] == vendor_filter]
 
         if search:
             mask = (
@@ -392,13 +421,15 @@ class DataManager:
             df[col] = refreshed[col]
         return df
 
-    def _get_fresh_df(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "") -> pd.DataFrame:
+    def _get_fresh_df(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> pd.DataFrame:
         """필터 적용 + 날짜 재계산된 df 반환."""
         df = self.df.copy()
         if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
+        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+            df = df[df['_vendor_type'] == vendor_filter]
         df = self._refresh_dynamic(df)
         if date_col and (date_from or date_to):
             df = apply_date_range(df, date_col, date_from, date_to)
@@ -433,8 +464,8 @@ class DataManager:
 
         return df
 
-    def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="", date_col="요구납기일", date_from="", date_to="") -> Dict:
-        df = self.get_filtered_df(search, status_filter, company_filter, step_filter, product_filter)
+    def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="", date_col="요구납기일", date_from="", date_to="", vendor_filter="") -> Dict:
+        df = self.get_filtered_df(search, status_filter, company_filter, step_filter, product_filter, vendor_filter)
         if (date_from or date_to):
             df = apply_date_range(df, date_col, date_from, date_to)
 
@@ -501,8 +532,8 @@ class DataManager:
 
         return True
 
-    def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
+    def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total = len(df)
         on_track = len(df[df['_status'] == 'On Track'])
         at_risk = len(df[df['_status'] == 'At Risk'])
@@ -582,11 +613,11 @@ class DataManager:
         result.sort(key=lambda x: x['rate'], reverse=True)
         return result
 
-    def get_alerts(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
+    def get_alerts(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         if self.df.empty:
             return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
 
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         today = pd.Timestamp.now()
         this_month_start = today.replace(day=1)
         next_month_start = this_month_start + pd.DateOffset(months=1)
@@ -640,9 +671,9 @@ class DataManager:
         counts = df['업체명'].value_counts().head(10)
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
-    def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
+    def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
         """지연 TOP5: 요구납기일 기준 지연일수로 정렬"""
-        df = self._get_fresh_df(product_filter)
+        df = self._get_fresh_df(product_filter, vendor_filter=vendor_filter)
         today = pd.Timestamp.now()
         delayed = df[df['_status'] == '지연'].copy()
 
@@ -672,11 +703,11 @@ class DataManager:
             })
         return result
 
-    def get_stage_by_process(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
+    def get_stage_by_process(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
         """공정 단계별 현재 건수 (누적 바차트용)"""
         if self.df.empty:
             return []
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total_count = len(df)
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
         system_colors = ['#2563eb','#3b82f6','#1e40af','#60a5fa','#1d4ed8','#93c5fd','#bfdbfe','#1e3a8a']
@@ -718,11 +749,11 @@ class DataManager:
             })
         return result
 
-    def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> Dict:
+    def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:
             return {}
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total = len(df)
         return {
             "total": total,
@@ -732,7 +763,7 @@ class DataManager:
             "completed": int(len(df[df['_status'] == '완료'])),
         }
 
-    def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "") -> List[Dict]:
+    def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
         """월별 출고예정(date_col) + 납품완료(최종납기일) 건수 및 상세"""
         if self.df.empty or date_col not in self.df.columns:
             if '요구납기일' not in self.df.columns:
@@ -743,6 +774,8 @@ class DataManager:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
+        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+            df = df[df['_vendor_type'] == vendor_filter]
 
         def row_brief(row):
             return {
