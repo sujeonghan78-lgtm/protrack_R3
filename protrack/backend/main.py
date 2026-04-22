@@ -334,6 +334,85 @@ async def export_excel(
     )
 
 
+
+
+# ─── Vendor Management ───────────────────────────────────────────────────────
+
+VENDORS_FILE = os.path.join(os.path.dirname(__file__), "../data/vendors.json")
+
+def load_vendors() -> dict:
+    if not os.path.exists(VENDORS_FILE):
+        return {}
+    try:
+        with open(VENDORS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_vendors(vendors: dict):
+    with open(VENDORS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(vendors, f, ensure_ascii=False, indent=2)
+
+@app.get("/api/vendors")
+async def get_vendors(current_user: User = Depends(get_current_user)):
+    vendors = load_vendors()
+    return [{"name": k, "type": v} for k, v in sorted(vendors.items())]
+
+@app.put("/api/vendors/{name}")
+async def update_vendor(name: str, data: dict, current_user: User = Depends(require_admin)):
+    vendors = load_vendors()
+    vendors[name] = data.get("type", "국내")
+    save_vendors(vendors)
+    return {"ok": True}
+
+@app.post("/api/vendors")
+async def add_vendor(data: dict, current_user: User = Depends(require_admin)):
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="업체명을 입력하세요.")
+    vendors = load_vendors()
+    vendors[name] = data.get("type", "국내")
+    save_vendors(vendors)
+    return {"ok": True}
+
+@app.delete("/api/vendors/{name}")
+async def delete_vendor(name: str, current_user: User = Depends(require_admin)):
+    vendors = load_vendors()
+    if name in vendors:
+        del vendors[name]
+        save_vendors(vendors)
+    return {"ok": True}
+
+@app.post("/api/vendors/upload")
+async def upload_vendors(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_admin)
+):
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="엑셀 파일만 업로드 가능합니다.")
+    contents = await file.read()
+    try:
+        engine = 'xlrd' if file.filename.lower().endswith('.xls') else 'openpyxl'
+        df = pd.read_excel(io.BytesIO(contents), engine=engine, header=0)
+        # A열: 업체명, B열: 구분
+        if df.shape[1] < 2:
+            raise HTTPException(status_code=400, detail="A열(업체명), B열(구분) 형식이어야 합니다.")
+        vendors = load_vendors()
+        count = 0
+        for _, row in df.iterrows():
+            name = str(row.iloc[0]).strip()
+            vtype = str(row.iloc[1]).strip()
+            if name and name != 'nan' and vtype in ('국내', '해외'):
+                vendors[name] = vtype
+                count += 1
+        save_vendors(vendors)
+        return {"message": f"{count}개 업체 등록 완료.", "count": count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
