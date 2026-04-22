@@ -686,7 +686,10 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
     },
     ...(isAdmin ? [{
       label: '관리',
-      items: [{ id: 'upload', icon: '↑', label: '데이터 업로드' }]
+      items: [
+        { id: 'upload', icon: '↑', label: '데이터 업로드' },
+        { id: 'vendors', icon: '🏢', label: '거래처 관리' },
+      ]
     }] : []),
   ];
 
@@ -1963,7 +1966,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
   };
 
   const handleStepClick = (step) => {
-    onFilterStep(step, '지연');
+    onFilterStep(step, '전체');
   };
 
   const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
@@ -2128,6 +2131,11 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
   useEffect(() => { setStatusFilter(initialStatusFilter || '전체'); }, [initialStatusFilter]);
+  useEffect(() => {
+    if (initialStepFilter && initialStepFilter !== '전체') {
+      setSortBy('_cur_diff'); setSortDir('desc');
+    }
+  }, [initialStepFilter]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -2311,6 +2319,154 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   );
 }
 
+// ── Vendors Tab ──────────────────────────────────────────────────────────────
+function VendorsTab({ api, onToast }) {
+  const [vendors, setVendors] = useState([]);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('국내');
+  const [drag, setDrag] = useState(false);
+  const fileRef = useRef();
+
+  const load = () => api.get('/api/vendors').then(v => setVendors(v || []));
+  useEffect(() => { load(); }, []);
+
+  const filtered = vendors.filter(v =>
+    (typeFilter === '전체' || v.type === typeFilter) &&
+    v.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleType = async (name, current) => {
+    const next = current === '국내' ? '해외' : '국내';
+    await api.put(`/api/vendors/${encodeURIComponent(name)}`, { type: next });
+    load();
+  };
+
+  const addVendor = async () => {
+    if (!newName.trim()) return;
+    await api.post('/api/vendors', { name: newName.trim(), type: newType });
+    onToast(`${newName.trim()} 추가 완료.`, 'success');
+    setNewName(''); setAdding(false); load();
+  };
+
+  const deleteVendor = async (name) => {
+    if (!confirm(`"${name}"을 삭제할까요?`)) return;
+    await api.delete(`/api/vendors/${encodeURIComponent(name)}`);
+    onToast('삭제 완료.', 'success');
+    load();
+  };
+
+  const handleFile = async (f) => {
+    if (!f) return;
+    const form = new FormData();
+    form.append('file', f);
+    const res = await api.upload('/api/vendors/upload', form);
+    if (res.count != null) {
+      onToast(res.message, 'success');
+      load();
+    } else {
+      onToast(res.detail || '업로드 실패', 'error');
+    }
+  };
+
+  const domestic = vendors.filter(v => v.type === '국내').length;
+  const foreign  = vendors.filter(v => v.type === '해외').length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+      {/* 상단 요약 + 액션 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[['전체', vendors.length], ['국내', domestic], ['해외', foreign]].map(([label, cnt]) => (
+            <button key={label} onClick={() => setTypeFilter(label)} style={{
+              padding: '5px 14px', borderRadius: 20, border: '1px solid var(--border)',
+              background: typeFilter === label ? 'var(--accent)' : 'var(--surface2)',
+              color: typeFilter === label ? '#fff' : 'var(--muted)',
+              fontSize: 12, cursor: 'pointer', fontFamily: 'var(--sans)', transition: 'all 0.15s',
+            }}>{label} {cnt}</button>
+          ))}
+        </div>
+        <div className="search-box" style={{ flex: 1, minWidth: 180 }}>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>⌕</span>
+          <input placeholder="업체명 검색..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button className="btn-icon" onClick={() => fileRef.current.click()}
+            onDragOver={e => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}
+            style={{ borderColor: drag ? 'var(--accent)' : undefined }}>
+            ↑ 엑셀 업로드
+          </button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { handleFile(e.target.files[0]); e.target.value=''; }} />
+          <button className="btn-icon" onClick={() => setAdding(true)} style={{ color: 'var(--accent)', borderColor: 'rgba(37,99,235,0.3)' }}>
+            + 업체 추가
+          </button>
+        </div>
+      </div>
+
+      {/* 추가 폼 */}
+      {adding && (
+        <div style={{ display: 'flex', gap: 8, padding: '12px 16px', background: 'rgba(37,99,235,0.05)', borderRadius: 10, border: '1px solid rgba(37,99,235,0.15)', alignItems: 'center' }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="업체명 입력" autoFocus
+            style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontFamily: 'var(--sans)', background: 'var(--surface)', color: 'var(--text)' }}
+            onKeyDown={e => e.key === 'Enter' && addVendor()}
+          />
+          <select value={newType} onChange={e => setNewType(e.target.value)}
+            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontFamily: 'var(--sans)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer' }}>
+            <option>국내</option>
+            <option>해외</option>
+          </select>
+          <button className="btn-save" onClick={addVendor} style={{ padding: '7px 18px' }}>추가</button>
+          <button className="btn-cancel" onClick={() => { setAdding(false); setNewName(''); }} style={{ padding: '7px 14px' }}>취소</button>
+        </div>
+      )}
+
+      {/* 테이블 */}
+      <div className="table-card" style={{ flex: 1 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, color: 'var(--muted)', fontWeight: 700 }}>업체명</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 11, color: 'var(--muted)', fontWeight: 700, width: 120 }}>구분</th>
+              <th style={{ width: 60 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={3} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>업체 없음</td></tr>
+            )}
+            {filtered.map((v, i) => (
+              <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}>
+                <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text)' }}>{v.name}</td>
+                <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                  <button onClick={() => toggleType(v.name, v.type)} style={{
+                    padding: '3px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, fontFamily: 'var(--sans)', transition: 'all 0.15s',
+                    background: v.type === '국내' ? 'rgba(37,99,235,0.12)' : 'rgba(100,116,139,0.12)',
+                    color: v.type === '국내' ? 'var(--accent)' : 'var(--muted)',
+                  }}>{v.type}</button>
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                  <button onClick={() => deleteVendor(v.name)}
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '2px 6px' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(null);
@@ -2370,6 +2526,7 @@ function App() {
     dashboard: { title: '종합 대시보드', sub: '실시간 공정 현황 모니터링' },
     list: { title: '공정 목록', sub: '상세 공정 데이터 조회 및 관리' },
     upload: { title: '데이터 업로드', sub: '엑셀 파일 업로드 (관리자 전용)' },
+    vendors: { title: '거래처 관리', sub: '국내/해외 구분 및 업체 정보 관리' },
   };
 
   if (!user) return <LoginPage onLogin={setUser} />;
@@ -2471,6 +2628,9 @@ function App() {
               dateFrom={dateFrom}
               dateTo={dateTo}
             />
+          )}
+          {activeTab === 'vendors' && (
+            <VendorsTab api={api} onToast={showToast} />
           )}
         </div>
       </div>
