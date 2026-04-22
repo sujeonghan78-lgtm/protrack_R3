@@ -630,6 +630,7 @@ class DataManager:
                 "프로젝트": row.get('프로젝트', ''),
                 "_current_step": row.get('_current_step', ''),
                 "_progress": int(row.get('_progress', 0)),
+                "_vendor_type": row.get('_vendor_type', '미분류'),
                 "요구납기일": safe_date(row.get('요구납기일')),
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
