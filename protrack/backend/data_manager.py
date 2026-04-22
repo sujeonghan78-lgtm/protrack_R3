@@ -603,12 +603,18 @@ class DataManager:
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
 
-        delayed = [row_summary(row) for _, row in df[df['_status'] == '지연'].sort_values('_delay_days', ascending=False).iterrows()]
+        # 7번 수정: 지연은 요구납기일이 오늘 이전인 건만 (실질 납기 초과)
+        delayed_df = df[(df['_status'] == '지연') & df['요구납기일'].notna() & (df['요구납기일'] < today)]
+        delayed = [row_summary(row) for _, row in delayed_df.sort_values('_delay_days', ascending=False).iterrows()]
         at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
 
         due_soon_출고 = []
         if '요구납기일' in df.columns:
-            mask = df['요구납기일'].notna() & (df['요구납기일'] >= this_month_start) & (df['요구납기일'] < next_month_start) & (df['_status'] != '완료')
+            # 8번 수정: next_month_start 경계값 제외 (날짜만 비교)
+            mask = (df['요구납기일'].notna() &
+                    (df['요구납기일'].dt.date >= this_month_start.date()) &
+                    (df['요구납기일'].dt.date < next_month_start.date()) &
+                    (df['_status'] != '완료'))
             due_soon_출고 = [row_summary(row) for _, row in df[mask].iterrows()]
 
         due_soon_otp = []
@@ -688,10 +694,11 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 모드1: 현단계 지연 평균 — 전체 건 기준, 미지연=0 포함
-            cur_diffs = [max(0, r['_cur_diff']) for _, r in step_df.iterrows()
-                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff']))]
+            # 모드1: 지연 건수만의 평균 (_cur_diff > 0인 건들의 평균)
+            cur_diffs = [r['_cur_diff'] for _, r in step_df.iterrows()
+                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
+            delayed_count = len(cur_diffs)
 
             # 모드2: 다음 일정 초과 평균 — 전체 건 기준, 미초과=0 포함
             next_diffs = [max(0, r['_next_diff']) for _, r in step_df.iterrows()
@@ -704,9 +711,10 @@ class DataManager:
                 "project_count": step_count,
                 "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
                 "by_system": by_system,
-                "avg_delay_days": avg_cur,       # 현단계 지연 (기존 호환)
-                "avg_cur_days": avg_cur,          # 현단계 지연
-                "avg_next_days": avg_next,        # 다음단계 D- 초과
+                "avg_delay_days": avg_cur,
+                "avg_cur_days": avg_cur,
+                "avg_next_days": avg_next,
+                "delayed_count": delayed_count,
             })
         return result
 
