@@ -809,7 +809,7 @@ function KpiCards({ kpi, onCardClick }) {
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
     { label: '지연', val: kpi.delayed, color: '#1e40af', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
-      desc: '납기일 초과 항목' },
+      desc: `요구납기일 초과 ${kpi.delayed}건` },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '7일 이내 납기' },
   ];
@@ -959,28 +959,31 @@ function StagePie({ data, onStepClick }) {
 function ProjectByStage({ data, onStepClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
+  // 지연 건수만의 평균 사용 (avg_cur_days는 백엔드에서 계산)
   const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
+  const getCount = d => d.delayed_count != null ? d.delayed_count : null;
 
   const vals = data.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
   const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
   const maxVal = Math.max(p80, 1);
-  const H = 130;
+  const H = 110;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, paddingBottom: 22, position: 'relative', minHeight: H }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, paddingBottom: 36, position: 'relative', minHeight: H }}>
         {[0.5, 1].map(r => (
-          <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 22 + H * r, borderTop: '0.5px dashed var(--border)' }} />
+          <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 36 + H * r, borderTop: '0.5px dashed var(--border)' }} />
         ))}
         {data.map((d, i) => {
           const hasCount = d.project_count > 0;
           const val = getValue(d);
           const avg = val != null ? Math.round(val) : null;
+          const delayedN = d.delayed_count ?? null;
           const clipped = val ? Math.min(val, maxVal * 1.2) : 0;
           const barH = (avg && avg > 0) ? Math.max(Math.round((clipped / maxVal) * H), 4) : 0;
           return (
             <div key={i} onClick={() => hasCount && onStepClick(d.step)}
-              style={{ width: 32, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: hasCount ? 'pointer' : 'default' }}
+              style={{ width: 32, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: hasCount ? 'pointer' : 'default' }}
               onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.7')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
@@ -1000,6 +1003,9 @@ function ProjectByStage({ data, onStepClick }) {
               <div style={{ fontSize: 10, color: hasCount ? 'var(--text)' : 'var(--muted)', fontWeight: hasCount ? 600 : 400, textAlign: 'center' }}>
                 {d.step}
               </div>
+              <div style={{ fontSize: 9, color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontFamily: 'var(--mono)', minHeight: 13 }}>
+                {delayedN > 0 ? delayedN : ''}
+              </div>
             </div>
           );
         })}
@@ -1010,99 +1016,63 @@ function ProjectByStage({ data, onStepClick }) {
 
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
-  const [mode, setMode] = useState('all');
 
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const sorted = [...data].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
 
-  const getVal = d => mode === 'all' ? Math.max(d.count || 0, d.completed || 0)
-    : mode === 'done' ? (d.completed || 0) : (d.count || 0);
-  const getDone = d => mode === 'done' ? (d.completed || 0) : 0;
-
-  const H = 120;
-  const maxVal = Math.max(...sorted.map(d => getVal(d)), 1);
-  const avgVal = Math.round(sorted.reduce((s, d) => s + getVal(d), 0) / sorted.length);
+  const H = 130;
+  const maxVal = Math.max(...sorted.map(d => d.count || 0), 1);
+  const avgVal = Math.round(sorted.reduce((s, d) => s + (d.count || 0), 0) / sorted.length);
   const avgPct = avgVal / maxVal;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
-      <div style={{ display: 'flex', gap: 3 }}>
-        {[['all','전체'],['done','출고완료'],['plan','출고예정']].map(([m, label]) => (
-          <button key={m} onClick={() => setMode(m)} style={{
-            fontSize: 10, padding: '2px 7px', borderRadius: 20, cursor: 'pointer',
-            border: '1px solid var(--border)', fontFamily: 'var(--sans)',
-            background: mode === m ? 'var(--accent)' : 'var(--surface2)',
-            color: mode === m ? '#fff' : 'var(--muted)', transition: 'all 0.15s',
-          }}>{label}</button>
-        ))}
-      </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {/* avg 기준선 */}
-        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 3, paddingBottom: 20 }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 20 + avgPct * H,
-            borderTop: '0.5px dashed #bfdbfe', pointerEvents: 'none' }}>
-            <span style={{ position: 'absolute', right: 0, top: -10, fontSize: 7, color: '#93c5fd' }}>avg</span>
-          </div>
-          {sorted.map((d, i) => {
-            const val = getVal(d);
-            const done = d.completed || 0;
-            const barH = Math.max((val / maxVal) * H, val > 0 ? 3 : 0);
-            const doneH = Math.max((done / maxVal) * H, done > 0 ? 3 : 0);
-            const isHov = hovered === i;
-            const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
-            const thisYear = d.month?.slice(0,4);
-            const isNewYear = thisYear && thisYear !== prevYear;
-            const xLabel = isNewYear ? `${thisYear?.slice(2)}-${d.month?.slice(5)}` : d.month?.slice(5)+'월';
-            const showLabel = sorted.length <= 8 || i % Math.ceil(sorted.length / 8) === 0 || i === sorted.length - 1;
-            return (
-              <div key={`${mode}-${i}`}
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: onBarClick ? 'pointer' : 'default' }}
-                onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-                onClick={() => onBarClick && onBarClick(d)}
-              >
-                {val > 0 && !isHov && <div style={{ fontSize: 8, color: '#3b82f6', fontFamily: 'var(--mono)', fontWeight: 600, minHeight: 11 }}>{val}</div>}
-                {isHov && <div style={{ fontSize: 8, color: '#fff', background: '#0f172a', borderRadius: 3, padding: '2px 5px', whiteSpace: 'nowrap', minHeight: 11, fontSize: 7 }}>예정{d.count||0}·완료{done}</div>}
-                {!isHov && val === 0 && <div style={{ minHeight: 11 }} />}
-                <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                  <div style={{ position: 'relative', width: 'min(20px, 80%)', height: barH || 0 }}>
-                    {/* 출고예정 연한 바 */}
-                    {mode !== 'done' && barH > 0 && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
-                        background: '#3b82f6', opacity: isHov ? 0.45 : 0.28, borderRadius: '2px 2px 0 0',
-                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
-                    )}
-                    {/* 납품완료 진한 바 */}
-                    {mode !== 'plan' && doneH > 0 && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(doneH / barH) * 100}%`,
-                        background: '#1e40af', opacity: isHov ? 0.95 : 0.82, borderRadius: '2px 2px 0 0',
-                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
-                    )}
-                    {/* 단일 완료 바 */}
-                    {mode === 'done' && barH > 0 && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
-                        background: '#1e40af', opacity: isHov ? 0.95 : 0.82, borderRadius: '2px 2px 0 0',
-                        transformOrigin: 'bottom', animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)' }} />
-                    )}
-                  </div>
-                </div>
-                {showLabel && <div style={{ fontSize: isNewYear ? 7 : 8, color: isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8',
-                  fontWeight: isNewYear ? 700 : 400, position: 'absolute', bottom: 2, textAlign: 'center', width: 'max-content' }}>{xLabel}</div>}
-              </div>
-            );
-          })}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 3, paddingBottom: 20 }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 20 + avgPct * H,
+          borderTop: '0.5px dashed #bfdbfe', pointerEvents: 'none', zIndex: 0 }}>
+          <span style={{ position: 'absolute', right: 0, top: -10, fontSize: 7, color: '#93c5fd' }}>avg</span>
         </div>
-        {mode === 'all' && (
-          <div style={{ display: 'flex', gap: 10, paddingLeft: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 7, height: 5, background: '#1e40af', opacity: 0.82, borderRadius: 1 }} />
-              <span style={{ fontSize: 7, color: '#94a3b8' }}>납품완료</span>
+        {sorted.map((d, i) => {
+          const val = d.count || 0;
+          const barH = Math.max((val / maxVal) * H, val > 0 ? 3 : 0);
+          const isHov = hovered === i;
+          // 월 레이블: 항상 "MM월" 형식으로 통일
+          const monthNum = d.month?.slice(5);
+          const thisYear = d.month?.slice(0,4);
+          const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
+          const isNewYear = thisYear && thisYear !== prevYear;
+          const xLabel = isNewYear ? `${thisYear?.slice(2)}-${monthNum}` : `${monthNum}월`;
+          const showLabel = sorted.length <= 8 || i % Math.ceil(sorted.length / 8) === 0 || i === sorted.length - 1;
+          return (
+            <div key={i}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                cursor: onBarClick ? 'pointer' : 'default', zIndex: 1 }}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+              onClick={() => onBarClick && onBarClick(d)}
+            >
+              <div style={{ fontSize: 8, color: '#3b82f6', fontFamily: 'var(--mono)', fontWeight: 600,
+                minHeight: 11, opacity: val > 0 && !isHov ? 1 : 0 }}>{val}</div>
+              {isHov && val > 0 && (
+                <div style={{ position: 'absolute', bottom: 20 + barH + 4, fontSize: 8, background: '#0f172a',
+                  color: '#fff', borderRadius: 3, padding: '2px 6px', whiteSpace: 'nowrap', zIndex: 10 }}>
+                  {d.month?.slice(2,7)} · {val}건
+                </div>
+              )}
+              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{
+                  width: 'min(18px, 75%)', height: barH || 0,
+                  background: '#3b82f6', opacity: isHov ? 0.6 : 0.82,
+                  borderRadius: '2px 2px 0 0',
+                  transformOrigin: 'bottom',
+                  animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)',
+                }} />
+              </div>
+              {showLabel && <div style={{ fontSize: isNewYear ? 7 : 8,
+                color: isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8',
+                fontWeight: isNewYear ? 700 : 400, whiteSpace: 'nowrap' }}>{xLabel}</div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 7, height: 5, background: '#3b82f6', opacity: 0.28, borderRadius: 1 }} />
-              <span style={{ fontSize: 7, color: '#94a3b8' }}>출고예정</span>
-            </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
@@ -1264,13 +1234,14 @@ function UrgentDelaysList({ data, onSelect }) {
 
 function ItemModal({ title, items, onClose, onSelectItem }) {
   if (!items) return null;
+  const sorted = [...items].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(items, title)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -1280,29 +1251,29 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '14%' }} /><col style={{ width: '24%' }} /><col style={{ width: '12%' }} />
-                <col style={{ width: '20%' }} /><col style={{ width: '22%' }} /><col style={{ width: '8%' }} />
+                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['납기일', '호선명', '현재단계', '수주번호', '거래처', '진척도'].map(h => (
+                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
                     <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => (
+                {sorted.map((item, i) => (
                   <tr key={i} onClick={() => { onSelectItem(item); onClose(); }}
                     style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
-                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
                     <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
+                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1319,8 +1290,6 @@ function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
 
   const sections = [
     { key: '출고', label: '이달 출고 예정', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
-    { key: 'OTP',  label: '이달 OTP 예정',  color: '#60a5fa', items: alerts.due_soon?.OTP  || [] },
-    { key: '생산', label: '이달 생산완료 예정', color: '#93c5fd', items: alerts.due_soon?.생산 || [] },
   ];
 
   return (
@@ -1940,13 +1909,15 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
 
   const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
 
-  const ModalTable = ({ items, loading, onClose, title }) => (
+  const ModalTable = ({ items, loading, onClose, title }) => {
+    const sorted = [...(items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
+    return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(items, title)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -1954,28 +1925,28 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
           {loading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} />
-                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} />
+                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
-                  {['요구납기일','호선명','현재단계','수주번호','거래처','진척도'].map(h => (
+                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
                     <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => (
+                {sorted.map((item, i) => (
                   <tr key={i} onClick={() => { setSelectedAlert(item); onClose(); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                    <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
                     <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
+                    <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
+                    <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1984,7 +1955,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -2016,7 +1988,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, dueDate
         {/* 행1-열3: 지연 TOP5 */}
         <div className="chart-card">
           <div className="chart-title">
-            ⚠ 지연 TOP 5
+            ⚠ 출고 지연 TOP 5
           </div>
           <div className="card-body">
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
