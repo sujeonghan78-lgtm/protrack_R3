@@ -710,7 +710,7 @@ function LoginPage({ onLogin }) {
 }
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFilter, products, dueDateCol, onDueDateCol, dateFrom, dateTo, onDateFrom, onDateTo, vendorFilter, onVendorFilter }) {
+function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, onProductFilter, products, dueDateCol, onDueDateCol, dateFrom, dateTo, onDateFrom, onDateTo, vendorFilter, onVendorFilter }) {
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
 
@@ -754,7 +754,7 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
             )}
             {group.items.map(item => (
               <div key={item.id}
-                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                className={`nav-item ${(item.id === 'upload' ? showUpload : activeTab === item.id) ? 'active' : ''}`}
                 onClick={() => onTab(item.id)}
               >
                 <span className="nav-icon">{item.icon}</span>
@@ -2637,7 +2637,20 @@ function App() {
       <Sidebar
         user={user}
         activeTab={activeTab}
-        onTab={(tab) => { if (tab === 'upload') { if (user?.role === 'admin') setShowUpload(true); else setActiveTab('upload'); } else { setShowUpload(false); setActiveTab(tab); } }}
+        showUpload={showUpload}
+        onTab={(tab) => {
+          if (tab === 'upload') {
+            if (user?.role === 'admin') {
+              setShowUpload(true);
+              // activeTab은 변경하지 않음 — 현재 탭 유지
+            } else {
+              setActiveTab('upload');
+            }
+          } else {
+            setShowUpload(false);
+            setActiveTab(tab);
+          }
+        }}
         onLogout={handleLogout}
         productFilter={productFilter}
         onProductFilter={(p) => { setProductFilter(p); setRefreshKey(k => k + 1); }}
@@ -2794,7 +2807,7 @@ function App() {
       {showUpload && user.role === 'admin' && (
         <UploadModal
           api={api}
-          onClose={() => setShowUpload(false)}
+          onClose={() => { setShowUpload(false); if (activeTab === 'upload') setActiveTab('dashboard'); }}
           onToast={showToast}
           onRefresh={() => setRefreshKey(k => k + 1)}
         />
