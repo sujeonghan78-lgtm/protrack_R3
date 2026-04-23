@@ -260,7 +260,7 @@
     --ch-row-gap:  6px;    /* 행 간격 */
     --ch-row-py:   3px;    /* 행 상하 패딩 */
     --ch-row-px:   6px;    /* 행 좌우 패딩 */
-    --ch-label-w:  40px;   /* 왼쪽 레이블 너비 */
+    --ch-label-w:  56px;   /* 왼쪽 레이블 너비 */
     --ch-val-w:    52px;   /* 오른쪽 값 너비 */
     --ch-fs-label: 11px;   /* 레이블 폰트 */
     --ch-fs-val:   11px;   /* 값 폰트 */
@@ -296,7 +296,7 @@
   }
   /* status distribution bars */
   .sbar-row { display: flex; align-items: center; gap: 6px; }
-  .sbar-label { width: var(--ch-label-w); font-size: var(--ch-fs-label); text-align: right; flex-shrink: 0; font-weight: 600; }
+  .sbar-label { width: var(--ch-label-w); font-size: var(--ch-fs-label); text-align: right; flex-shrink: 0; font-weight: 600; white-space: nowrap; }
   .sbar-track { flex: 1; height: var(--ch-bar-h); background: var(--bg); border-radius: var(--ch-bar-r); overflow: hidden; cursor: pointer; }
   .sbar-fill { height: 100%; border-radius: var(--ch-bar-r); transition: width 0.5s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; padding: 0 7px; opacity: var(--ch-bar-op); }
   .sbar-count { font-size: 10px; font-weight: 700; color: #fff; font-family: var(--mono); }
@@ -1146,7 +1146,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
-    { label: 'On Track', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
+    { label: '정상', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
     { label: '임박',      val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
     { label: '지연',      val: data.delayed,   color: '#1e40af', key: '지연' },
     { label: '출고완료',  val: data.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
@@ -1159,7 +1159,7 @@ function StatusDistribution({ data, onBarClick }) {
         const pct = Math.round(item.val / total * 100);
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
-            <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: item.color, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{item.label}</div>
+            <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: item.color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>{item.label}</div>
             <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', cursor: 'pointer' }}
               onClick={() => onBarClick(item.key)}
               onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
@@ -2637,7 +2637,7 @@ function App() {
       <Sidebar
         user={user}
         activeTab={activeTab}
-        onTab={(tab) => { if (tab === 'upload') { setShowUpload(true); } else setActiveTab(tab); }}
+        onTab={(tab) => { if (tab === 'upload') { setActiveTab('upload'); if (user?.role === 'admin') setShowUpload(true); } else { setShowUpload(false); setActiveTab(tab); } }}
         onLogout={handleLogout}
         productFilter={productFilter}
         onProductFilter={(p) => { setProductFilter(p); setRefreshKey(k => k + 1); }}
@@ -2780,6 +2780,13 @@ function App() {
           )}
           {activeTab === 'vendors' && (
             <VendorsTab api={api} onToast={showToast} />
+          )}
+          {activeTab === 'upload' && user?.role !== 'admin' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 12, color: 'var(--muted)', padding: 60 }}>
+              <div style={{ fontSize: 36 }}>🔒</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>관리자 전용 메뉴</div>
+              <div style={{ fontSize: 13 }}>데이터 업로드는 관리자 계정만 사용할 수 있습니다.</div>
+            </div>
           )}
         </div>
       </div>
