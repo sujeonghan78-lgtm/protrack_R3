@@ -618,27 +618,55 @@ function exportToExcel(items, filename = 'protrack_export') {
 
 // ── API helper ──────────────────────────────────────────────────────────────
 function useApi() {
-  const token = localStorage.getItem('pt_token');
-  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  // useRef로 토큰을 안정적으로 참조 — 매 렌더마다 재생성하지 않음
+  const tokenRef = useRef(localStorage.getItem('pt_token'));
 
-  const get = (path) => fetch(`${API}${path}`, { headers }).then(r => {
-    if (r.status === 401) { localStorage.removeItem('pt_token'); window.location.reload(); }
-    return r.json();
+  const handle401 = () => {
+    localStorage.removeItem('pt_token');
+    window.location.reload();
+  };
+
+  const safeJson = (r) => r.json().catch(() => ({ detail: `서버 오류 (${r.status})` }));
+
+  const getHeaders = (json = true) => {
+    const token = tokenRef.current || localStorage.getItem('pt_token');
+    return {
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
+  const get = (path) => fetch(`${API}${path}`, { headers: getHeaders() }).then(r => {
+    if (r.status === 401) { handle401(); return {}; }
+    return safeJson(r);
   });
 
-  const put = (path, body) => fetch(`${API}${path}`, { method: 'PUT', headers, body: JSON.stringify(body) }).then(r => r.json());
+  const put = (path, body) => fetch(`${API}${path}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) }).then(r => {
+    if (r.status === 401) { handle401(); return {}; }
+    return safeJson(r);
+  });
 
-  const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers, body: JSON.stringify(body) }).then(r => r.json());
+  const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) }).then(r => {
+    if (r.status === 401) { handle401(); return {}; }
+    return safeJson(r);
+  });
 
-  const del = (path) => fetch(`${API}${path}`, { method: 'DELETE', headers }).then(r => r.json());
+  const del = (path) => fetch(`${API}${path}`, { method: 'DELETE', headers: getHeaders() }).then(r => {
+    if (r.status === 401) { handle401(); return {}; }
+    return safeJson(r);
+  });
 
+  // 버그 수정: upload에 401 처리 및 JSON 파싱 실패 안전처리 추가
   const upload = (path, formData) => fetch(`${API}${path}`, {
     method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getHeaders(false),  // Content-Type은 FormData가 자동 설정
     body: formData,
-  }).then(r => r.json());
+  }).then(r => {
+    if (r.status === 401) { handle401(); return {}; }
+    return safeJson(r);
+  });
 
-  return { get, put, post, del: del, delete: del, upload };
+  return { get, put, post, del, delete: del, upload };
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -1875,7 +1903,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
       } else {
         onToast(res.detail || '업로드 실패', 'error');
       }
-    } catch { onToast('업로드 오류', 'error'); }
+    } catch (e) { onToast(e?.message || '업로드 오류', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -2449,13 +2477,15 @@ function VendorsTab({ api, onToast }) {
     if (!f) return;
     const form = new FormData();
     form.append('file', f);
-    const res = await api.upload('/api/vendors/upload', form);
-    if (res.count != null) {
-      onToast(res.message, 'success');
-      load();
-    } else {
-      onToast(res.detail || '업로드 실패', 'error');
-    }
+    try {
+      const res = await api.upload('/api/vendors/upload', form);
+      if (res.count != null) {
+        onToast(res.message, 'success');
+        load();
+      } else {
+        onToast(res.detail || '업로드 실패', 'error');
+      }
+    } catch (e) { onToast(e?.message || '업로드 오류', 'error'); }
   };
 
   const domestic = vendors.filter(v => v.type === '국내').length;
@@ -2578,19 +2608,21 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
+  const [dateTo,   setDateTo]   = useState(fmt(new Date(today.getFullYear() + 1, today.getMonth(), 0)));
+
+  // api는 fetchSummary보다 먼저 선언해야 함
+  const api = useApi();
+
   const fetchSummary = () => {
-    if (!api) return;
     api.get('/api/dashboard/summary').then(setSummary).catch(() => {});
   };
 
   useEffect(() => {
     if (user) fetchSummary();
   }, [user, refreshKey]);
-  const today = new Date();
-  const fmt = d => d.toISOString().slice(0, 10);
-  const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
-  const [dateTo,   setDateTo]   = useState(fmt(new Date(today.getFullYear() + 1, today.getMonth(), 0)));
-  const api = useApi();
 
   useEffect(() => {
     const token = localStorage.getItem('pt_token');
