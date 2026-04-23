@@ -2637,7 +2637,7 @@ function App() {
       <Sidebar
         user={user}
         activeTab={activeTab}
-        onTab={(tab) => { if (tab === 'upload') { setActiveTab('upload'); if (user?.role === 'admin') setShowUpload(true); } else { setShowUpload(false); setActiveTab(tab); } }}
+        onTab={(tab) => { if (tab === 'upload') { if (user?.role === 'admin') setShowUpload(true); else setActiveTab('upload'); } else { setShowUpload(false); setActiveTab(tab); } }}
         onLogout={handleLogout}
         productFilter={productFilter}
         onProductFilter={(p) => { setProductFilter(p); setRefreshKey(k => k + 1); }}
