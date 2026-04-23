@@ -85,7 +85,7 @@ async def get_kpi(product_filter: str = "", date_col: str = "", date_from: str =
 
 @app.get("/api/dashboard/process-load")
 async def get_process_load(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_process_load(product_filter=product_filter)
+    return dm.get_process_load(product_filter=product_filter, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/alerts")
@@ -95,7 +95,7 @@ async def get_alerts(product_filter: str = "", date_col: str = "요구납기일"
 
 @app.get("/api/dashboard/stage-progress")
 async def get_stage_progress(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_stage_progress(product_filter=product_filter)
+    return dm.get_stage_progress(product_filter=product_filter, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/stage-by-process")
@@ -259,7 +259,18 @@ async def upload_excel(
         raise HTTPException(status_code=500, detail=f"파일 처리 오류: {str(e)}")
 
 
-@app.get("/api/versions")
+@app.get("/api/dashboard/summary")
+async def get_summary(current_user: User = Depends(get_current_user)):
+    summary = dm.get_summary()
+    # 마지막 업로드 일시
+    versions = load_versions()
+    last_upload = versions[0].get("uploaded_at") if versions else None
+    last_file = versions[0].get("filename") if versions else None
+    summary["last_upload"] = last_upload
+    summary["last_file"] = last_file
+    return summary
+
+
 async def get_versions(current_user: User = Depends(get_current_user)):
     versions = load_versions()
     return versions
