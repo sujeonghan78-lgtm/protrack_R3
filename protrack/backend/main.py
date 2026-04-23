@@ -318,9 +318,18 @@ async def export_excel(
     search: str = "",
     status_filter: str = "",
     company_filter: str = "",
+    step_filter: str = "",
+    product_filter: str = "",
+    vendor_filter: str = "",
+    date_col: str = "",
+    date_from: str = "",
+    date_to: str = "",
     current_user: User = Depends(require_admin)
 ):
-    df = dm.get_filtered_df(search=search, status_filter=status_filter, company_filter=company_filter)
+    df = dm.get_filtered_df(search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, product_filter=product_filter, vendor_filter=vendor_filter)
+    if date_col and (date_from or date_to):
+        from data_manager import apply_date_range
+        df = apply_date_range(df, date_col, date_from, date_to)
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
