@@ -271,6 +271,7 @@ async def get_summary(current_user: User = Depends(get_current_user)):
     return summary
 
 
+@app.get("/api/versions")
 async def get_versions(current_user: User = Depends(get_current_user)):
     versions = load_versions()
     return versions
