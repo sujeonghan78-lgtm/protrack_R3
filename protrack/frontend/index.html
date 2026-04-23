@@ -564,7 +564,9 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-const API = 'http://35.173.250.250:8000';
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8000'
+  : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#2563eb','#3b82f6','#2563eb','#2563eb','#3b82f6','#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
 const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '완료': '#60a5fa' };
 const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
