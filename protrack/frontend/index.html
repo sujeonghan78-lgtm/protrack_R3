@@ -382,6 +382,33 @@
   .status-출고완료 { background: #60a5fa; }
   .status-계산서완료 { background: #0ea5e9; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .summary-panel {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.35s cubic-bezier(.4,0,.2,1), opacity 0.25s;
+    opacity: 0;
+  }
+  .summary-panel.open {
+    max-height: 120px;
+    opacity: 1;
+  }
+  .summary-inner {
+    display: flex; gap: 12px; padding: 10px 24px 12px;
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; align-items: flex-start;
+    animation: fadeIn 0.25s ease-out;
+  }
+  .summary-block {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; min-width: 120px;
+  }
+  .summary-label { font-size: 10px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary-val   { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--mono); }
+  .summary-sub   { font-size: 10px; color: var(--muted); }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.4; } }
 
   .progress-bar { height: 4px; background: var(--border); border-radius: 2px; min-width: 80px; }
@@ -842,7 +869,7 @@ function KpiCards({ kpi, onCardClick }) {
       desc: '다음 공정 예정일 7일 이내' },
   ];
   const subCards = [
-    { label: '진행중',   val: kpi.in_progress ?? (kpi.on_track + kpi.at_risk + kpi.delayed), color: '#3b82f6', key: null },
+    { label: '진행중',   val: kpi.in_progress ?? (kpi.on_track + kpi.at_risk + kpi.delayed), color: '#3b82f6', key: 'in_progress' },
     { label: '출고완료', val: kpi.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
     { label: '계산서완료', val: kpi.invoiced ?? 0, color: '#0ea5e9', key: '계산서완료' },
     { label: '평균 진척률 (전체)', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
@@ -864,7 +891,7 @@ function KpiCards({ kpi, onCardClick }) {
               <span className="kpi-badge" style={{ background: `${c.color}10`, color: c.color }}>{c.pct}%</span>
             )}
           </div>
-          <div className="kpi-val" style={{ color: c.color }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
+          <div className="kpi-val" style={{ color: c.color, animation: 'countUp 0.4s ease-out' }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
           <div className="kpi-label">{c.label}</div>
           {c.desc && <div className="kpi-desc">{c.desc}</div>}
         </div>
@@ -1022,7 +1049,7 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
               <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#3b82f6' : 'transparent', minHeight: 13 }}>
-                {avg > 0 ? `+${avg}` : ''}
+                {avg > 0 ? `+${avg}일` : ''}
               </div>
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
                 <div style={{
@@ -1038,7 +1065,7 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
                 {d.step}
               </div>
               <div style={{ fontSize: 9, color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontFamily: 'var(--mono)', minHeight: 13 }}>
-                {delayedN > 0 ? delayedN : ''}
+                {delayedN > 0 ? `${delayedN}건` : ''}
               </div>
             </div>
           );
@@ -1138,7 +1165,8 @@ function StatusDistribution({ data, onBarClick }) {
               onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
               onMouseLeave={e => e.currentTarget.style.opacity='1'}
             >
-              <div style={{ width: `${pct}%`, height: '100%', background: item.color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: item.color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px',
+                animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left', transform: 'scaleX(1)' }}>
                 {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{item.val}</span>}
               </div>
             </div>
@@ -1996,9 +2024,20 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const handleKpiClick = async (statusKey) => {
     setKpiModal(statusKey);
     setKpiModalLoading(true);
-    const sep = pf ? '&' : '?';
-    const res = await api.get(`/api/processes${pf}${dateParam}${dateRange}${(pf||dateParam||dateRange)?'&':'?'}status_filter=${encodeURIComponent(statusKey)}&page_size=500`);
-    setKpiModalItems(res.items || []);
+    const base = `/api/processes${pf}${dateParam}${dateRange}${(pf||dateParam||dateRange)?'&':'?'}page_size=500`;
+    let items = [];
+    if (statusKey === 'in_progress') {
+      const [r1, r2, r3] = await Promise.all([
+        api.get(`${base}&status_filter=On Track`),
+        api.get(`${base}&status_filter=At Risk`),
+        api.get(`${base}&status_filter=지연`),
+      ]);
+      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[])];
+    } else {
+      const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
+      items = res.items || [];
+    }
+    setKpiModalItems(items);
     setKpiModalLoading(false);
   };
 
@@ -2006,7 +2045,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
     onFilterStep(step, '전체');
   };
 
-  const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
+  const kpiLabelMap = { 'in_progress': '진행중', 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   const ModalTable = ({ items, loading, onClose, title }) => {
     const sorted = [...(items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
@@ -2531,11 +2570,22 @@ function App() {
   const [dueDateCol, setDueDateCol] = useState('요구납기일');
   const [lastLoaded, setLastLoaded] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  const fetchSummary = () => {
+    if (!api) return;
+    api.get('/api/dashboard/summary').then(setSummary).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (user) fetchSummary();
+  }, [user, refreshKey]);
   const today = new Date();
   const fmt = d => d.toISOString().slice(0, 10);
   const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
@@ -2603,11 +2653,20 @@ function App() {
 
       <div className="main">
         <div className="topbar">
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="page-title">{title}</span>
             <span className="page-subtitle">{sub}</span>
+            {activeTab === 'dashboard' && (
+              <button
+                onClick={() => setSummaryOpen(o => !o)}
+                title="파일 정보"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13, padding: '2px 4px', transition: 'transform 0.2s, color 0.15s', transform: summaryOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
+              >▼</button>
+            )}
             {productFilter !== '전체' && (
-              <div style={{ display: 'flex', gap: 4, marginLeft: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, marginLeft: 4, flexWrap: 'wrap' }}>
                 {(Array.isArray(productFilter) ? productFilter : [productFilter]).map(p => (
                   <span key={p} style={{ fontSize: 11, background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                     {p}
@@ -2650,6 +2709,43 @@ function App() {
             )}
           </div>
         </div>
+
+        {activeTab === 'dashboard' && (
+          <div className={`summary-panel ${summaryOpen ? 'open' : ''}`}>
+            {summary && summaryOpen && (
+              <div className="summary-inner">
+                <div className="summary-block">
+                  <span className="summary-label">총 건수</span>
+                  <span className="summary-val">{summary.total?.toLocaleString()}건</span>
+                </div>
+                <div className="summary-block">
+                  <span className="summary-label">시스템 종류</span>
+                  <span className="summary-val" style={{ fontSize: 11, fontFamily: 'var(--sans)' }}>{(summary.systems || []).join(' · ') || '—'}</span>
+                </div>
+                <div className="summary-block">
+                  <span className="summary-label">요구납기 범위</span>
+                  <span className="summary-val" style={{ fontSize: 11 }}>{summary.due_min} ~ {summary.due_max}</span>
+                </div>
+                <div className="summary-block">
+                  <span className="summary-label">업체 수</span>
+                  <span className="summary-val">{((summary.vendor_counts?.국내||0) + (summary.vendor_counts?.해외||0) + (summary.vendor_counts?.미분류||0))}개사</span>
+                  <span className="summary-sub">국내 {summary.vendor_counts?.국내||0} · 해외 {summary.vendor_counts?.해외||0}{summary.vendor_counts?.미분류 > 0 ? ` · 미분류 ${summary.vendor_counts.미분류}` : ''}</span>
+                </div>
+                <div className="summary-block">
+                  <span className="summary-label">단계별 현황</span>
+                  <span className="summary-val" style={{ fontSize: 10, fontFamily: 'var(--sans)', fontWeight: 500 }}>
+                    {Object.entries(summary.step_counts || {}).map(([k,v]) => `${k} ${v}`).join(' · ')}
+                  </span>
+                </div>
+                <div className="summary-block">
+                  <span className="summary-label">마지막 업로드</span>
+                  <span className="summary-val" style={{ fontSize: 11 }}>{summary.last_upload || '—'}</span>
+                  <span className="summary-sub">{summary.last_file || ''}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="content">
           {activeTab === 'dashboard' && (
