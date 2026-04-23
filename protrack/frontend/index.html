@@ -379,6 +379,8 @@
   .status-진행중 { background: var(--accent); }
   .status-지연 { background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
   .status-완료 { background: #3b82f6; }
+  .status-출고완료 { background: #60a5fa; }
+  .status-계산서완료 { background: #0ea5e9; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.4; } }
 
@@ -568,15 +570,15 @@ const API = window.location.hostname === 'localhost' || window.location.hostname
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#2563eb','#3b82f6','#2563eb','#2563eb','#3b82f6','#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
-const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '완료': '#60a5fa' };
-const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9' };
+const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
 function exportToExcel(items, filename = 'protrack_export') {
   if (!items?.length) return;
   const cols = ['수주번호', '업체명', '프로젝트', '품명', '시스템명', '_current_step', '_progress', '_status', '요구납기일', '최종납기일'];
   const headers = ['수주번호', '업체명', '호선명', '품명', '시스템명', '현재단계', '진척도(%)', '상태', '요구납기일', '최종납기일'];
-  const statusLabel = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+  const statusLabel = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
   const rows = items.map(item => cols.map(c => {
     if (c === '_status') return statusLabel[item[c]] || item[c];
     return item[c] ?? '';
@@ -835,14 +837,15 @@ function KpiCards({ kpi, onCardClick }) {
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
     { label: '지연', val: kpi.delayed, color: '#1e40af', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
-      desc: `요구납기일 초과 ${kpi.delayed}건` },
+      desc: `공정 예정일 초과 ${kpi.delayed}건` },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
-      desc: '7일 이내 납기' },
+      desc: '다음 공정 예정일 7일 이내' },
   ];
   const subCards = [
     { label: '진행중',   val: kpi.in_progress ?? (kpi.on_track + kpi.at_risk + kpi.delayed), color: '#3b82f6', key: null },
-    { label: '완료',     val: kpi.completed, color: '#60a5fa', key: '완료' },
-    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
+    { label: '출고완료', val: kpi.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
+    { label: '계산서완료', val: kpi.invoiced ?? 0, color: '#0ea5e9', key: '계산서완료' },
+    { label: '평균 진척률 (전체)', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
   ];
 
   return (
@@ -884,11 +887,12 @@ function KpiCards({ kpi, onCardClick }) {
 }
 
 // ── Stage By Process Chart (공정단계별 현재 건수 누적 바) ─────────────────────
-function StageByProcessChart({ data, onStepClick }) {
+function StageByProcessChart({ data, onStepClick, vendorFilter }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
-  const systems = data[0]?.by_system?.map(s => s.system) || [];
+  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
+  const systems = filteredData[0]?.by_system?.map(s => s.system) || [];
   const MONO = ['#1e40af','#2563eb','#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
   const colors = systems.map((_, i) => MONO[i % MONO.length]);
 
@@ -902,7 +906,7 @@ function StageByProcessChart({ data, onStepClick }) {
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-        {data.map((d, i) => (
+        {filteredData.map((d, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
             onClick={() => onStepClick(d.step)}
             onMouseEnter={() => setHovered(i)}
@@ -929,14 +933,15 @@ function StageByProcessChart({ data, onStepClick }) {
 
 // ── Project By Stage 요약 ─────────────────────────────────────────────────────
 // ── Stage Pie (공정별 도넛) ───────────────────────────────────────────────────
-function StagePie({ data, onStepClick }) {
+function StagePie({ data, onStepClick, vendorFilter }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return null;
-  const total = data[0]?.total || 1;
+  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
+  const total = filteredData.reduce((s, d) => s + d.project_count, 0) || 1;
   const COLORS = ['#3b82f6','#3b82f6','#2563eb','#1e40af','#3b82f6','#3b82f6','#2563eb','#3b82f6','#60a5fa'];
   const cx = 70, cy = 70, R = 60, r = 36;
   let angle = -Math.PI / 2;
-  const slices = data.filter(d => d.project_count > 0).map((d, i) => {
+  const slices = filteredData.filter(d => d.project_count > 0).map((d, i) => {
     const sweep = (d.project_count / total) * 2 * Math.PI;
     const a1 = angle, a2 = angle + sweep;
     angle = a2;
@@ -1100,9 +1105,9 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
                   animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)',
                 }} />
               </div>
-              {showLabel && <div style={{ fontSize: isNewYear ? 7 : 8,
-                color: isHov ? 'var(--text)' : isNewYear ? '#60a5fa' : '#94a3b8',
-                fontWeight: isNewYear ? 700 : 400, whiteSpace: 'nowrap' }}>{xLabel}</div>}
+              {showLabel && <div style={{ fontSize: isNewYear ? 9 : 10,
+                color: isNewYear ? '#1e40af' : 'var(--text)',
+                fontWeight: isNewYear ? 700 : 600, whiteSpace: 'nowrap' }}>{xLabel}</div>}
             </div>
           );
         })}
@@ -1114,10 +1119,11 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
-    { label: '진행중', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
-    { label: '지연',   val: data.delayed,   color: '#1e40af', key: '지연' },
-    { label: '완료',   val: data.completed, color: '#60a5fa', key: '완료' },
+    { label: 'On Track', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
+    { label: '임박',      val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
+    { label: '지연',      val: data.delayed,   color: '#1e40af', key: '지연' },
+    { label: '출고완료',  val: data.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
+    { label: '계산서완료', val: data.invoiced ?? 0,  color: '#0ea5e9', key: '계산서완료' },
   ];
   const total = data.total;
   return (
@@ -1355,7 +1361,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
 
   const sections = [
     { key: 'delayed', label: '지연', desc: '요구납기일 초과', color: '#1e40af', items: alerts.delayed || [] },
-    { key: 'at_risk', label: '임박', desc: '요구납기일 7일 이내', color: '#2563eb', items: alerts.at_risk || [] },
+    { key: 'at_risk', label: '임박', desc: '다음 공정 예정일 7일 이내', color: '#2563eb', items: alerts.at_risk || [] },
     { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
   ];
@@ -1692,12 +1698,12 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
 
   const editableFields = [
     { key: '비고', label: '비고 (메모)', type: 'text', isNote: true },
-    { key: '시방출도 (O)', label: '시방출도', type: 'text' },
-    { key: '자재입고일 (R)', label: '자재입고일', type: 'date' },
-    { key: '생산완료일 (S)', label: '생산완료일', type: 'date' },
-    { key: '검사예상일 (T)', label: '검사예상일', type: 'date' },
-    { key: '포장완료예정 (U)', label: '포장완료예정', type: 'date' },
-    { key: '포장완료 (V)', label: '포장완료', type: 'date' },
+    { key: '시방출도일', label: '시방출도일', type: 'date' },
+    { key: '자재입고일', label: '자재입고일', type: 'date' },
+    { key: '생산완료일', label: '생산완료일', type: 'date' },
+    { key: '검사예상일', label: '검사예상일', type: 'date' },
+    { key: '포장완료예정일', label: '포장완료예정일', type: 'date' },
+    { key: '포장완료일', label: '포장완료일', type: 'date' },
   ];
 
   const statusColorMap = STATUS_COLORS;
@@ -2000,7 +2006,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
     onFilterStep(step, '전체');
   };
 
-  const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+  const kpiLabelMap = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   const ModalTable = ({ items, loading, onClose, title }) => {
     const sorted = [...(items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
@@ -2063,7 +2069,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
             <span className="chart-badge">클릭 시 목록</span>
           </div>
           <div className="card-body">
-            <StageByProcessChart data={stageByProcess} onStepClick={step => onFilterStep(step, '전체')} />
+            <StageByProcessChart data={stageByProcess} onStepClick={step => onFilterStep(step, '전체')} vendorFilter={vendorFilter} />
           </div>
         </div>
 
@@ -2090,7 +2096,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 
         {/* 행2-열1: 단계별 현황 */}
         <div className="chart-card">
-          <div className="chart-title">≡ 단계별 평균 지연일수</div>
+          <div className="chart-title">≡ 단계별 현황 · 평균 지연일수</div>
           <div className="card-body">
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
           </div>
@@ -2156,8 +2162,8 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const [sortDir, setSortDir] = useState('asc');
 
   const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
-  const statuses = ['전체', 'On Track', 'At Risk', '지연', '완료'];
-  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
+  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고완료', '계산서완료'];
+  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
@@ -2251,7 +2257,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                   <th style={{ width: 36, padding: '10px 8px' }}>
                     <input type="checkbox" onChange={toggleAll} checked={checkedRows.length === data.items.length && data.items.length > 0} style={{ cursor: 'pointer' }} />
                   </th>
-                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['현재단계 차이', '_cur_diff'], ['다음단계 D-', '_next_diff'], ['요구납기', '요구납기일']].map(([label, col]) => (
+                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['현재단계 차이', '_cur_diff'], ['다음단계 D-', '_next_diff'], ['요구납기', '요구납기일'], ['비고', '비고']].map(([label, col]) => (
                     <th key={col} onClick={() => handleSort(col)}>
                       {label}<SortIcon col={col} />
                     </th>
@@ -2273,11 +2279,13 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td>
                       <div className="td-mono">{item.수주번호}</div>
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.업체명}
-                      {item._vendor_type && item._vendor_type !== '미분류' && (
-                        <span className={`vendor-badge ${item._vendor_type}`}>{item._vendor_type}</span>
-                      )}
+                    <td style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 180 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{item.업체명}</span>
+                        {item._vendor_type && item._vendor_type !== '미분류' && (
+                          <span className={`vendor-badge ${item._vendor_type}`} style={{ flexShrink: 0 }}>{item._vendor_type}</span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ fontSize: 13, fontWeight: 700 }}>{item.프로젝트}</td>
                     <td>
@@ -2313,6 +2321,9 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                       ) : '—'}
                     </td>
                     <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
+                      {item['비고'] || ''}
+                    </td>
                     <td>
                       <button style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 6, padding: '5px 10px', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}
                         onClick={e => { e.stopPropagation(); setSelected(item); }}
