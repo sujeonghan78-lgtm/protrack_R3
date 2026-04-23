@@ -1880,7 +1880,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
   const [activating, setActivating] = useState(null);
   const inputRef = useRef();
 
-  const loadVersions = () => api.get('/api/versions').then(v => setVersions(v || []));
+  const loadVersions = () => api.get('/api/versions').then(v => setVersions(Array.isArray(v) ? v : []));
   useEffect(() => { loadVersions(); }, []);
 
   const handleFile = (f) => {
@@ -2039,11 +2039,11 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const load = useCallback(() => {
     Promise.all([
       api.get(`/api/dashboard/kpi${pf}${vf}${dateParam}${dateRange}`).then(setKpi),
-      api.get(`/api/dashboard/stage-by-process${pf}${vf}${dateParam}${dateRange}`).then(setStageByProcess),
-      api.get(`/api/dashboard/monthly-delivery${pf}${vf}${dateParam}${dateRange}`).then(setMonthlyDelivery),
+      api.get(`/api/dashboard/stage-by-process${pf}${vf}${dateParam}${dateRange}`).then(d => setStageByProcess(Array.isArray(d) ? d : [])),
+      api.get(`/api/dashboard/monthly-delivery${pf}${vf}${dateParam}${dateRange}`).then(d => setMonthlyDelivery(Array.isArray(d) ? d : [])),
       api.get(`/api/dashboard/alerts${pf}${vf}${dateParam}${dateRange}`).then(setAlerts),
       api.get(`/api/dashboard/status-distribution${pf}${vf}${dateParam}${dateRange}`).then(setStatusDist),
-      api.get(`/api/dashboard/urgent-delays${pf}${vf}${dateParam}${dateRange}`).then(setUrgentDelays),
+      api.get(`/api/dashboard/urgent-delays${pf}${vf}${dateParam}${dateRange}`).then(d => setUrgentDelays(Array.isArray(d) ? d : [])),
     ]).then(() => { if (onLastLoaded) onLastLoaded(new Date()); });
   }, [productFilter, vendorFilter, dueDateCol, dateFrom, dateTo]);
 
@@ -2232,7 +2232,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고완료', '계산서완료'];
   const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
-  useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
+  useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...(Array.isArray(c) ? c : [])])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
   useEffect(() => { setStatusFilter(initialStatusFilter || '전체'); }, [initialStatusFilter]);
   useEffect(() => {
@@ -2445,7 +2445,7 @@ function VendorsTab({ api, onToast }) {
   const [drag, setDrag] = useState(false);
   const fileRef = useRef();
 
-  const load = () => api.get('/api/vendors').then(v => setVendors(v || []));
+  const load = () => api.get('/api/vendors').then(v => setVendors(Array.isArray(v) ? v : []));
   useEffect(() => { load(); }, []);
 
   const filtered = vendors.filter(v =>
@@ -2636,7 +2636,7 @@ function App() {
 
   useEffect(() => {
     if (user) {
-      api.get('/api/filters/products').then(p => setProducts(p || []));
+      api.get('/api/filters/products').then(p => setProducts(Array.isArray(p) ? p : []));
     }
   }, [user]);
 
