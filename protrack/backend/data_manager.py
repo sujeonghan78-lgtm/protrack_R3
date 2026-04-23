@@ -53,8 +53,9 @@ def safe_date(val):
 
 def infer_current_step(row) -> str:
     """마지막으로 실적이 찍힌 단계를 현재 단계로 반환 (Stage Progress 표시용)."""
+    is_domestic = row.get('_vendor_type') == '국내'
     if pd.notna(row.get('계산서발행일')): return '계산서'
-    if pd.notna(row.get('OTP일자')):      return 'OTP'
+    if not is_domestic and pd.notna(row.get('OTP일자')): return 'OTP'
     if pd.notna(row.get('최종납기일')):   return '출고'
     if pd.notna(row.get('포장완료일')):   return '포장'
     if pd.notna(row.get('품질검사일')):   return '검사'
@@ -67,8 +68,11 @@ def infer_current_step(row) -> str:
 
 def infer_next_pending_step(row) -> str:
     """지연 판단용 — 실적이 없는 첫 번째 단계 반환.
-    자재/검사는 데이터 미운용이므로 스킵."""
+    자재/검사는 데이터 미운용이므로 스킵. 국내 건은 OTP도 스킵."""
+    is_domestic = row.get('_vendor_type') == '국내'
     SKIP_STEPS = {'자재', '검사', '포장'}
+    if is_domestic:
+        SKIP_STEPS = SKIP_STEPS | {'OTP'}
     actual_cols = [
         ('수주',  '수주일자'),
         ('시방',  '시방출도일'),
@@ -490,7 +494,10 @@ class DataManager:
         d = self._row_to_dict(row)
 
         timeline = []
+        is_domestic = row.get('_vendor_type') == '국내'
         for step in PROCESS_STEPS:
+            if is_domestic and step == 'OTP':
+                continue
             mapping = STEP_DATE_MAP.get(step, {})
             planned_col = mapping.get('planned')
             actual_col = mapping.get('actual')
