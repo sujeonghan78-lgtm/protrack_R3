@@ -812,3 +812,53 @@ class DataManager:
             return []
         vals = self.df[col].dropna().unique().tolist()
         return sorted([str(v) for v in vals])
+
+
+    def get_summary(self) -> Dict:
+        """상단 바 파일 정보 패널용 요약"""
+        if self.df.empty:
+            return {}
+        df = self.df.copy()
+
+        systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
+
+        due_min = due_max = None
+        if '요구납기일' in df.columns:
+            due_series = df['요구납기일'].dropna()
+            if not due_series.empty:
+                due_min = safe_date(due_series.min())
+                due_max = safe_date(due_series.max())
+
+        domestic_companies = set()
+        overseas_companies = set()
+        unclassified_companies = set()
+        if '_vendor_type' in df.columns and '업체명' in df.columns:
+            for _, row in df[['업체명', '_vendor_type']].drop_duplicates().iterrows():
+                name = str(row['업체명']).strip()
+                vtype = str(row['_vendor_type'])
+                if vtype == '국내':
+                    domestic_companies.add(name)
+                elif vtype == '해외':
+                    overseas_companies.add(name)
+                else:
+                    unclassified_companies.add(name)
+
+        step_counts = {}
+        if '_current_step' in df.columns:
+            for step in PROCESS_STEPS:
+                cnt = int(len(df[df['_current_step'] == step]))
+                if cnt > 0:
+                    step_counts[step] = cnt
+
+        return {
+            "total": len(df),
+            "systems": [str(s) for s in systems],
+            "due_min": due_min,
+            "due_max": due_max,
+            "vendor_counts": {
+                "국내": len(domestic_companies),
+                "해외": len(overseas_companies),
+                "미분류": len(unclassified_companies),
+            },
+            "step_counts": step_counts,
+        }
