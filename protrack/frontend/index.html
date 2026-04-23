@@ -803,7 +803,6 @@ function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, 
               >
                 <option value="요구납기일">요구납기일</option>
                 <option value="최종납기일">최종납기일</option>
-                <option value="OTP예상일">OTP예상일</option>
               </select>
             </div>
             <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>날짜 범위</div>
@@ -2248,7 +2247,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
       search: debouncedSearch, status_filter: statusFilter, company_filter: companyFilter,
       step_filter: stepFilter, sort_by: sortBy, sort_dir: sortDir,
       product_filter: Array.isArray(productFilter) ? productFilter.join(',') : (productFilter || '전체'),
-      date_col: dueDateCol !== '요구납기일' ? dueDateCol : '',
+      date_col: dueDateCol || '요구납기일',
       date_from: dateFrom,
       date_to: dateTo,
       vendor_filter: vendorFilter || '전체',
