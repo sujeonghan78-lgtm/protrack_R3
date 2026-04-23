@@ -70,7 +70,7 @@ def infer_next_pending_step(row) -> str:
     """지연 판단용 — 실적이 없는 첫 번째 단계 반환.
     자재/검사는 데이터 미운용이므로 스킵. 국내 건은 OTP도 스킵."""
     is_domestic = row.get('_vendor_type') == '국내'
-    SKIP_STEPS = {'자재', '검사', '포장'}
+    SKIP_STEPS = {'자재', '검사'}
     if is_domestic:
         SKIP_STEPS = SKIP_STEPS | {'OTP'}
     actual_cols = [
@@ -438,35 +438,6 @@ class DataManager:
         if date_col and (date_from or date_to):
             df = apply_date_range(df, date_col, date_from, date_to)
         return df
-        df = self.df.copy()
-
-        if search:
-            mask = (
-                df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
-                df['업체명'].astype(str).str.contains(search, case=False, na=False) |
-                df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
-            )
-            if '시스템명' in df.columns:
-                mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
-            if '품명' in df.columns:
-                mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
-            df = df[mask]
-
-        if status_filter and status_filter != "전체":
-            df = df[df['_status'] == status_filter]
-
-        if company_filter and company_filter != "전체":
-            df = df[df['업체명'] == company_filter]
-
-        if step_filter and step_filter != "전체":
-            df = df[df['_current_step'] == step_filter]
-
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-
-        return df
 
     def get_processes(self, page=1, page_size=50, search="", status_filter="", company_filter="", step_filter="", sort_by="수주번호", sort_dir="asc", product_filter="", date_col="요구납기일", date_from="", date_to="", vendor_filter="") -> Dict:
         df = self.get_filtered_df(search, status_filter, company_filter, step_filter, product_filter, vendor_filter)
@@ -536,6 +507,7 @@ class DataManager:
             save_df.to_excel(self.filepath, index=False)
         except Exception as e:
             print(f"[DataManager] Save error: {e}")
+            return False
 
         return True
 
