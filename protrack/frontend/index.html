@@ -334,7 +334,7 @@
   /* ─── Table ──────────────────────────────────────────── */
   .table-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-    overflow: hidden; display: flex; flex-direction: column; flex: 1;
+    overflow: hidden; display: flex; flex-direction: column; flex: 1; overflow-y: auto;
   }
   .table-header {
     padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -695,7 +695,7 @@ function Sidebar({ user, activeTab, onTab, onLogout, productFilter, onProductFil
       label: '관리',
       items: [
         { id: 'upload', icon: '↑', label: '데이터 업로드' },
-        { id: 'vendors', icon: '🏢', label: '거래처 관리' },
+        { id: 'vendors', icon: '', label: '거래처 관리' },
       ]
     }] : []),
   ];
@@ -980,14 +980,17 @@ function StagePie({ data, onStepClick }) {
 }
 
 // ── Project By Stage - div 방식 ───────────────────────────────────────────────
-function ProjectByStage({ data, onStepClick }) {
+function ProjectByStage({ data, onStepClick, vendorFilter }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
+
+  // 국내 필터 시 OTP 숨김
+  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
 
   // 지연 건수만의 평균 사용 (avg_cur_days는 백엔드에서 계산)
   const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
   const getCount = d => d.delayed_count != null ? d.delayed_count : null;
 
-  const vals = data.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
+  const vals = filteredData.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
   const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
   const maxVal = Math.max(p80, 1);
   const H = 120;
@@ -998,7 +1001,7 @@ function ProjectByStage({ data, onStepClick }) {
         {[0.5, 1].map(r => (
           <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 36 + H * r, borderTop: '0.5px dashed var(--border)' }} />
         ))}
-        {data.map((d, i) => {
+        {filteredData.map((d, i) => {
           const hasCount = d.project_count > 0;
           const val = getValue(d);
           const avg = val != null ? Math.round(val) : null;
@@ -1011,14 +1014,14 @@ function ProjectByStage({ data, onStepClick }) {
               onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.7')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#1e40af' : 'transparent', minHeight: 13 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#3b82f6' : 'transparent', minHeight: 13 }}>
                 {avg > 0 ? `+${avg}` : ''}
               </div>
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
                 <div style={{
                   width: 'min(24px, 80%)',
                   height: barH || (hasCount ? 2 : 0),
-                  background: barH > 0 ? '#1e40af' : 'var(--border)',
+                  background: barH > 0 ? '#3b82f6' : 'var(--border)',
                   borderRadius: 'var(--ch-bar-r) var(--ch-bar-r) 0 0',
                   opacity: hasCount ? (barH > 0 ? 'var(--ch-bar-op)' : 0.25) : 0.1,
                   transition: 'height 0.45s cubic-bezier(.4,0,.2,1)',
@@ -1068,7 +1071,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
           const monthNum = d.month?.slice(5);
           const thisYear = d.month?.slice(0,4);
           const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
-          const isNewYear = thisYear && thisYear !== prevYear;
+          const isNewYear = i > 0 && thisYear && thisYear !== prevYear;
           const xLabel = isNewYear ? `${thisYear?.slice(2)}-${monthNum}` : `${monthNum}월`;
           const showLabel = sorted.length <= 8 || i % Math.ceil(sorted.length / 8) === 0 || i === sorted.length - 1;
           return (
@@ -2087,7 +2090,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         <div className="chart-card">
           <div className="chart-title">≡ 단계별 평균 지연일수</div>
           <div className="card-body">
-            <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} />
+            <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
           </div>
         </div>
 
@@ -2150,7 +2153,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const [sortBy, setSortBy] = useState('수주번호');
   const [sortDir, setSortDir] = useState('asc');
 
-  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', 'OTP', '계산서'];
+  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
   const statuses = ['전체', 'On Track', 'At Risk', '지연', '완료'];
   const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '완료': '완료' };
 
@@ -2268,7 +2271,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td>
                       <div className="td-mono">{item.수주번호}</div>
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    <td style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.업체명}
                       {item._vendor_type && item._vendor_type !== '미분류' && (
                         <span className={`vendor-badge ${item._vendor_type}`}>{item._vendor_type}</span>
