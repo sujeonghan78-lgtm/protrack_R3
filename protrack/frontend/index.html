@@ -1157,37 +1157,77 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 
 function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
-  const items = [
-    { label: '정상',        val: data.on_track,             color: '#3b82f6', key: 'On Track' },
-    { label: '임박',        val: data.at_risk,               color: '#2563eb', key: 'At Risk' },
-    { label: '공정중 지연', val: data.delayed,               color: '#1e40af', key: '지연' },
-    { label: '출고지연',    val: data.delayed_delivery ?? 0, color: '#dc2626', key: '출고지연' },
-    { label: '출고이후 지연', val: data.delayed_post ?? 0,   color: '#d97706', key: '출고이후지연' },
-    { label: '출고완료',    val: data.delivered ?? 0,        color: '#60a5fa', key: '출고완료' },
-    { label: '계산서완료',  val: data.invoiced ?? 0,         color: '#0ea5e9', key: '계산서완료' },
-  ];
   const total = data.total;
+
+  // 단색 바 항목
+  const simpleItems = [
+    { label: '정상',        val: data.on_track,  color: '#3b82f6', key: 'On Track' },
+    { label: '임박',        val: data.at_risk,    color: '#2563eb', key: 'At Risk' },
+    { label: '지연',        val: data.delayed,    color: '#dc2626', key: '지연' },
+  ];
+
+  // 2색 바 항목 (정상=파랑, 지연=빨강)
+  const dualItems = [
+    { label: '출고', normal: data.delivered ?? 0, delayed: data.delivered_delayed ?? 0, keyN: '출고완료', keyD: '출고지연' },
+    { label: 'OTP',  normal: data.otp_normal ?? 0, delayed: data.otp_delayed ?? 0,      keyN: null,      keyD: 'OTP지연' },
+    { label: '계산서', normal: data.invoiced ?? 0, delayed: data.invoiced_delayed ?? 0, keyN: '계산서완료', keyD: '계산서지연' },
+  ];
+
+  const BarRow = ({ label, val, color, keyV }) => {
+    const pct = Math.round(val / total * 100);
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
+        <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', cursor: 'pointer' }}
+          onClick={() => keyV && onBarClick(keyV)}
+          onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
+          onMouseLeave={e => e.currentTarget.style.opacity='1'}
+        >
+          <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
+            {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{val}</span>}
+          </div>
+        </div>
+        <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
+      </div>
+    );
+  };
+
+  const DualBarRow = ({ label, normal, delayed, keyN, keyD }) => {
+    const pctN = Math.round(normal / total * 100);
+    const pctD = Math.round(delayed / total * 100);
+    const pctTotal = pctN + pctD;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
+        <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
+          {pctN > 0 && (
+            <div style={{ width: `${pctN / (pctTotal || 1) * pctTotal}%`, minWidth: pctN > 0 ? 2 : 0, height: '100%', background: '#3b82f6', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: keyN ? 'pointer' : 'default', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
+              onClick={() => keyN && onBarClick(keyN)}
+              title={`정상 ${normal}건`}
+            >
+              {pctN >= 8 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{normal}</span>}
+            </div>
+          )}
+          {pctD > 0 && (
+            <div style={{ width: `${pctD / (pctTotal || 1) * pctTotal}%`, minWidth: pctD > 0 ? 2 : 0, height: '100%', background: '#dc2626', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: 'pointer', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
+              onClick={() => onBarClick(keyD)}
+              title={`지연 ${delayed}건`}
+            >
+              {pctD >= 8 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{delayed}</span>}
+            </div>
+          )}
+        </div>
+        <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>
+          <span style={{color:'#3b82f6'}}>{normal}</span><span style={{color:'var(--muted)'}}>+</span><span style={{color:'#dc2626'}}>{delayed}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
-      {items.map((item, i) => {
-        const pct = Math.round(item.val / total * 100);
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
-            <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: item.color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>{item.label}</div>
-            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', cursor: 'pointer' }}
-              onClick={() => onBarClick(item.key)}
-              onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity='1'}
-            >
-              <div style={{ width: `${pct}%`, height: '100%', background: item.color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px',
-                animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left', transform: 'scaleX(1)' }}>
-                {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{item.val}</span>}
-              </div>
-            </div>
-            <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: item.color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
-          </div>
-        );
-      })}
+      {simpleItems.map((item, i) => <BarRow key={i} label={item.label} val={item.val} color={item.color} keyV={item.key} />)}
+      {dualItems.map((item, i) => <DualBarRow key={i} {...item} />)}
       <div style={{ padding: '6px var(--ch-row-px)', background: 'var(--surface2)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, marginTop: 2 }}>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>전체</span>
         <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'var(--mono)', color: 'var(--text)' }}>{total}</span>
@@ -2227,8 +2267,8 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const [sortDir, setSortDir] = useState('asc');
 
   const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
-  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고지연', 'OTP지연', '계산서지연', '출고완료', '계산서완료', '데이터오류'];
-  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
+  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고완료', '계산서완료', '데이터오류'];
+  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연 (전체)', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
