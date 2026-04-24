@@ -358,7 +358,10 @@ class DataManager:
         df['_vendor_type'] = df['업체명'].apply(get_vendor_type)
 
         def enrich_row(row):
+            info = get_current_next_step_info(row)
             diff = calc_stage_diff(row)
+            cur_actual = info.get('cur_actual')
+            next_planned = info.get('next_planned')
             return pd.Series({
                 '_status': infer_status(row),
                 '_progress': calc_progress(row),
@@ -366,6 +369,8 @@ class DataManager:
                 '_cur_diff': diff.get('cur_diff'),
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
+                '_cur_actual_date': pd.Timestamp(cur_actual).strftime('%Y-%m-%d') if cur_actual is not None and pd.notna(cur_actual) else None,
+                '_next_planned_date': pd.Timestamp(next_planned).strftime('%Y-%m-%d') if next_planned is not None and pd.notna(next_planned) else None,
             })
 
         enriched = df.apply(enrich_row, axis=1)
@@ -454,15 +459,20 @@ class DataManager:
         def recompute(row):
             status = infer_status(row)
             row = row.copy()
-            row['_status'] = status  # infer_status 내부에서 _status 참조 안 하므로 안전
+            row['_status'] = status
             delay = calc_delay_days(row)
+            info = get_current_next_step_info(row)
             diff = calc_stage_diff(row)
+            cur_actual = info.get('cur_actual')
+            next_planned = info.get('next_planned')
             return pd.Series({
                 '_status': status,
                 '_delay_days': delay,
                 '_cur_diff': diff.get('cur_diff'),
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
+                '_cur_actual_date': pd.Timestamp(cur_actual).strftime('%Y-%m-%d') if cur_actual is not None and pd.notna(cur_actual) else None,
+                '_next_planned_date': pd.Timestamp(next_planned).strftime('%Y-%m-%d') if next_planned is not None and pd.notna(next_planned) else None,
             })
         refreshed = df.apply(recompute, axis=1)
         for col in refreshed.columns:
