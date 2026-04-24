@@ -105,23 +105,47 @@ def calc_progress(row) -> int:
 
 
 def get_current_next_step_info(row):
-    """지연 판단용 현재(미완료) 단계와 다음 단계의 예상/실적일 반환"""
+    """이전공정 실적일 + 다음단계 예정일(planned 있는 첫 단계) 반환"""
     today = pd.Timestamp.now()
-    # 지연 판단은 next_pending 기준
-    current_step = infer_next_pending_step(row)
+    is_domestic = row.get('_vendor_type') == '국내'
+    SKIP_STEPS = {'자재', '검사'}
+    if is_domestic:
+        SKIP_STEPS = SKIP_STEPS | {'OTP'}
 
+    current_step = infer_next_pending_step(row)
+    steps = list(STEP_DATE_MAP.keys())
+    cur_idx = steps.index(current_step) if current_step in steps else -1
+
+    # ── 이전공정 실적일: current_step 바로 이전 단계의 actual ──
+    cur_actual = None
+    for i in range(cur_idx - 1, -1, -1):
+        prev_step = steps[i]
+        if prev_step in SKIP_STEPS:
+            continue
+        prev_actual_col = STEP_DATE_MAP.get(prev_step, {}).get('actual')
+        if prev_actual_col:
+            val = row.get(prev_actual_col)
+            if val is not None and pd.notna(val):
+                cur_actual = val
+                break
+
+    # ── 현재 단계 planned (지연 계산용) ──
     cur_map = STEP_DATE_MAP.get(current_step, {})
-    cur_actual_col  = cur_map.get('actual')
     cur_planned_col = cur_map.get('planned')
-    cur_actual  = row.get(cur_actual_col)  if cur_actual_col  else None
     cur_planned = row.get(cur_planned_col) if cur_planned_col else None
 
-    steps = list(STEP_DATE_MAP.keys())
-    cur_idx   = steps.index(current_step) if current_step in steps else -1
-    next_step = steps[cur_idx + 1] if cur_idx >= 0 and cur_idx + 1 < len(steps) else None
-    next_map  = STEP_DATE_MAP.get(next_step, {}) if next_step else {}
-    next_planned_col = next_map.get('planned')
-    next_planned = row.get(next_planned_col) if next_planned_col else None
+    # ── 다음단계 예정일: planned 있는 첫 번째 다음 단계 ──
+    next_planned = None
+    for i in range(cur_idx + 1, len(steps)):
+        next_step = steps[i]
+        if next_step in SKIP_STEPS:
+            continue
+        next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
+        if next_planned_col:
+            val = row.get(next_planned_col)
+            if val is not None and pd.notna(val):
+                next_planned = val
+                break
 
     return {
         'cur_actual':   cur_actual  if cur_actual  is not None and pd.notna(cur_actual)  else None,
