@@ -172,11 +172,12 @@ def get_display_dates(row, status: str = None) -> dict:
                 if next_step in SKIP_STEPS:
                     continue
                 next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
-                if next_planned_col:
-                    val = row.get(next_planned_col)
-                    if val is not None and pd.notna(val):
-                        next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-                        break
+                if not next_planned_col:
+                    continue
+                val = row.get(next_planned_col)
+                if val is not None and pd.notna(val):
+                    next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+                break
 
         return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
 
@@ -198,7 +199,7 @@ def get_display_dates(row, status: str = None) -> dict:
                     prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
                     break
 
-        # 다음단계 예정일: planned 있고 값도 있는 첫 단계 (SKIP 제외)
+        # 다음단계 예정일: planned 컬럼 있는 첫 단계 (값 없으면 None 반환, 더 멀리 가지 않음)
         next_planned_date = None
         for i in range(cur_idx + 1, len(steps)):
             next_step = steps[i]
@@ -207,10 +208,11 @@ def get_display_dates(row, status: str = None) -> dict:
             next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
             if not next_planned_col:
                 continue
+            # planned 컬럼 있는 첫 단계에서 멈춤 (값 없어도)
             val = row.get(next_planned_col)
             if val is not None and pd.notna(val):
                 next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-                break
+            break
 
         return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
 
@@ -1026,4 +1028,3 @@ class DataManager:
             },
             "step_counts": step_counts,
         }
- 
