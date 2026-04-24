@@ -131,90 +131,41 @@ def get_current_next_step_info(row):
 
 
 def get_display_dates(row, status: str = None) -> dict:
-    """공정 목록 화면 표시용 — 이전공정 실적일 + 다음단계 예정일(planned 있는 첫 단계)"""
+    """공정 목록 화면 표시용 — 이전공정 실적일 + 다음단계 예정일"""
     is_domestic = row.get('_vendor_type') == '국내'
     SKIP_STEPS = {'자재', '검사'}
     if is_domestic:
         SKIP_STEPS = SKIP_STEPS | {'OTP'}
 
-    if status is None:
-        status = row.get('_status', '')
-
-    # 계산서 완료/지연만 다음단계 없음 (최종 단계)
-    no_next_statuses = {'계산서완료', '계산서지연'}
-    # 완료/지연 건은 마지막 실적 단계 기준
-    completed_statuses = {'출고완료', '출고지연', '계산서완료', '계산서지연', 'OTP지연', '데이터오류'}
-
     steps = list(STEP_DATE_MAP.keys())
 
-    if status in completed_statuses:
-        current_step = infer_current_step(row)
-        cur_idx = steps.index(current_step) if current_step in steps else -1
+    # 현재 단계 = 마지막 실적이 찍힌 단계
+    current_step = infer_current_step(row)
+    cur_idx = steps.index(current_step) if current_step in steps else -1
 
-        # 이전공정 실적일: 현재 단계 바로 이전 실적 단계
-        prev_actual_date = None
-        for i in range(cur_idx - 1, -1, -1):
-            prev_step = steps[i]
-            if prev_step in SKIP_STEPS:
-                continue
-            prev_actual_col = STEP_DATE_MAP.get(prev_step, {}).get('actual')
-            if prev_actual_col:
-                val = row.get(prev_actual_col)
-                if val is not None and pd.notna(val):
-                    prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-                    break
+    # 이전공정 실적일 = 현재 단계의 actual
+    prev_actual_date = None
+    cur_actual_col = STEP_DATE_MAP.get(current_step, {}).get('actual')
+    if cur_actual_col:
+        val = row.get(cur_actual_col)
+        if val is not None and pd.notna(val):
+            prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
 
-        # 계산서 완료/지연은 다음 단계 없음, 나머지는 다음 planned 탐색
-        next_planned_date = None
-        if status not in no_next_statuses:
-            for i in range(cur_idx + 1, len(steps)):
-                next_step = steps[i]
-                if next_step in SKIP_STEPS:
-                    continue
-                next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
-                if not next_planned_col:
-                    continue
-                val = row.get(next_planned_col)
-                if val is not None and pd.notna(val):
-                    next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-                break
-
-        return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
-
-    else:
-        # 진행 중 건: infer_current_step 기준 (마지막 실적 단계)
-        current_step = infer_current_step(row)
-        cur_idx = steps.index(current_step) if current_step in steps else -1
-
-        # 이전공정 실적일
-        prev_actual_date = None
-        for i in range(cur_idx - 1, -1, -1):
-            prev_step = steps[i]
-            if prev_step in SKIP_STEPS:
-                continue
-            prev_actual_col = STEP_DATE_MAP.get(prev_step, {}).get('actual')
-            if prev_actual_col:
-                val = row.get(prev_actual_col)
-                if val is not None and pd.notna(val):
-                    prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-                    break
-
-        # 다음단계 예정일: planned 컬럼 있는 첫 단계 (값 없으면 None 반환, 더 멀리 가지 않음)
-        next_planned_date = None
-        for i in range(cur_idx + 1, len(steps)):
-            next_step = steps[i]
-            if next_step in SKIP_STEPS:
-                continue
-            next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
-            if not next_planned_col:
-                continue
-            # planned 컬럼 있는 첫 단계에서 멈춤 (값 없어도)
-            val = row.get(next_planned_col)
-            if val is not None and pd.notna(val):
-                next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+    # 다음단계 예정일 = 현재 단계 이후 SKIP 제외하고 planned 값 있는 첫 단계
+    next_planned_date = None
+    for i in range(cur_idx + 1, len(steps)):
+        next_step = steps[i]
+        if next_step in SKIP_STEPS:
+            continue
+        next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
+        if not next_planned_col:
+            continue
+        val = row.get(next_planned_col)
+        if val is not None and pd.notna(val):
+            next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
             break
 
-        return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
+    return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
 
 
 def calc_stage_diff(row) -> dict:
