@@ -381,6 +381,10 @@
   .status-완료 { background: #3b82f6; }
   .status-출고완료 { background: #60a5fa; }
   .status-계산서완료 { background: #0ea5e9; }
+  .status-출고지연 { background: #dc2626; }
+  .status-OTP지연 { background: #ea580c; }
+  .status-계산서지연 { background: #d97706; }
+  .status-데이터오류 { background: #9333ea; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -597,15 +601,15 @@ const API = window.location.hostname === 'localhost' || window.location.hostname
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#2563eb','#3b82f6','#2563eb','#2563eb','#3b82f6','#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
-const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9' };
-const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
+const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '출고지연': '#dc2626', 'OTP지연': '#ea580c', '계산서지연': '#d97706', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9', '데이터오류': '#9333ea' };
+const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
 function exportToExcel(items, filename = 'protrack_export') {
   if (!items?.length) return;
   const cols = ['수주번호', '업체명', '프로젝트', '품명', '시스템명', '_current_step', '_progress', '_status', '요구납기일', '최종납기일'];
   const headers = ['수주번호', '업체명', '호선명', '품명', '시스템명', '현재단계', '진척도(%)', '상태', '요구납기일', '최종납기일'];
-  const statusLabel = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
+  const statusLabel = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
   const rows = items.map(item => cols.map(c => {
     if (c === '_status') return statusLabel[item[c]] || item[c];
     return item[c] ?? '';
@@ -618,55 +622,27 @@ function exportToExcel(items, filename = 'protrack_export') {
 
 // ── API helper ──────────────────────────────────────────────────────────────
 function useApi() {
-  // useRef로 토큰을 안정적으로 참조 — 매 렌더마다 재생성하지 않음
-  const tokenRef = useRef(localStorage.getItem('pt_token'));
+  const token = localStorage.getItem('pt_token');
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
-  const handle401 = () => {
-    localStorage.removeItem('pt_token');
-    window.location.reload();
-  };
-
-  const safeJson = (r) => r.json().catch(() => ({ detail: `서버 오류 (${r.status})` }));
-
-  const getHeaders = (json = true) => {
-    const token = tokenRef.current || localStorage.getItem('pt_token');
-    return {
-      ...(json ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
-
-  const get = (path) => fetch(`${API}${path}`, { headers: getHeaders() }).then(r => {
-    if (r.status === 401) { handle401(); return {}; }
-    return safeJson(r);
+  const get = (path) => fetch(`${API}${path}`, { headers }).then(r => {
+    if (r.status === 401) { localStorage.removeItem('pt_token'); window.location.reload(); }
+    return r.json();
   });
 
-  const put = (path, body) => fetch(`${API}${path}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) }).then(r => {
-    if (r.status === 401) { handle401(); return {}; }
-    return safeJson(r);
-  });
+  const put = (path, body) => fetch(`${API}${path}`, { method: 'PUT', headers, body: JSON.stringify(body) }).then(r => r.json());
 
-  const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) }).then(r => {
-    if (r.status === 401) { handle401(); return {}; }
-    return safeJson(r);
-  });
+  const post = (path, body) => fetch(`${API}${path}`, { method: 'POST', headers, body: JSON.stringify(body) }).then(r => r.json());
 
-  const del = (path) => fetch(`${API}${path}`, { method: 'DELETE', headers: getHeaders() }).then(r => {
-    if (r.status === 401) { handle401(); return {}; }
-    return safeJson(r);
-  });
+  const del = (path) => fetch(`${API}${path}`, { method: 'DELETE', headers }).then(r => r.json());
 
-  // 버그 수정: upload에 401 처리 및 JSON 파싱 실패 안전처리 추가
   const upload = (path, formData) => fetch(`${API}${path}`, {
     method: 'POST',
-    headers: getHeaders(false),  // Content-Type은 FormData가 자동 설정
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
-  }).then(r => {
-    if (r.status === 401) { handle401(); return {}; }
-    return safeJson(r);
-  });
+  }).then(r => r.json());
 
-  return { get, put, post, del, delete: del, upload };
+  return { get, put, post, del: del, delete: del, upload };
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -803,6 +779,7 @@ function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, 
               >
                 <option value="요구납기일">요구납기일</option>
                 <option value="최종납기일">최종납기일</option>
+                <option value="OTP예상일">OTP예상일</option>
               </select>
             </div>
             <div className="nav-section-label" style={{ marginTop: 8, fontSize: 9 }}>날짜 범위</div>
@@ -890,15 +867,15 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: kpi.delayed, color: '#1e40af', icon: '⚠', pct: Math.round(kpi.delayed/total*100), key: '지연',
-      desc: `공정 예정일 초과 ${kpi.delayed}건` },
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#dc2626', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
+      isDelayed: true },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
   ];
   const subCards = [
-    { label: '진행중',   val: kpi.in_progress ?? (kpi.on_track + kpi.at_risk + kpi.delayed), color: '#3b82f6', key: 'in_progress' },
-    { label: '출고완료', val: kpi.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
-    { label: '계산서완료', val: kpi.invoiced ?? 0, color: '#0ea5e9', key: '계산서완료' },
+    { label: '진행중',      val: kpi.in_progress ?? 0,      color: '#3b82f6', key: 'in_progress' },
+    { label: '출고완료',    val: kpi.delivered ?? 0,         color: '#60a5fa', key: '출고완료' },
+    { label: '계산서완료',  val: kpi.invoiced ?? 0,          color: '#0ea5e9', key: '계산서완료' },
     { label: '평균 진척률 (전체)', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
   ];
 
@@ -920,7 +897,15 @@ function KpiCards({ kpi, onCardClick }) {
           </div>
           <div className="kpi-val" style={{ color: c.color, animation: 'countUp 0.4s ease-out' }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
           <div className="kpi-label">{c.label}</div>
-          {c.desc && <div className="kpi-desc">{c.desc}</div>}
+          {c.isDelayed ? (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.8 }}>
+              <div>공정 중 지연 : <b style={{color:'#1e40af'}}>{kpi.delayed_process ?? 0}건</b></div>
+              <div>출고 지연 : <b style={{color:'#dc2626'}}>{kpi.delayed_delivery ?? 0}건</b></div>
+              <div>출고 이후 지연 : <b style={{color:'#d97706'}}>{kpi.delayed_post ?? 0}건</b></div>
+            </div>
+          ) : (
+            c.desc && <div className="kpi-desc">{c.desc}</div>
+          )}
         </div>
       ))}
       <div className="kpi-sub-stack">
@@ -1173,11 +1158,13 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const items = [
-    { label: '정상', val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',      val: data.at_risk,   color: '#2563eb', key: 'At Risk' },
-    { label: '지연',      val: data.delayed,   color: '#1e40af', key: '지연' },
-    { label: '출고완료',  val: data.delivered ?? 0, color: '#60a5fa', key: '출고완료' },
-    { label: '계산서완료', val: data.invoiced ?? 0,  color: '#0ea5e9', key: '계산서완료' },
+    { label: '정상',        val: data.on_track,             color: '#3b82f6', key: 'On Track' },
+    { label: '임박',        val: data.at_risk,               color: '#2563eb', key: 'At Risk' },
+    { label: '공정중 지연', val: data.delayed,               color: '#1e40af', key: '지연' },
+    { label: '출고지연',    val: data.delayed_delivery ?? 0, color: '#dc2626', key: '출고지연' },
+    { label: '출고이후 지연', val: data.delayed_post ?? 0,   color: '#d97706', key: '출고이후지연' },
+    { label: '출고완료',    val: data.delivered ?? 0,        color: '#60a5fa', key: '출고완료' },
+    { label: '계산서완료',  val: data.invoiced ?? 0,         color: '#0ea5e9', key: '계산서완료' },
   ];
   const total = data.total;
   return (
@@ -1419,12 +1406,16 @@ function AlertsPanel({ alerts, onSelectItem }) {
     { key: 'at_risk', label: '임박', desc: '다음 공정 예정일 7일 이내', color: '#2563eb', items: alerts.at_risk || [] },
     { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
     { key: 'due_soon_otp', label: '이달 OTP 예정', desc: '이번 달 OTP예상일', color: '#60a5fa', items: alerts.due_soon?.OTP || [] },
+    ...(alerts.data_error?.length > 0 ? [
+      { key: 'data_error', label: '데이터 오류', desc: 'OTP 실적 있으나 출고일 미입력', color: '#9333ea', items: alerts.data_error || [] }
+    ] : []),
   ];
 
   const modalItems = modal === 'delayed' ? alerts.delayed :
                      modal === 'at_risk' ? alerts.at_risk :
                      modal === 'due_soon_출고' ? alerts.due_soon?.출고 :
-                     modal === 'due_soon_otp' ? alerts.due_soon?.OTP : [];
+                     modal === 'due_soon_otp' ? alerts.due_soon?.OTP :
+                     modal === 'data_error' ? alerts.data_error : [];
   const modalTitle = sections.find(s => s.key === modal)?.label || '';
 
   return (
@@ -1879,7 +1870,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
   const [activating, setActivating] = useState(null);
   const inputRef = useRef();
 
-  const loadVersions = () => api.get('/api/versions').then(v => setVersions(Array.isArray(v) ? v : []));
+  const loadVersions = () => api.get('/api/versions').then(v => setVersions(v || []));
   useEffect(() => { loadVersions(); }, []);
 
   const handleFile = (f) => {
@@ -1902,7 +1893,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
       } else {
         onToast(res.detail || '업로드 실패', 'error');
       }
-    } catch (e) { onToast(e?.message || '업로드 오류', 'error'); }
+    } catch { onToast('업로드 오류', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -2038,11 +2029,11 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const load = useCallback(() => {
     Promise.all([
       api.get(`/api/dashboard/kpi${pf}${vf}${dateParam}${dateRange}`).then(setKpi),
-      api.get(`/api/dashboard/stage-by-process${pf}${vf}${dateParam}${dateRange}`).then(d => setStageByProcess(Array.isArray(d) ? d : [])),
-      api.get(`/api/dashboard/monthly-delivery${pf}${vf}${dateParam}${dateRange}`).then(d => setMonthlyDelivery(Array.isArray(d) ? d : [])),
+      api.get(`/api/dashboard/stage-by-process${pf}${vf}${dateParam}${dateRange}`).then(setStageByProcess),
+      api.get(`/api/dashboard/monthly-delivery${pf}${vf}${dateParam}${dateRange}`).then(setMonthlyDelivery),
       api.get(`/api/dashboard/alerts${pf}${vf}${dateParam}${dateRange}`).then(setAlerts),
       api.get(`/api/dashboard/status-distribution${pf}${vf}${dateParam}${dateRange}`).then(setStatusDist),
-      api.get(`/api/dashboard/urgent-delays${pf}${vf}${dateParam}${dateRange}`).then(d => setUrgentDelays(Array.isArray(d) ? d : [])),
+      api.get(`/api/dashboard/urgent-delays${pf}${vf}${dateParam}${dateRange}`).then(setUrgentDelays),
     ]).then(() => { if (onLastLoaded) onLastLoaded(new Date()); });
   }, [productFilter, vendorFilter, dueDateCol, dateFrom, dateTo]);
 
@@ -2060,6 +2051,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         api.get(`${base}&status_filter=지연`),
       ]);
       items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[])];
+    } else if (statusKey === 'delayed') {
+      const [r1, r2, r3, r4] = await Promise.all([
+        api.get(`${base}&status_filter=지연`),
+        api.get(`${base}&status_filter=출고지연`),
+        api.get(`${base}&status_filter=OTP지연`),
+        api.get(`${base}&status_filter=계산서지연`),
+      ]);
+      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])];
     } else {
       const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
       items = res.items || [];
@@ -2072,7 +2071,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
     onFilterStep(step, '전체');
   };
 
-  const kpiLabelMap = { 'in_progress': '진행중', 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
+  const kpiLabelMap = { 'in_progress': '진행중', 'delayed': '지연 전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   const ModalTable = ({ items, loading, onClose, title }) => {
     const sorted = [...(items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
@@ -2228,10 +2227,10 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const [sortDir, setSortDir] = useState('asc');
 
   const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
-  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고완료', '계산서완료'];
-  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
+  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고지연', 'OTP지연', '계산서지연', '출고완료', '계산서완료', '데이터오류'];
+  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
-  useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...(Array.isArray(c) ? c : [])])); }, []);
+  useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);
   useEffect(() => { setStatusFilter(initialStatusFilter || '전체'); }, [initialStatusFilter]);
   useEffect(() => {
@@ -2247,7 +2246,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
       search: debouncedSearch, status_filter: statusFilter, company_filter: companyFilter,
       step_filter: stepFilter, sort_by: sortBy, sort_dir: sortDir,
       product_filter: Array.isArray(productFilter) ? productFilter.join(',') : (productFilter || '전체'),
-      date_col: dueDateCol || '요구납기일',
+      date_col: dueDateCol !== '요구납기일' ? dueDateCol : '',
       date_from: dateFrom,
       date_to: dateTo,
       vendor_filter: vendorFilter || '전체',
@@ -2444,7 +2443,7 @@ function VendorsTab({ api, onToast }) {
   const [drag, setDrag] = useState(false);
   const fileRef = useRef();
 
-  const load = () => api.get('/api/vendors').then(v => setVendors(Array.isArray(v) ? v : []));
+  const load = () => api.get('/api/vendors').then(v => setVendors(v || []));
   useEffect(() => { load(); }, []);
 
   const filtered = vendors.filter(v =>
@@ -2476,15 +2475,13 @@ function VendorsTab({ api, onToast }) {
     if (!f) return;
     const form = new FormData();
     form.append('file', f);
-    try {
-      const res = await api.upload('/api/vendors/upload', form);
-      if (res.count != null) {
-        onToast(res.message, 'success');
-        load();
-      } else {
-        onToast(res.detail || '업로드 실패', 'error');
-      }
-    } catch (e) { onToast(e?.message || '업로드 오류', 'error'); }
+    const res = await api.upload('/api/vendors/upload', form);
+    if (res.count != null) {
+      onToast(res.message, 'success');
+      load();
+    } else {
+      onToast(res.detail || '업로드 실패', 'error');
+    }
   };
 
   const domestic = vendors.filter(v => v.type === '국내').length;
@@ -2607,21 +2604,19 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const today = new Date();
-  const fmt = d => d.toISOString().slice(0, 10);
-  const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
-  const [dateTo,   setDateTo]   = useState(fmt(new Date(today.getFullYear() + 1, today.getMonth(), 0)));
-
-  // api는 fetchSummary보다 먼저 선언해야 함
-  const api = useApi();
-
   const fetchSummary = () => {
+    if (!api) return;
     api.get('/api/dashboard/summary').then(setSummary).catch(() => {});
   };
 
   useEffect(() => {
     if (user) fetchSummary();
   }, [user, refreshKey]);
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(fmt(new Date(today.getFullYear(), today.getMonth() - 6, 1)));
+  const [dateTo,   setDateTo]   = useState(fmt(new Date(today.getFullYear() + 1, today.getMonth(), 0)));
+  const api = useApi();
 
   useEffect(() => {
     const token = localStorage.getItem('pt_token');
@@ -2635,7 +2630,7 @@ function App() {
 
   useEffect(() => {
     if (user) {
-      api.get('/api/filters/products').then(p => setProducts(Array.isArray(p) ? p : []));
+      api.get('/api/filters/products').then(p => setProducts(p || []));
     }
   }, [user]);
 
