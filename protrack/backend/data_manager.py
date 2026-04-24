@@ -429,7 +429,10 @@ class DataManager:
             df = df[mask]
 
         if status_filter and status_filter != "전체":
-            df = df[df['_status'] == status_filter]
+            if status_filter == "지연":
+                df = df[df['_status'].isin(['지연', '출고지연', 'OTP지연', '계산서지연'])]
+            else:
+                df = df[df['_status'] == status_filter]
 
         if company_filter and company_filter != "전체":
             df = df[df['업체명'] == company_filter]
@@ -812,7 +815,11 @@ class DataManager:
             "at_risk":      int(len(df[df['_status'] == 'At Risk'])),
             "delayed":      int(len(df[df['_status'] == '지연'])),
             "delivered":    int(len(df[df['_status'] == '출고완료'])),
+            "delivered_delayed": int(len(df[df['_status'] == '출고지연'])),
             "invoiced":     int(len(df[df['_status'] == '계산서완료'])),
+            "invoiced_delayed": int(len(df[df['_status'] == '계산서지연'])),
+            "otp_normal":   int(len(df[df['_status'].isin(['출고완료','출고지연','OTP지연','계산서완료','계산서지연']) & df['OTP일자'].notna()])),
+            "otp_delayed":  int(len(df[df['_status'] == 'OTP지연'])),
             "delayed_delivery": int(len(df[df['_status'] == '출고지연'])),
             "delayed_post": int(len(df[df['_status'].isin(['OTP지연', '계산서지연'])])),
             "data_error":   int(len(df[df['_status'] == '데이터오류'])),
