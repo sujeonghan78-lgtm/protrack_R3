@@ -105,8 +105,33 @@ def calc_progress(row) -> int:
 
 
 def get_current_next_step_info(row):
-    """이전공정 실적일 + 다음단계 예정일(planned 있는 첫 단계) 반환"""
+    """지연 판단용 — 현재(미완료) 단계와 다음 단계의 예상/실적일 반환 (원래 로직)"""
     today = pd.Timestamp.now()
+    current_step = infer_next_pending_step(row)
+
+    cur_map = STEP_DATE_MAP.get(current_step, {})
+    cur_actual_col  = cur_map.get('actual')
+    cur_planned_col = cur_map.get('planned')
+    cur_actual  = row.get(cur_actual_col)  if cur_actual_col  else None
+    cur_planned = row.get(cur_planned_col) if cur_planned_col else None
+
+    steps = list(STEP_DATE_MAP.keys())
+    cur_idx   = steps.index(current_step) if current_step in steps else -1
+    next_step = steps[cur_idx + 1] if cur_idx >= 0 and cur_idx + 1 < len(steps) else None
+    next_map  = STEP_DATE_MAP.get(next_step, {}) if next_step else {}
+    next_planned_col = next_map.get('planned')
+    next_planned = row.get(next_planned_col) if next_planned_col else None
+
+    return {
+        'cur_actual':   cur_actual  if cur_actual  is not None and pd.notna(cur_actual)  else None,
+        'cur_planned':  cur_planned if cur_planned is not None and pd.notna(cur_planned) else None,
+        'next_planned': next_planned if next_planned is not None and pd.notna(next_planned) else None,
+        'today': today,
+    }
+
+
+def get_display_dates(row) -> dict:
+    """공정 목록 화면 표시용 — 이전공정 실적일 + 다음단계 예정일(planned 있는 첫 단계)"""
     is_domestic = row.get('_vendor_type') == '국내'
     SKIP_STEPS = {'자재', '검사'}
     if is_domestic:
@@ -116,8 +141,8 @@ def get_current_next_step_info(row):
     steps = list(STEP_DATE_MAP.keys())
     cur_idx = steps.index(current_step) if current_step in steps else -1
 
-    # ── 이전공정 실적일: current_step 바로 이전 단계의 actual ──
-    cur_actual = None
+    # 이전공정 실적일: current_step 이전 단계 중 SKIP 제외하고 실적 있는 가장 가까운 단계
+    prev_actual_date = None
     for i in range(cur_idx - 1, -1, -1):
         prev_step = steps[i]
         if prev_step in SKIP_STEPS:
@@ -126,16 +151,11 @@ def get_current_next_step_info(row):
         if prev_actual_col:
             val = row.get(prev_actual_col)
             if val is not None and pd.notna(val):
-                cur_actual = val
+                prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
                 break
 
-    # ── 현재 단계 planned (지연 계산용) ──
-    cur_map = STEP_DATE_MAP.get(current_step, {})
-    cur_planned_col = cur_map.get('planned')
-    cur_planned = row.get(cur_planned_col) if cur_planned_col else None
-
-    # ── 다음단계 예정일: planned 있는 첫 번째 다음 단계 ──
-    next_planned = None
+    # 다음단계 예정일: current_step 이후 단계 중 SKIP 제외하고 planned 있는 첫 단계
+    next_planned_date = None
     for i in range(cur_idx + 1, len(steps)):
         next_step = steps[i]
         if next_step in SKIP_STEPS:
@@ -144,14 +164,12 @@ def get_current_next_step_info(row):
         if next_planned_col:
             val = row.get(next_planned_col)
             if val is not None and pd.notna(val):
-                next_planned = val
+                next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
                 break
 
     return {
-        'cur_actual':   cur_actual  if cur_actual  is not None and pd.notna(cur_actual)  else None,
-        'cur_planned':  cur_planned if cur_planned is not None and pd.notna(cur_planned) else None,
-        'next_planned': next_planned if next_planned is not None and pd.notna(next_planned) else None,
-        'today': today,
+        'prev_actual_date': prev_actual_date,
+        'next_planned_date': next_planned_date,
     }
 
 
@@ -384,8 +402,7 @@ class DataManager:
         def enrich_row(row):
             info = get_current_next_step_info(row)
             diff = calc_stage_diff(row)
-            cur_actual = info.get('cur_actual')
-            next_planned = info.get('next_planned')
+            display = get_display_dates(row)
             return pd.Series({
                 '_status': infer_status(row),
                 '_progress': calc_progress(row),
@@ -393,8 +410,8 @@ class DataManager:
                 '_cur_diff': diff.get('cur_diff'),
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
-                '_cur_actual_date': pd.Timestamp(cur_actual).strftime('%Y-%m-%d') if cur_actual is not None and pd.notna(cur_actual) else None,
-                '_next_planned_date': pd.Timestamp(next_planned).strftime('%Y-%m-%d') if next_planned is not None and pd.notna(next_planned) else None,
+                '_cur_actual_date': display['prev_actual_date'],
+                '_next_planned_date': display['next_planned_date'],
             })
 
         enriched = df.apply(enrich_row, axis=1)
@@ -485,18 +502,16 @@ class DataManager:
             row = row.copy()
             row['_status'] = status
             delay = calc_delay_days(row)
-            info = get_current_next_step_info(row)
             diff = calc_stage_diff(row)
-            cur_actual = info.get('cur_actual')
-            next_planned = info.get('next_planned')
+            display = get_display_dates(row)
             return pd.Series({
                 '_status': status,
                 '_delay_days': delay,
                 '_cur_diff': diff.get('cur_diff'),
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
-                '_cur_actual_date': pd.Timestamp(cur_actual).strftime('%Y-%m-%d') if cur_actual is not None and pd.notna(cur_actual) else None,
-                '_next_planned_date': pd.Timestamp(next_planned).strftime('%Y-%m-%d') if next_planned is not None and pd.notna(next_planned) else None,
+                '_cur_actual_date': display['prev_actual_date'],
+                '_next_planned_date': display['next_planned_date'],
             })
         refreshed = df.apply(recompute, axis=1)
         for col in refreshed.columns:
