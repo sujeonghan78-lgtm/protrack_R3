@@ -169,14 +169,55 @@ def calc_stage_diff(row) -> dict:
 
 
 def infer_status(row) -> str:
-    """완료: 계산서발행일 또는 최종납기일(출고완료)
-    지연/임박/정상: 현재+다음 단계 기준"""
+    """완료/지연 분기:
+    - 계산서발행일 있음 → 계산서완료 or 계산서지연
+    - OTP실적 있고 최종납기일 없음 → 데이터오류
+    - 최종납기일 있음 → 출고완료 or 출고지연 or OTP지연 or 계산서지연
+    - 나머지 → 공정 중 지연/임박/정상
+    """
     today = pd.Timestamp.now()
+    is_domestic = row.get('_vendor_type') == '국내'
 
+    # ── 계산서 발행 완료 ──────────────────────────────
     if pd.notna(row.get('계산서발행일')):
+        invoice_date = pd.Timestamp(row['계산서발행일'])
+        if is_domestic:
+            # 국내: 계산서 발행월 > 출고월이면 지연
+            if pd.notna(row.get('최종납기일')):
+                출고월 = pd.Timestamp(row['최종납기일']).to_period('M')
+                계산서월 = invoice_date.to_period('M')
+                if 계산서월 > 출고월:
+                    return '계산서지연'
+        else:
+            # 해외: 계산서 발행월 > OTP실적월이면 지연
+            if pd.notna(row.get('OTP일자')):
+                otp월 = pd.Timestamp(row['OTP일자']).to_period('M')
+                계산서월 = invoice_date.to_period('M')
+                if 계산서월 > otp월:
+                    return '계산서지연'
         return '계산서완료'
-    # 최종납기일(출고)이 있으면 출고 완료
+
+    # ── 데이터 오류: OTP실적 있는데 최종납기일 없음 ──
+    if not is_domestic and pd.notna(row.get('OTP일자')) and pd.isna(row.get('최종납기일')):
+        return '데이터오류'
+
+    # ── 출고 완료 이후 단계 ───────────────────────────
     if pd.notna(row.get('최종납기일')):
+        출고일 = pd.Timestamp(row['최종납기일'])
+        요구납기일 = row.get('요구납기일')
+
+        if not is_domestic:
+            # 해외: OTP 지연 체크
+            if pd.notna(row.get('OTP일자')) and pd.notna(row.get('OTP예상일')):
+                if pd.Timestamp(row['OTP일자']) > pd.Timestamp(row['OTP예상일']):
+                    return 'OTP지연'
+            # OTP 미완료 상태면 아직 진행중 — 출고완료로 보지 않음
+            # (OTP예상일 초과 여부는 공정 중 지연으로 처리)
+
+        # 출고 지연: 최종납기일 > 요구납기일
+        if pd.notna(요구납기일):
+            if 출고일 > pd.Timestamp(요구납기일):
+                return '출고지연'
         return '출고완료'
 
     diff = calc_stage_diff(row)
@@ -514,15 +555,21 @@ class DataManager:
     def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total = len(df)
-        on_track = len(df[df['_status'] == 'On Track'])
-        at_risk = len(df[df['_status'] == 'At Risk'])
-        delayed = len(df[df['_status'] == '지연'])
+        on_track  = len(df[df['_status'] == 'On Track'])
+        at_risk   = len(df[df['_status'] == 'At Risk'])
+
+        # 지연 분류
+        delayed_process  = len(df[df['_status'] == '지연'])          # 공정 중 지연
+        delayed_delivery = len(df[df['_status'] == '출고지연'])       # 출고 지연
+        delayed_post     = len(df[df['_status'].isin(['OTP지연', '계산서지연'])])  # 출고 이후 지연
+        delayed_total    = delayed_process + delayed_delivery + delayed_post
+
         completed = len(df[df['_status'].isin(['출고완료', '계산서완료'])])
         delivered = len(df[df['_status'] == '출고완료'])
         invoiced  = len(df[df['_status'] == '계산서완료'])
+        data_error = len(df[df['_status'] == '데이터오류'])
         avg_progress = int(df['_progress'].mean()) if total > 0 else 0
 
-        # 시스템명별 전체/완료 건수
         system_counts = {}
         system_completed = {}
         if '시스템명' in df.columns:
@@ -530,10 +577,15 @@ class DataManager:
                 system_counts[str(sys)] = len(grp)
                 system_completed[str(sys)] = len(grp[grp['_status'].isin(['출고완료', '계산서완료'])])
 
-        in_progress = on_track + at_risk + delayed
+        in_progress = on_track + at_risk + delayed_process
         return {"total": total, "in_progress": in_progress, "on_track": on_track,
-                "at_risk": at_risk, "delayed": delayed,
+                "at_risk": at_risk,
+                "delayed": delayed_total,
+                "delayed_process": delayed_process,
+                "delayed_delivery": delayed_delivery,
+                "delayed_post": delayed_post,
                 "completed": completed, "delivered": delivered, "invoiced": invoiced,
+                "data_error": data_error,
                 "avg_progress": avg_progress,
                 "system_counts": system_counts, "system_completed": system_completed}
 
@@ -601,7 +653,7 @@ class DataManager:
 
     def get_alerts(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         if self.df.empty:
-            return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}}
+            return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}, "data_error": []}
 
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         today = pd.Timestamp.now()
@@ -642,10 +694,20 @@ class DataManager:
 
         due_soon_생산 = []
         if '생산예상일' in df.columns:
-            mask = df['생산예상일'].notna() & (df['생산예상일'] >= this_month_start) & (df['생산예상일'] < next_month_start) & (~df['_status'].isin(['출고완료', '계산서완료']))
+            mask = df['생산예상일'].notna() & (df['생산예상일'] >= this_month_start) & (df['생산예상일'] < next_month_start) & (~df['_status'].isin(['출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연']))
             due_soon_생산 = [row_summary(row) for _, row in df[mask].iterrows()]
 
-        return {"delayed": delayed, "at_risk": at_risk, "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp, "생산": due_soon_생산}}
+        # 데이터 오류: OTP실적 있는데 최종납기일 없는 건
+        data_error_df = df[df['_status'] == '데이터오류']
+        data_error = []
+        for _, row in data_error_df.iterrows():
+            item = row_summary(row)
+            item['오류내용'] = 'OTP 실적 있으나 출고일 미입력'
+            data_error.append(item)
+
+        return {"delayed": delayed, "at_risk": at_risk,
+                "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp, "생산": due_soon_생산},
+                "data_error": data_error}
 
     def get_company_distribution(self, product_filter: str = "") -> List[Dict]:
         if self.df.empty:
@@ -712,9 +774,11 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 모드1: 지연 건수만의 평균 (_cur_diff > 0인 건들의 평균)
+            # 지연 건수: 공정중 지연 + 완료 지연 모두 포함 (완료(정상) 제외)
+            DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
             cur_diffs = [r['_cur_diff'] for _, r in step_df.iterrows()
-                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0]
+                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0
+                         and r.get('_status') not in ('출고완료', '계산서완료', '데이터오류')]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
             delayed_count = len(cur_diffs)
 
@@ -743,13 +807,15 @@ class DataManager:
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total = len(df)
         return {
-            "total": total,
-            "on_track":      int(len(df[df['_status'] == 'On Track'])),
-            "at_risk":       int(len(df[df['_status'] == 'At Risk'])),
-            "delayed":       int(len(df[df['_status'] == '지연'])),
-            "completed":     int(len(df[df['_status'].isin(['출고완료', '계산서완료'])])),
-            "delivered":     int(len(df[df['_status'] == '출고완료'])),
-            "invoiced":      int(len(df[df['_status'] == '계산서완료'])),
+            "total":        total,
+            "on_track":     int(len(df[df['_status'] == 'On Track'])),
+            "at_risk":      int(len(df[df['_status'] == 'At Risk'])),
+            "delayed":      int(len(df[df['_status'] == '지연'])),
+            "delivered":    int(len(df[df['_status'] == '출고완료'])),
+            "invoiced":     int(len(df[df['_status'] == '계산서완료'])),
+            "delayed_delivery": int(len(df[df['_status'] == '출고지연'])),
+            "delayed_post": int(len(df[df['_status'].isin(['OTP지연', '계산서지연'])])),
+            "data_error":   int(len(df[df['_status'] == '데이터오류'])),
         }
 
     def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
