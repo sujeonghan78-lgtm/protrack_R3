@@ -2413,7 +2413,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>
                       {item._cur_actual_date || '—'}
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._next_diff !== null && item._next_diff > 0 ? '#ef4444' : 'var(--muted)' }}>
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._next_planned_date && item._next_planned_date < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--muted)' }}>
                       {item._next_planned_date || '—'}
                     </td>
                     <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
