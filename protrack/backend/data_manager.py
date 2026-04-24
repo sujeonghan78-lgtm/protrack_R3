@@ -182,8 +182,8 @@ def get_display_dates(row, status: str = None) -> dict:
         return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
 
     else:
-        # 진행 중 건: infer_next_pending_step 기준
-        current_step = infer_next_pending_step(row)
+        # 진행 중 건: infer_current_step 기준 (마지막 실적 단계)
+        current_step = infer_current_step(row)
         cur_idx = steps.index(current_step) if current_step in steps else -1
 
         # 이전공정 실적일
