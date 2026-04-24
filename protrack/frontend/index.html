@@ -381,9 +381,9 @@
   .status-완료 { background: #3b82f6; }
   .status-출고완료 { background: #60a5fa; }
   .status-계산서완료 { background: #0ea5e9; }
-  .status-출고지연 { background: #dc2626; }
-  .status-OTP지연 { background: #ea580c; }
-  .status-계산서지연 { background: #d97706; }
+  .status-출고지연 { background: #f87171; }
+  .status-OTP지연 { background: #ef4444; }
+  .status-계산서지연 { background: #ef4444; }
   .status-데이터오류 { background: #9333ea; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
@@ -601,8 +601,8 @@ const API = window.location.hostname === 'localhost' || window.location.hostname
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#2563eb','#3b82f6','#2563eb','#2563eb','#3b82f6','#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
-const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#2563eb', '지연': '#1e40af', '출고지연': '#dc2626', 'OTP지연': '#ea580c', '계산서지연': '#d97706', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9', '데이터오류': '#9333ea' };
-const STATUS_LABELS = { 'On Track': '진행중', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
+const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#93c5fd', '지연': '#fca5a5', '출고지연': '#f87171', 'OTP지연': '#ef4444', '계산서지연': '#ef4444', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9', '데이터오류': '#9333ea' };
+const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
 function exportToExcel(items, filename = 'protrack_export') {
@@ -867,7 +867,7 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#dc2626', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
       isDelayed: true },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
@@ -1161,9 +1161,9 @@ function StatusDistribution({ data, onBarClick }) {
 
   // 단색 바 항목
   const simpleItems = [
-    { label: '정상',        val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',        val: data.at_risk,    color: '#2563eb', key: 'At Risk' },
-    { label: '지연',        val: data.delayed,    color: '#dc2626', key: '지연' },
+    { label: '정상',  val: data.on_track,  color: '#3b82f6', key: 'On Track' },
+    { label: '임박',  val: data.at_risk,   color: '#93c5fd', key: 'At Risk' },
+    { label: '지연',  val: data.delayed,   color: '#fca5a5', key: '지연' },
   ];
 
   // 2색 바 항목 (정상=파랑, 지연=빨강)
@@ -2362,7 +2362,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                   <th style={{ width: 36, padding: '10px 8px' }}>
                     <input type="checkbox" onChange={toggleAll} checked={checkedRows.length === data.items.length && data.items.length > 0} style={{ cursor: 'pointer' }} />
                   </th>
-                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['현재단계 차이', '_cur_diff'], ['다음단계 D-', '_next_diff'], ['요구납기', '요구납기일'], ['비고', '비고']].map(([label, col]) => (
+                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['이전공정 실적일', '_cur_actual_date'], ['다음단계 예정일', '_next_planned_date'], ['요구납기', '요구납기일'], ['비고', '비고']].map(([label, col]) => (
                     <th key={col} onClick={() => handleSort(col)}>
                       {label}<SortIcon col={col} />
                     </th>
@@ -2401,29 +2401,20 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div className="progress-bar" style={{ flex: 1 }}>
-                          <div className={`progress-fill ${item._status === '지연' ? 'progress-red' : 'progress-blue'}`} style={{ width: `${item._progress}%` }} />
+                          <div className={`progress-fill ${['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? 'progress-red' : 'progress-blue'}`} style={{ width: `${item._progress}%` }} />
                         </div>
                         <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600, minWidth: 30 }}>{item._progress}%</span>
                       </div>
                     </td>
                     <td>
                       <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
-                      <span style={{ color: statusColorMap[item._status], fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
+                      <span style={{ color: ['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? '#ef4444' : (statusColorMap[item._status] || 'var(--muted)'), fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono' }}>
-                      {curDiff !== null && curDiff !== undefined ? (
-                        <span style={{ color: curDiff > 0 ? 'var(--accent)' : curDiff < 0 ? '#3b82f6' : 'var(--muted)' }}>
-                          {!curHasActual && <span style={{ fontSize: 9, marginRight: 3, color: 'var(--accent)', fontWeight: 700 }}>미실적</span>}
-                          {curDiff > 0 ? `+${curDiff}일` : curDiff < 0 ? `${curDiff}일` : '정시'}
-                        </span>
-                      ) : '—'}
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>
+                      {item._cur_actual_date || '—'}
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono' }}>
-                      {nextDiff !== null && nextDiff !== undefined ? (
-                        <span style={{ color: nextDiff > 0 ? 'var(--accent)' : nextDiff <= 7 ? 'var(--accent)' : 'var(--muted)' }}>
-                          {nextDiff > 0 ? `+${nextDiff}일` : `D${nextDiff}`}
-                        </span>
-                      ) : '—'}
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._next_diff !== null && item._next_diff > 0 ? '#ef4444' : 'var(--muted)' }}>
+                      {item._next_planned_date || '—'}
                     </td>
                     <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
