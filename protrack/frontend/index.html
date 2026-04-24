@@ -2416,7 +2416,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._next_planned_date && item._next_planned_date < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--muted)' }}>
                       {item._next_planned_date || '—'}
                     </td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
                       {item['비고'] || ''}
                     </td>
