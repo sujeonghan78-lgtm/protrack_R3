@@ -1341,7 +1341,8 @@ function UrgentDelaysList({ data, onSelect }) {
 }
 
 // ── StageDelayModal (단계별 평균 지연일수 차트 클릭 팝업) ────────────────────
-function StageDelayModal({ step, items, loading, onClose, onSelectItem }) {
+function StageDelayModal({ step, title, items, loading, onClose, onSelectItem }) {
+  const modalTitle = title || `${step} 단계 지연 현황`;
   const exportRows = (items || []).map(item => ({
     '지연일수': item._cur_diff != null ? `+${item._cur_diff}일` : '',
     '프로젝트(호선)': item.프로젝트 || '—',
@@ -1358,7 +1359,7 @@ function StageDelayModal({ step, items, loading, onClose, onSelectItem }) {
       <div className="modal" style={{ width: 'min(860px, 95vw)', maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div>
-            <div className="modal-title">{step} 단계 지연 현황</div>
+            <div className="modal-title">{modalTitle}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
               납기 초과 건만 표시 · 지연일수 내림차순
               {!loading && items && <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--accent)' }}>{items.length}건</span>}
@@ -2222,7 +2223,9 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         api.get(`${base}&status_filter=OTP지연`),
         api.get(`${base}&status_filter=계산서지연`),
       ]);
-      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])];
+      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])]
+        .filter(i => i._cur_diff != null && i._cur_diff > 0)
+        .sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
     } else {
       const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
       items = res.items || [];
@@ -2373,7 +2376,10 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
       {monthlyModal && <MonthlyModal monthData={monthlyModal} onClose={() => setMonthlyModal(null)} onSelect={setSelectedAlert} />}
       {dueSoonModal && <ItemModal title={dueSoonModal.title} items={dueSoonModal.items} onClose={() => setDueSoonModal(null)} onSelectItem={(item) => { setSelectedAlert(item); setDueSoonModal(null); }} />}
 
-      {kpiModal && <ModalTable items={kpiModalItems} loading={kpiModalLoading} title={kpiLabelMap[kpiModal] || kpiModal} onClose={() => setKpiModal(null)} />}
+      {kpiModal && kpiModal === 'delayed'
+        ? <StageDelayModal title="지연 전체" items={kpiModalItems} loading={kpiModalLoading} onClose={() => setKpiModal(null)} onSelectItem={(item) => { setSelectedAlert(item); setKpiModal(null); }} />
+        : kpiModal && <ModalTable items={kpiModalItems} loading={kpiModalLoading} title={kpiLabelMap[kpiModal] || kpiModal} onClose={() => setKpiModal(null)} />
+      }
       {stepModal && <StageDelayModal step={stepModal} items={stepModalItems} loading={stepModalLoading} onClose={() => setStepModal(null)} onSelectItem={(item) => { setSelectedAlert(item); setStepModal(null); }} />}
 
       {selectedAlert && (
