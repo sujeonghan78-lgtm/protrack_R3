@@ -868,7 +868,7 @@ function KpiCards({ kpi, onCardClick }) {
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
     { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
-      isDelayed: true },
+      isDelayed: true, desc: '공정예정일 또는 요구납기일을 초과한 건수' },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
   ];
@@ -899,6 +899,7 @@ function KpiCards({ kpi, onCardClick }) {
           <div className="kpi-label">{c.label}</div>
           {c.isDelayed ? (
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.8 }}>
+              {c.desc && <div style={{marginBottom:4}}>{c.desc}</div>}
               <div>공정 중 지연 : <b style={{color:'#1e40af'}}>{kpi.delayed_process ?? 0}건</b></div>
               <div>출고 지연 : <b style={{color:'#dc2626'}}>{kpi.delayed_delivery ?? 0}건</b></div>
               <div>출고 이후 지연 : <b style={{color:'#d97706'}}>{kpi.delayed_post ?? 0}건</b></div>
@@ -2170,9 +2171,10 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         {/* 행1-열1: Stage Progress */}
         <div className="chart-card">
           <div className="chart-title">
-            ▤ Stage Progress
+            ▤ 단계별 진행 현황
             <span className="chart-badge">클릭 시 목록</span>
           </div>
+          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>현재 각 단계에 있는 프로젝트 건수</div>
           <div className="card-body">
             <StageByProcessChart data={stageByProcess} onStepClick={step => onFilterStep(step, '전체')} vendorFilter={vendorFilter} />
           </div>
@@ -2194,6 +2196,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
           <div className="chart-title">
             ⚠ 출고 지연 TOP 5
           </div>
+          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>요구납기일 기준 지연일수 상위 5건</div>
           <div className="card-body">
             <UrgentDelaysList data={urgentDelays} onSelect={setSelectedAlert} />
           </div>
@@ -2201,7 +2204,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 
         {/* 행2-열1: 단계별 현황 */}
         <div className="chart-card">
-          <div className="chart-title">≡ 단계별 현황 · 평균 지연일수</div>
+          <div className="chart-title">≡ 단계별 평균 지연일수</div>
+          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>다음 공정으로 진행되지 못한 프로젝트 병목 구간</div>
           <div className="card-body">
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
           </div>
@@ -2212,6 +2216,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
           <div className="chart-title">
             📈 월별 출고예정
           </div>
+          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>요구납기일 기준 · 납품완료 건 제외</div>
           <div className="card-body" style={{ justifyContent: 'center' }}>
             <MonthlyDeliveryChart data={monthlyDelivery} onBarClick={setMonthlyModal} />
           </div>
