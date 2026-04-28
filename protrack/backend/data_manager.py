@@ -856,6 +856,42 @@ class DataManager:
             })
         return result
 
+    def get_stage_delayed_items(self, step: str, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
+        """단계별 평균 지연일수 차트 클릭 시 — 해당 단계의 지연 건 목록 (차트와 동일 기준)"""
+        if self.df.empty:
+            return []
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
+        step_df = df[df['_current_step'] == step]
+
+        result = []
+        for _, row in step_df.iterrows():
+            cur_diff = row.get('_cur_diff')
+            if cur_diff is None or (isinstance(cur_diff, float) and pd.isna(cur_diff)):
+                continue
+            if cur_diff <= 0:
+                continue
+            status = row.get('_status', '')
+            if status in ('출고완료', '계산서완료', '데이터오류'):
+                continue
+
+            result.append({
+                "수주번호":         row.get('수주번호', ''),
+                "프로젝트":         row.get('프로젝트', ''),
+                "업체명":           row.get('업체명', ''),
+                "시스템명":         row.get('시스템명', ''),
+                "_current_step":    row.get('_current_step', ''),
+                "_status":          status,
+                "_cur_diff":        int(cur_diff),
+                "_cur_actual_date": row.get('_cur_actual_date'),
+                "_next_planned_date": row.get('_next_planned_date'),
+                "_progress":        row.get('_progress', 0),
+                "_row_id":          row.get('_row_id', ''),
+                "ordseq":           row.get('ordseq'),
+            })
+
+        result.sort(key=lambda x: x['_cur_diff'], reverse=True)
+        return result
+
     def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         """전체 상태 분포 (파이차트용)"""
         if self.df.empty:

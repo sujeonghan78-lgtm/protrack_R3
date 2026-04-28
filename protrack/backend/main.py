@@ -103,6 +103,11 @@ async def get_stage_by_process(product_filter: str = "", date_col: str = "", dat
     return dm.get_stage_by_process(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
+@app.get("/api/dashboard/stage-delayed-items")
+async def get_stage_delayed_items(step: str, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    return dm.get_stage_delayed_items(step=step, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+
+
 @app.get("/api/dashboard/status-distribution")
 async def get_status_distribution(product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_status_distribution(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
