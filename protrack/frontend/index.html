@@ -2197,7 +2197,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const handleKpiClick = async (statusKey) => {
     setKpiModal(statusKey);
     setKpiModalLoading(true);
-    const base = `/api/processes${pf}${dateParam}${dateRange}${(pf||dateParam||dateRange)?'&':'?'}page_size=500`;
+    const base = `/api/processes${pf}${vf}${dateParam}${dateRange}${(pf||vf||dateParam||dateRange)?'&':'?'}page_size=500`;
     let items = [];
     if (statusKey === 'in_progress') {
       const [r1, r2, r3] = await Promise.all([
@@ -2220,8 +2220,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
       ]);
       items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[])];
     } else if (statusKey === 'delayed') {
-      const res = await api.get(`${base}&status_filter=지연`);
-      items = (res.items || []).sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
+      const [r1, r2, r3, r4] = await Promise.all([
+        api.get(`${base}&status_filter=지연`),
+        api.get(`${base}&status_filter=출고지연`),
+        api.get(`${base}&status_filter=OTP지연`),
+        api.get(`${base}&status_filter=계산서지연`),
+      ]);
+      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])]
+        .sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
     } else {
       const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
       const DELAY_KEYS = new Set(['지연', '출고지연', 'OTP지연', '계산서지연']);
@@ -2418,8 +2424,8 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
   const [sortDir, setSortDir] = useState('asc');
 
   const steps = ['전체', '수주', '시방', '자재', '생산', '검사', '포장', '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
-  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고완료', '계산서완료', '데이터오류'];
-  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '지연 (전체)', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
+  const statuses = ['전체', 'On Track', 'At Risk', '지연', '출고지연', 'OTP지연', '계산서지연', '출고완료', '계산서완료', '데이터오류'];
+  const statusLabels = { '전체': '전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
   useEffect(() => { api.get('/api/filters/companies').then(c => setCompanies(['전체', ...c])); }, []);
   useEffect(() => { setStepFilter(initialStepFilter || '전체'); }, [initialStepFilter]);

@@ -475,10 +475,7 @@ class DataManager:
             df = df[mask]
 
         if status_filter and status_filter != "전체":
-            if status_filter == "지연":
-                df = df[df['_status'].isin(['지연', '출고지연', 'OTP지연', '계산서지연'])]
-            else:
-                df = df[df['_status'] == status_filter]
+            df = df[df['_status'] == status_filter]
 
         if company_filter and company_filter != "전체":
             df = df[df['업체명'] == company_filter]
@@ -736,11 +733,10 @@ class DataManager:
 
         due_soon_출고 = []
         if '요구납기일' in df.columns:
-            # 8번 수정: next_month_start 경계값 제외 (날짜만 비교)
             mask = (df['요구납기일'].notna() &
                     (df['요구납기일'].dt.date >= this_month_start.date()) &
                     (df['요구납기일'].dt.date < next_month_start.date()) &
-                    (~df['_status'].isin(['출고완료', '계산서완료'])))
+                    (~df['_status'].isin(['출고완료', '출고지연', 'OTP지연', '계산서지연', '계산서완료'])))
             due_soon_출고 = [row_summary(row) for _, row in df[mask].iterrows()]
 
         due_soon_otp = []
