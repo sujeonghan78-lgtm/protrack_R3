@@ -1175,7 +1175,7 @@ function StatusDistribution({ data, onBarClick }) {
   const simpleItems = [
     { label: '정상',  val: data.on_track,  color: '#3b82f6', key: 'On Track' },
     { label: '임박',  val: data.at_risk,   color: '#93c5fd', key: 'At Risk' },
-    { label: '지연',  val: data.delayed,   color: '#fca5a5', key: '지연' },
+    { label: '지연',  val: data.delayed,   color: '#fca5a5', key: 'delayed' },
   ];
 
   // 2색 바 항목 (정상=파랑, 지연=빨강)
@@ -2220,14 +2220,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
       ]);
       items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[])];
     } else if (statusKey === 'delayed') {
-      const [r1, r2, r3, r4] = await Promise.all([
-        api.get(`${base}&status_filter=지연`),
-        api.get(`${base}&status_filter=출고지연`),
-        api.get(`${base}&status_filter=OTP지연`),
-        api.get(`${base}&status_filter=계산서지연`),
-      ]);
-      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])]
-        .sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
+      const res = await api.get(`${base}&status_filter=지연`);
+      items = (res.items || []).sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
     } else {
       const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
       const DELAY_KEYS = new Set(['지연', '출고지연', 'OTP지연', '계산서지연']);
