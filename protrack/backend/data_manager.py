@@ -475,7 +475,10 @@ class DataManager:
             df = df[mask]
 
         if status_filter and status_filter != "전체":
-            df = df[df['_status'] == status_filter]
+            if status_filter == "지연(전체)":
+                df = df[df['_status'].isin(['지연', '출고지연', 'OTP지연', '계산서지연'])]
+            else:
+                df = df[df['_status'] == status_filter]
 
         if company_filter and company_filter != "전체":
             df = df[df['업체명'] == company_filter]
