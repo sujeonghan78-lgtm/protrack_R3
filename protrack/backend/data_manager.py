@@ -355,22 +355,23 @@ class DataManager:
             if 'ordseq' not in df.columns:
                 df['ordseq'] = df.groupby('수주번호').cumcount() + 1
 
+            # [FIX-5] fix_date를 루프 밖으로 꺼내고 to_datetime 이중변환 제거
+            def fix_date(v):
+                if pd.isna(v):
+                    return pd.NaT
+                if isinstance(v, (int, float)):
+                    try:
+                        s = str(int(v))
+                        if len(s) == 8:
+                            return pd.Timestamp(s[:4] + '-' + s[4:6] + '-' + s[6:])
+                        return pd.Timestamp('1899-12-30') + pd.Timedelta(days=int(v))
+                    except:
+                        return pd.NaT
+                return v
+
             date_cols = [col for col in df.columns if '일자' in str(col) or str(col).endswith('일')]
             for col in date_cols:
-                def fix_date(v):
-                    if pd.isna(v):
-                        return pd.NaT
-                    if isinstance(v, (int, float)):
-                        try:
-                            s = str(int(v))
-                            if len(s) == 8:
-                                return pd.Timestamp(s[:4] + '-' + s[4:6] + '-' + s[6:])
-                            return pd.Timestamp('1899-12-30') + pd.Timedelta(days=int(v))
-                        except:
-                            return pd.NaT
-                    return v
-                df[col] = df[col].apply(fix_date)
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+                df[col] = pd.to_datetime(df[col].apply(fix_date), errors='coerce')
 
             self.df = self._enrich(df)
             print(f"[DataManager] Loaded {len(self.df)} rows from {self.filepath}")
@@ -426,13 +427,17 @@ class DataManager:
             return {}
 
     def reload_vendors(self):
-        """거래처 파일 변경 시 _vendor_type 재계산"""
+        """거래처 파일 변경 시 _vendor_type 재계산 후 파생값 전체 재계산"""
         if self.df.empty: return
         vendors = self._load_vendors()
         def get_vendor_type(name):
             if pd.isna(name): return '미분류'
             return vendors.get(str(name).strip(), '미분류')
         self.df['_vendor_type'] = self.df['업체명'].apply(get_vendor_type)
+        # [FIX-1] vendor_type이 is_domestic 분기에 영향을 주므로 파생값 전체 재계산
+        self.df = self._enrich(
+            self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
+        )
 
     def _row_to_dict(self, row) -> Dict[str, Any]:
         d = {}
@@ -583,12 +588,16 @@ class DataManager:
             # _current_step 반영 후 row 재조회
             row = self.df.loc[idx]
             diff = calc_stage_diff(row)
-            self.df.at[idx, '_status'] = infer_status(row)
+            status = infer_status(row)
+            display = get_display_dates(row, status)  # [FIX-2]
+            self.df.at[idx, '_status'] = status
             self.df.at[idx, '_progress'] = calc_progress(row)
             self.df.at[idx, '_delay_days'] = calc_delay_days(row)
             self.df.at[idx, '_cur_diff'] = diff.get('cur_diff')
             self.df.at[idx, '_cur_has_actual'] = diff.get('cur_has_actual', False)
             self.df.at[idx, '_next_diff'] = diff.get('next_diff')
+            self.df.at[idx, '_cur_actual_date'] = display['prev_actual_date']      # [FIX-2]
+            self.df.at[idx, '_next_planned_date'] = display['next_planned_date']   # [FIX-2]
 
         try:
             save_df = self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
@@ -769,7 +778,7 @@ class DataManager:
 
     def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
         """지연 TOP5: 요구납기일 기준 지연일수로 정렬"""
-        df = self._get_fresh_df(product_filter, vendor_filter=vendor_filter)
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)  # [FIX-3]
         today = pd.Timestamp.now()
         delayed = df[df['_status'] == '지연'].copy()
 
@@ -862,7 +871,11 @@ class DataManager:
             "delivered_delayed": int(len(df[df['_status'] == '출고지연'])),
             "invoiced":     int(len(df[df['_status'] == '계산서완료'])),
             "invoiced_delayed": int(len(df[df['_status'] == '계산서지연'])),
-            "otp_normal":   int(len(df[df['_status'].isin(['출고완료','출고지연','OTP지연','계산서완료','계산서지연']) & df['OTP일자'].notna()])),
+            # [FIX-4] 괄호 오류 수정: 두 조건을 별도 변수로 분리 후 AND
+            "otp_normal":   int(len(df[
+                df['_status'].isin(['출고완료','출고지연','OTP지연','계산서완료','계산서지연'])
+                & df['OTP일자'].notna()
+            ])),
             "otp_delayed":  int(len(df[df['_status'] == 'OTP지연'])),
             "delayed_delivery": int(len(df[df['_status'] == '출고지연'])),
             "delayed_post": int(len(df[df['_status'].isin(['OTP지연', '계산서지연'])])),
