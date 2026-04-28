@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PRO-TRACK · 공정 관리 시스템</title>
+<title>PPS · 파나시아 프로젝트 진척도 관리</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -605,7 +605,7 @@ const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#93c5fd', '지연': '
 const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
-function exportToExcel(items, filename = 'protrack_export') {
+function exportToExcel(items, filename = 'pps_export') {
   if (!items?.length) return;
   const cols = ['수주번호', '업체명', '프로젝트', '품명', '시스템명', '_current_step', '_progress', '_status', '요구납기일', '최종납기일'];
   const headers = ['수주번호', '업체명', '호선명', '품명', '시스템명', '현재단계', '진척도(%)', '상태', '요구납기일', '최종납기일'];
@@ -681,10 +681,10 @@ function LoginPage({ onLogin }) {
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-logo">
-          <div className="login-logo-icon">⚙</div>
+          <div className="login-logo-icon" style={{fontSize:18,fontWeight:900,letterSpacing:-1}}>P</div>
           <div>
-            <div className="login-logo-text">PRO-TRACK</div>
-            <div className="login-logo-sub">Process Management</div>
+            <div className="login-logo-text">PPS</div>
+            <div className="login-logo-sub">Panasia Process Status</div>
           </div>
         </div>
         <div className="login-title">로그인</div>
@@ -747,8 +747,13 @@ function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header" style={{ cursor:'pointer' }} onClick={() => setCollapsed(!collapsed)}>
-        <div className="sidebar-logo-icon">⚙</div>
-        {!collapsed && <span className="sidebar-logo-text">PRO-TRACK</span>}
+        <div className="sidebar-logo-icon" style={{fontSize:14,fontWeight:900,letterSpacing:-1}}>P</div>
+        {!collapsed && (
+          <div style={{display:'flex',flexDirection:'column',gap:1}}>
+            <span className="sidebar-logo-text">PPS</span>
+            <span style={{fontSize:9,color:'var(--muted)',fontWeight:400,letterSpacing:0.3}}>파나시아 프로젝트 진척도 관리</span>
+          </div>
+        )}
       </div>
       <nav className="sidebar-nav">
         {navGroups.map((group, gi) => (
@@ -2789,6 +2794,10 @@ function App() {
           <div className={`summary-panel ${summaryOpen ? 'open' : ''}`}>
             {summary && summaryOpen && (
               <div className="summary-inner">
+                <div className="summary-block">
+                  <span className="summary-label">시스템</span>
+                  <span className="summary-val" style={{fontSize:12,fontFamily:'var(--sans)',color:'var(--accent)',fontWeight:700}}>PPS · 파나시아 프로젝트 진척도 관리</span>
+                </div>
                 <div className="summary-block">
                   <span className="summary-label">총 건수</span>
                   <span className="summary-val">{summary.total?.toLocaleString()}건</span>
