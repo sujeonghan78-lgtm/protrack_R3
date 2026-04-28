@@ -83,6 +83,9 @@
   }
   .login-logo-text { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
   .login-logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
+  .login-logo-kor { font-size: 11px; font-weight: 500; margin-top: 5px; letter-spacing: 0.3px;
+    background: linear-gradient(90deg, var(--accent), #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .login-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
   .login-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
   .form-group { margin-bottom: 16px; }
@@ -685,6 +688,7 @@ function LoginPage({ onLogin }) {
           <div>
             <div className="login-logo-text">PPS</div>
             <div className="login-logo-sub">Panasia Process Status</div>
+            <div className="login-logo-kor">파나시아 프로젝트 진척도 관리</div>
           </div>
         </div>
         <div className="login-title">로그인</div>
