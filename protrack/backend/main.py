@@ -18,7 +18,7 @@ from auth import (
 from data_manager import DataManager
 from models import ProcessUpdate, PaginationParams
 
-app = FastAPI(title="PRO-TRACK API", version="1.0.0")
+app = FastAPI(title="PPS API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -348,7 +348,7 @@ async def export_excel(
         df.to_excel(writer, index=False, sheet_name='공정현황')
     output.seek(0)
     
-    filename = f"protrack_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"pps_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
