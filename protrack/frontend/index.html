@@ -873,9 +873,9 @@ function KpiCards({ kpi, onCardClick }) {
       desc: '다음 공정 예정일 7일 이내' },
   ];
   const subCards = [
-    { label: '진행중',      val: kpi.in_progress ?? 0,      color: '#3b82f6', key: 'in_progress' },
-    { label: '출고완료',    val: kpi.delivered ?? 0,         color: '#60a5fa', key: '출고완료' },
-    { label: '계산서완료',  val: kpi.invoiced ?? 0,          color: '#0ea5e9', key: '계산서완료' },
+    { label: '진행중',      val: kpi.in_progress ?? 0,      total: kpi.total, color: '#3b82f6', key: 'in_progress' },
+    { label: '출고완료',    val: kpi.delivered ?? 0,         total: kpi.total, color: '#60a5fa', key: '출고완료' },
+    { label: '계산서완료',  val: kpi.invoiced ?? 0,          total: kpi.total, color: '#0ea5e9', key: '계산서완료' },
     { label: '평균 진척률 (전체)', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
   ];
 
@@ -900,9 +900,9 @@ function KpiCards({ kpi, onCardClick }) {
           {c.isDelayed ? (
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.8 }}>
               {c.desc && <div style={{marginBottom:4}}>{c.desc}</div>}
-              <div>공정 중 지연 : <b style={{color:'#1e40af'}}>{kpi.delayed_process ?? 0}건</b></div>
-              <div>출고 지연 : <b style={{color:'#dc2626'}}>{kpi.delayed_delivery ?? 0}건</b></div>
-              <div>출고 이후 지연 : <b style={{color:'#d97706'}}>{kpi.delayed_post ?? 0}건</b></div>
+              <div>공정 중 지연 : <b style={{color:'#f87171'}}>{kpi.delayed_process ?? 0}건</b></div>
+              <div>출고 지연 : <b style={{color:'#ef4444'}}>{kpi.delayed_delivery ?? 0}건</b></div>
+              <div>출고 이후 지연 : <b style={{color:'#dc2626'}}>{kpi.delayed_post ?? 0}건</b></div>
             </div>
           ) : (
             c.desc && <div className="kpi-desc">{c.desc}</div>
@@ -917,7 +917,9 @@ function KpiCards({ kpi, onCardClick }) {
           >
             <span className="kpi-sub-label">{c.label}</span>
             <span className="kpi-sub-val" style={{ color: c.color }}>
-              {typeof c.val === 'number' ? c.val.toLocaleString() : c.val}
+              {typeof c.val === 'number' && c.total != null
+                ? <>{c.val.toLocaleString()}<span style={{fontSize:13,fontWeight:400,color:'var(--muted)'}}> / {c.total}</span></>
+                : c.val}
             </span>
           </div>
         ))}
@@ -1218,8 +1220,8 @@ function StatusDistribution({ data, onBarClick }) {
             </div>
           )}
         </div>
-        <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>
-          <span style={{color:'#3b82f6'}}>{normal}</span><span style={{color:'var(--muted)'}}>+</span><span style={{color:'#dc2626'}}>{delayed}</span>
+        <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, textAlign: 'right', flexShrink: 0 }}>
+          <span style={{color:'#3b82f6'}}>{pctN}%</span><span style={{color:'var(--muted)'}}>/</span><span style={{color:'#dc2626'}}>{pctD}%</span>
         </div>
       </div>
     );
@@ -1305,9 +1307,7 @@ function UrgentDelaysList({ data, onSelect }) {
   if (!data?.length) return <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
-      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 6, paddingLeft: 2 }}>
-        요구납기일 기준 · 지연일수 내림차순
-      </div>
+
       {data.slice(0, 5).map((item, i) => (
         <div key={i} className="delay-item" onClick={() => onSelect(item)}>
           <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>
