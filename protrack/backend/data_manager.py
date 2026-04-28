@@ -898,7 +898,7 @@ class DataManager:
             "total":        total,
             "on_track":     int(len(df[df['_status'] == 'On Track'])),
             "at_risk":      int(len(df[df['_status'] == 'At Risk'])),
-            "delayed":      int(len(df[df['_status'] == '지연'])),
+            "delayed":      int(len(df[df['_status'].isin(['지연', '출고지연', 'OTP지연', '계산서지연'])])),
             "delivered":    int(len(df[df['_status'] == '출고완료'])),
             "delivered_delayed": int(len(df[df['_status'] == '출고지연'])),
             "invoiced":     int(len(df[df['_status'] == '계산서완료'])),
