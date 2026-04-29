@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ── PPS 실행 스크립트 ──────────────────────────────────────────────────
+# ── PRO-TRACK 실행 스크립트 ──────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/backend"
@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo ""
-echo -e "${CYAN}  PPS — 파나시아 프로젝트 진척도 관리${NC}"
+echo -e "${CYAN}  PRO-TRACK — 파나시아 프로젝트 진척도 관리${NC}"
 echo ""
 echo -e "${YELLOW}  파나시아 프로젝트 진척도 관리 v1.0${NC}"
 echo ""
@@ -51,7 +51,7 @@ echo -e "${GREEN}  ✓ 프론트엔드 실행 중 (PID: $FRONTEND_PID)${NC}"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}  🚀 PPS 실행 완료!${NC}"
+echo -e "${GREEN}  🚀 PRO-TRACK 실행 완료!${NC}"
 echo ""
 echo -e "  브라우저에서 접속: ${CYAN}http://localhost:3000${NC}"
 echo ""
