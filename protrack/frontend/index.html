@@ -608,7 +608,7 @@ const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#93c5fd', '지연': '
 const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
-function exportToExcel(items, filename = 'pps_export') {
+function exportToExcel(items, filename = 'protrack_export') {
   if (!items?.length) return;
   const cols = ['수주번호', '업체명', '프로젝트', '품명', '시스템명', '_current_step', '_progress', '_status', '요구납기일', '최종납기일'];
   const headers = ['수주번호', '업체명', '호선명', '품명', '시스템명', '현재단계', '진척도(%)', '상태', '요구납기일', '최종납기일'];
