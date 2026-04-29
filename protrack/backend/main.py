@@ -18,7 +18,7 @@ from auth import (
 from data_manager import DataManager
 from models import ProcessUpdate, PaginationParams
 
-app = FastAPI(title="PPS API", version="1.0.0")
+app = FastAPI(title="PRO-TRACK API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,11 +101,6 @@ async def get_stage_progress(product_filter: str = "", vendor_filter: str = "", 
 @app.get("/api/dashboard/stage-by-process")
 async def get_stage_by_process(product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_stage_by_process(product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
-
-
-@app.get("/api/dashboard/stage-delayed-items")
-async def get_stage_delayed_items(step: str, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_stage_delayed_items(step=step, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
 
 
 @app.get("/api/dashboard/status-distribution")
