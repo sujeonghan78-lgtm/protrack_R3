@@ -1130,7 +1130,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
           const prevYear = i > 0 ? sorted[i-1]?.month?.slice(0,4) : null;
           const isNewYear = i > 0 && thisYear && thisYear !== prevYear;
           const xLabel = isNewYear ? `${thisYear?.slice(2)}-${monthNum}` : `${monthNum}월`;
-          const showLabel = sorted.length <= 8 || i % Math.ceil(sorted.length / 8) === 0 || i === sorted.length - 1;
+          const showLabel = sorted.length <= 12 || i % Math.ceil(sorted.length / 12) === 0 || i === sorted.length - 1;
           return (
             <div key={i}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
