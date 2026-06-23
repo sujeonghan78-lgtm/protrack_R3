@@ -623,6 +623,68 @@ function exportToExcel(items, filename = 'protrack_export') {
   XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+// ── 팝업 테이블 정렬 헬퍼 ──────────────────────────────────────────────────────
+// key: 정렬 기준 필드명, dir: 'asc' | 'desc'
+function useSortableData(items, initialKey, initialDir = 'desc') {
+  const [sortKey, setSortKey] = useState(initialKey);
+  const [sortDir, setSortDir] = useState(initialDir);
+
+  const toggleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
+
+  const sorted = React.useMemo(() => {
+    const list = [...(items || [])];
+    if (!sortKey) return list;
+    list.sort((a, b) => {
+      let av = a[sortKey];
+      let bv = b[sortKey];
+      if (av == null) av = '';
+      if (bv == null) bv = '';
+      let cmp;
+      if (typeof av === 'number' && typeof bv === 'number') {
+        cmp = av - bv;
+      } else {
+        cmp = String(av).localeCompare(String(bv), 'ko');
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [items, sortKey, sortDir]);
+
+  return { sorted, sortKey, sortDir, toggleSort };
+}
+
+// 클릭 시 정렬 컬럼/방향이 바뀌는 테이블 헤더 셀
+// col: { label: 표시될 텍스트, key: 정렬 기준 필드명(없으면 정렬 불가 컬럼) }
+function SortableTh({ col, sortKey, sortDir, onSort, style }) {
+  const sortable = !!col.key;
+  const active = sortable && sortKey === col.key;
+  return (
+    <th
+      onClick={() => sortable && onSort(col.key)}
+      style={{
+        padding: '7px 10px', textAlign: 'left', fontSize: 10, color: active ? 'var(--accent)' : 'var(--muted)',
+        fontWeight: 700, cursor: sortable ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap',
+        ...style,
+      }}
+      title={sortable ? '클릭하여 정렬' : undefined}
+    >
+      {col.label}
+      {sortable && (
+        <span style={{ marginLeft: 4, opacity: active ? 1 : 0.35 }}>
+          {active ? (sortDir === 'asc' ? '▲' : '▼') : '▼'}
+        </span>
+      )}
+    </th>
+  );
+}
+
 // ── API helper ──────────────────────────────────────────────────────────────
 function useApi() {
   const token = localStorage.getItem('pt_token');
@@ -1244,9 +1306,18 @@ function StatusDistribution({ data, onBarClick }) {
 
 
 // ── Monthly Modal (월별 출고 상세 팝업) ──────────────────────────────────────
+const MONTHLY_MODAL_COLS = [
+  { label: '진척도', key: '_progress' },
+  { label: '현재단계', key: '_current_step' },
+  { label: '호선명', key: '프로젝트' },
+  { label: '거래처', key: '업체명' },
+  { label: '요구납기일', key: '요구납기일' },
+  { label: '수주번호', key: '수주번호' },
+];
+
 function MonthlyModal({ monthData, onClose, onSelect }) {
+  const { sorted: items, sortKey, sortDir, toggleSort } = useSortableData(monthData?.planned_items, '프로젝트', 'desc');
   if (!monthData) return null;
-  const items = [...(monthData.planned_items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1254,7 +1325,7 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고예정 ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_출고예정`)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_출고예정`)} style={{ fontSize: 11, padding: '5px 10px' }}>📥 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -1269,8 +1340,8 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  {MONTHLY_MODAL_COLS.map(col => (
+                    <SortableTh key={col.label} col={col} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
@@ -1335,9 +1406,21 @@ function UrgentDelaysList({ data, onSelect }) {
 }
 
 // ── StageDelayModal (단계별 평균 지연일수 차트 클릭 팝업) ────────────────────
+const STAGE_DELAY_MODAL_COLS = [
+  { label: '지연일수', key: '_cur_diff' },
+  { label: '프로젝트(호선)', key: '프로젝트' },
+  { label: '시스템명', key: '시스템명' },
+  { label: '공정실적일 → 다음예정일', key: null },
+  { label: '진척도', key: '_progress' },
+  { label: '업체명', key: '업체명' },
+  { label: '현재단계', key: '_current_step' },
+  { label: '수주번호', key: '수주번호' },
+];
+
 function StageDelayModal({ step, title, items, loading, onClose, onSelectItem }) {
+  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortableData(items, '_cur_diff', 'desc');
   const modalTitle = title || `${step} 단계 지연 현황`;
-  const exportRows = (items || []).map(item => ({
+  const exportRows = sortedItems.map(item => ({
     '지연일수': item._cur_diff != null ? `+${item._cur_diff}일` : '',
     '프로젝트(호선)': item.프로젝트 || '—',
     '시스템명': item.시스템명 || '—',
@@ -1355,7 +1438,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
           <div>
             <div className="modal-title">{modalTitle}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-              {step ? '납기 초과 건만 표시 · ' : ''}지연일수 내림차순
+              {step ? '납기 초과 건만 표시 · ' : ''}컬럼 클릭 시 정렬 변경
               {!loading && items && <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--accent)' }}>{items.length}건</span>}
             </div>
           </div>
@@ -1368,7 +1451,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, `${step}단계_지연현황`);
                 XLSX.writeFile(wb, `${step}단계_지연현황_${new Date().toISOString().slice(0,10)}.xlsx`);
-              }} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+              }} style={{ fontSize: 11, padding: '6px 12px' }}>📥 엑셀</button>
             )}
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
@@ -1393,13 +1476,13 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', position: 'sticky', top: 0, zIndex: 1 }}>
-                  {['지연일수', '프로젝트(호선)', '시스템명', '공정실적일 → 다음예정일', '진척도', '업체명', '현재단계', '수주번호'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                  {STAGE_DELAY_MODAL_COLS.map(col => (
+                    <SortableTh key={col.label} col={col} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => {
+                {sortedItems.map((item, i) => {
                   const days = item._cur_diff;
                   const badgeBg = days >= 30 ? 'rgba(37,99,235,0.12)' : days >= 14 ? 'rgba(37,99,235,0.08)' : 'rgba(100,116,139,0.1)';
                   const badgeColor = days >= 30 ? '#1e40af' : days >= 14 ? '#2563eb' : '#475569';
@@ -1449,16 +1532,25 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
   );
 }
 
+const ITEM_MODAL_COLS = [
+  { label: '진척도', key: '_progress' },
+  { label: '현재단계', key: '_current_step' },
+  { label: '호선명', key: '프로젝트' },
+  { label: '거래처', key: '업체명' },
+  { label: '요구납기일', key: '요구납기일' },
+  { label: '수주번호', key: '수주번호' },
+];
+
 function ItemModal({ title, items, onClose, onSelectItem }) {
+  const { sorted, sortKey, sortDir, toggleSort } = useSortableData(items, '프로젝트', 'desc');
   if (!items) return null;
-  const sorted = [...items].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '5px 10px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '5px 10px' }}>📥 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -1473,8 +1565,8 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  {ITEM_MODAL_COLS.map(col => (
+                    <SortableTh key={col.label} col={col} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
@@ -2145,6 +2237,15 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
+const MODAL_TABLE_COLS = [
+  { label: '진척도', key: '_progress' },
+  { label: '현재단계', key: '_current_step' },
+  { label: '호선명', key: '프로젝트' },
+  { label: '거래처', key: '업체명' },
+  { label: '요구납기일', key: '요구납기일' },
+  { label: '수주번호', key: '수주번호' },
+];
+
 function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorFilter = '전체', dueDateCol = '요구납기일', dateFrom = '', dateTo = '', onLastLoaded }) {
   const [kpi, setKpi] = useState(null);
   const [stageByProcess, setStageByProcess] = useState([]);
@@ -2258,14 +2359,14 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const kpiLabelMap = { 'in_progress': '진행중', 'delayed': '지연 전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   const ModalTable = ({ items, loading, onClose, title }) => {
-    const sorted = [...(items || [])].sort((a, b) => (b.프로젝트 || '').localeCompare(a.프로젝트 || ''));
+    const { sorted, sortKey, sortDir, toggleSort } = useSortableData(items, '프로젝트', 'desc');
     return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '6px 12px' }}>↓ 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(sorted, title)} style={{ fontSize: 11, padding: '6px 12px' }}>📥 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -2278,8 +2379,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
-                  {['진척도','현재단계','호선명','거래처','요구납기일','수주번호'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{h}</th>
+                  {MODAL_TABLE_COLS.map(col => (
+                    <SortableTh key={col.label} col={col} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
