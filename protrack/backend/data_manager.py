@@ -209,7 +209,7 @@ def infer_status(row) -> str:
     """완료/지연 분기:
     - 계산서발행일 있음 → 계산서완료 or 계산서지연
     - OTP실적 있고 최종납기일 없음 → 데이터오류
-    - 최종납기일 있음 → 출고완료 or 출고지연 or OTP지연 or 계산서지연
+    - 최종납기일 있음 → 출고완료(실적만 있으면 지연 무관) or OTP지연 or 계산서지연
     - 나머지 → 공정 중 지연/임박/정상
     """
     today = pd.Timestamp.now()
@@ -240,9 +240,6 @@ def infer_status(row) -> str:
 
     # ── 출고 완료 이후 단계 ───────────────────────────
     if pd.notna(row.get('최종납기일')):
-        출고일 = pd.Timestamp(row['최종납기일'])
-        요구납기일 = row.get('요구납기일')
-
         if not is_domestic:
             # 해외: OTP 지연 체크
             if pd.notna(row.get('OTP일자')) and pd.notna(row.get('OTP예상일')):
@@ -251,10 +248,8 @@ def infer_status(row) -> str:
             # OTP 미완료 상태면 아직 진행중 — 출고완료로 보지 않음
             # (OTP예상일 초과 여부는 공정 중 지연으로 처리)
 
-        # 출고 지연: 최종납기일 > 요구납기일
-        if pd.notna(요구납기일):
-            if 출고일 > pd.Timestamp(요구납기일):
-                return '출고지연'
+        # 출고 실적(최종납기일)이 있으면 요구납기일 대비 늦었어도 지연으로 보지 않음
+        # (실적이 찍힌 시점에서 이미 출고가 끝난 것으로 판단)
         return '출고완료'
 
     diff = calc_stage_diff(row)
@@ -457,7 +452,11 @@ class DataManager:
         return d
 
     def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="", vendor_filter="") -> pd.DataFrame:
-        df = self.df.copy()
+        # KPI 집계(get_kpi 등)는 호출 시점 기준으로 _status를 재계산(_refresh_dynamic)하는데
+        # 이 함수는 self.df에 캐시된 _status를 그대로 썼었음 — 그 결과 메인 KPI 건수와
+        # 팝업(목록) 건수가 날짜가 바뀌면서 달라지는 문제가 있었음(특히 'At Risk').
+        # 동일한 기준으로 맞추기 위해 여기서도 재계산을 적용한다.
+        df = self._refresh_dynamic(self.df)
 
         if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
             df = df[df['_vendor_type'] == vendor_filter]
