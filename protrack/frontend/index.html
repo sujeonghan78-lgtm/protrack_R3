@@ -1363,11 +1363,12 @@ function delayBadgeClass(days) {
 }
 
 function UrgentDelaysList({ data, onSelect }) {
-  if (!data?.length) return <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>지연 항목 없음 ✓</div>;
+  const items = (data || []).slice(0, 5);
+  const emptySlots = Math.max(0, 5 - items.length);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'flex-start' }}>
 
-      {data.slice(0, 5).map((item, i) => (
+      {items.map((item, i) => (
         <div key={i} className="delay-item" onClick={() => onSelect(item)}>
           <div className={`delay-badge ${delayBadgeClass(item._delay_days)}`}>
             +{item._delay_days}일
@@ -1384,6 +1385,14 @@ function UrgentDelaysList({ data, onSelect }) {
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
           >✏</button>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>›</span>
+        </div>
+      ))}
+
+      {Array.from({ length: emptySlots }).map((_, i) => (
+        <div key={`empty-${i}`} className="delay-item" style={{ opacity: 0.4, cursor: 'default' }}>
+          <div className="delay-info">
+            <div className="delay-name" style={{ color: 'var(--muted)' }}>없음</div>
+          </div>
         </div>
       ))}
     </div>
