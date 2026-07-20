@@ -749,10 +749,11 @@ class DataManager:
 
         due_soon_출고 = []
         if '요구납기일' in df.columns:
+            # 월별 출고예정 차트와 동일 기준: 요구납기일이 이번 달 + 아직 최종납기일(납품) 없는 건 (이미 지연된 건도 포함)
             mask = (df['요구납기일'].notna() &
                     (df['요구납기일'].dt.date >= this_month_start.date()) &
                     (df['요구납기일'].dt.date < next_month_start.date()) &
-                    (~df['_status'].isin(['출고완료', '출고지연', 'OTP지연', '계산서지연', '계산서완료'])))
+                    df['최종납기일'].isna())
             due_soon_출고 = [row_summary(row) for _, row in df[mask].iterrows()]
 
         due_soon_otp = []
