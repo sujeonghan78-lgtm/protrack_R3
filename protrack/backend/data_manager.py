@@ -51,45 +51,24 @@ def safe_date(val):
     return None
 
 
-def infer_current_step(row) -> str:
-    """마지막으로 실적이 찍힌 단계를 현재 단계로 반환 (Stage Progress 표시용)."""
+def get_effective_steps(row) -> list:
+    """차수(국내/수출)에 따라 실제로 진행되는 단계 목록.
+    국내 건은 포장/OTP 프로세스 자체가 없으므로 제외. 자재/검사는 스킵하지 않음."""
     is_domestic = row.get('_vendor_type') == '국내'
-    if pd.notna(row.get('계산서발행일')): return '계산서'
-    if not is_domestic and pd.notna(row.get('OTP일자')): return 'OTP'
-    if pd.notna(row.get('최종납기일')):   return '출고'
-    if pd.notna(row.get('포장완료일')):   return '포장'
-    if pd.notna(row.get('품질검사일')):   return '검사'
-    if pd.notna(row.get('생산완료일')):   return '생산'
-    if pd.notna(row.get('자재입고일')):   return '자재'
-    if pd.notna(row.get('시방출도일')):   return '시방'
-    if pd.notna(row.get('수주일자')):     return '수주'
-    return '수주'
-
-
-def infer_next_pending_step(row) -> str:
-    """지연 판단용 — 실적이 없는 첫 번째 단계 반환.
-    자재/검사는 데이터 미운용이므로 스킵. 국내 건은 OTP도 스킵."""
-    is_domestic = row.get('_vendor_type') == '국내'
-    SKIP_STEPS = {'자재', '검사'}
     if is_domestic:
-        SKIP_STEPS = SKIP_STEPS | {'OTP'}
-    actual_cols = [
-        ('수주',  '수주일자'),
-        ('시방',  '시방출도일'),
-        ('자재',  '자재입고일'),
-        ('생산',  '생산완료일'),
-        ('검사',  '품질검사일'),
-        ('포장',  '포장완료일'),
-        ('출고',  '최종납기일'),
-        ('OTP',  'OTP일자'),
-        ('계산서', '계산서발행일'),
-    ]
-    for step, col in actual_cols:
-        if step in SKIP_STEPS:
-            continue
-        if pd.isna(row.get(col)):
+        return [s for s in PROCESS_STEPS if s not in ('포장', 'OTP')]
+    return list(PROCESS_STEPS)
+
+
+def infer_current_step(row) -> str:
+    """실적(actual)이 없는 첫 단계를 현재 단계로 반환 (Stage Progress 표시/필터/KPI/지연계산 공용).
+    수주 실적이 있으면 수주는 완료로 보고, 그 다음 실적 없는 단계가 현재 단계가 됨."""
+    steps = get_effective_steps(row)
+    for step in steps:
+        actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
+        if actual_col and pd.isna(row.get(actual_col)):
             return step
-    return '계산서'
+    return steps[-1] if steps else '수주'
 
 
 def calc_progress(row) -> int:
@@ -107,7 +86,7 @@ def calc_progress(row) -> int:
 def get_current_next_step_info(row):
     """지연 판단용 — 현재(미완료) 단계와 다음 단계의 예상/실적일 반환 (원래 로직)"""
     today = pd.Timestamp.now()
-    current_step = infer_next_pending_step(row)
+    current_step = infer_current_step(row)
 
     cur_map = STEP_DATE_MAP.get(current_step, {})
     cur_actual_col  = cur_map.get('actual')
@@ -115,7 +94,7 @@ def get_current_next_step_info(row):
     cur_actual  = row.get(cur_actual_col)  if cur_actual_col  else None
     cur_planned = row.get(cur_planned_col) if cur_planned_col else None
 
-    steps = list(STEP_DATE_MAP.keys())
+    steps = get_effective_steps(row)
     cur_idx   = steps.index(current_step) if current_step in steps else -1
     next_step = steps[cur_idx + 1] if cur_idx >= 0 and cur_idx + 1 < len(steps) else None
     next_map  = STEP_DATE_MAP.get(next_step, {}) if next_step else {}
@@ -132,32 +111,37 @@ def get_current_next_step_info(row):
 
 def get_display_dates(row, status: str = None) -> dict:
     """공정 목록 화면 표시용 — 이전공정 실적일 + 다음단계 예정일"""
-    is_domestic = row.get('_vendor_type') == '국내'
-    SKIP_STEPS = {'자재', '검사'}
-    if is_domestic:
-        SKIP_STEPS = SKIP_STEPS | {'OTP'}
+    steps = get_effective_steps(row)
 
-    steps = list(STEP_DATE_MAP.keys())
-
-    # 현재 단계 = 마지막 실적이 찍힌 단계
+    # 현재 단계 = 실적이 없는 첫 단계
     current_step = infer_current_step(row)
     cur_idx = steps.index(current_step) if current_step in steps else -1
 
-    # 이전공정 실적일 = 현재 단계의 actual
+    # 이전공정 실적일 = current_step 바로 이전 단계의 actual
+    # (current_step 이전 단계는 정의상 실적이 이미 채워져 있음)
     prev_actual_date = None
-    cur_actual_col = STEP_DATE_MAP.get(current_step, {}).get('actual')
-    if cur_actual_col:
-        val = row.get(cur_actual_col)
-        if val is not None and pd.notna(val):
-            prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+    prev_idx = cur_idx - 1
+    while prev_idx >= 0:
+        prev_actual_col = STEP_DATE_MAP.get(steps[prev_idx], {}).get('actual')
+        if prev_actual_col:
+            val = row.get(prev_actual_col)
+            if val is not None and pd.notna(val):
+                prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+                break
+        prev_idx -= 1
 
-    # 다음단계 예정일 = 현재 단계 이후 SKIP 제외하고 planned 값 있는 첫 단계
+    # 모든 단계가 완료된 경우(current_step이 마지막 단계=계산서) 자기 자신의 실적일 사용
+    if prev_actual_date is None and cur_idx == len(steps) - 1:
+        cur_actual_col = STEP_DATE_MAP.get(current_step, {}).get('actual')
+        if cur_actual_col:
+            val = row.get(cur_actual_col)
+            if val is not None and pd.notna(val):
+                prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+
+    # 다음단계 예정일 = 현재 단계 이후 effective_steps 중 planned 값 있는 첫 단계
     next_planned_date = None
     for i in range(cur_idx + 1, len(steps)):
-        next_step = steps[i]
-        if next_step in SKIP_STEPS:
-            continue
-        next_planned_col = STEP_DATE_MAP.get(next_step, {}).get('planned')
+        next_planned_col = STEP_DATE_MAP.get(steps[i], {}).get('planned')
         if not next_planned_col:
             continue
         val = row.get(next_planned_col)
@@ -282,7 +266,7 @@ def calc_delay_days(row) -> int:
     실적 없음: 오늘 - 예상일 (양수면 지연)
     예상일 없음: 요구납기일 기준 fallback"""
     today = pd.Timestamp.now()
-    current_step = infer_next_pending_step(row)
+    current_step = infer_current_step(row)
 
     # 완료 건은 0
     if row.get('_status') in ('출고완료', '계산서완료') or pd.notna(row.get('계산서발행일')):
