@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import unicodedata
 from datetime import datetime, date
 import math
 from typing import Optional, Dict, Any, List
@@ -349,6 +350,10 @@ class DataManager:
         try:
             engine = 'xlrd' if str(self.filepath).endswith('.xls') else 'openpyxl'
             df = pd.read_excel(self.filepath, engine=engine)
+
+            # [FIX-6] 엑셀 헤더의 숨은 공백/유니코드 정규화 차이(NFC/NFD)로 인해
+            # 컬럼명이 코드 상 문자열과 안 맞는 문제를 방지
+            df.columns = [unicodedata.normalize('NFC', str(c)).strip() for c in df.columns]
 
             if '제품군' in df.columns:
                 df = df[df['제품군'] != 'TLGS']
@@ -825,6 +830,8 @@ class DataManager:
 
         result = []
         for step in PROCESS_STEPS:
+            if step == '수주':
+                continue
             step_df = df[df['_current_step'] == step]
             step_count = len(step_df)
             by_system = []
