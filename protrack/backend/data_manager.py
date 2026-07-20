@@ -844,13 +844,13 @@ class DataManager:
                     "system": str(system), "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 지연 건수: 공정중 지연 + 완료 지연 모두 포함 (완료(정상) 제외)
+            # 지연 건수: KPI/상태분포와 동일하게 _status 기준으로 통일 (기존 cur_diff>0 기준에서 변경)
             DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
-            cur_diffs = [r['_cur_diff'] for _, r in step_df.iterrows()
-                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff'])) and r['_cur_diff'] > 0
-                         and r.get('_status') not in ('출고완료', '계산서완료', '데이터오류')]
+            delayed_rows = [r for _, r in step_df.iterrows() if r.get('_status') in DELAY_STATUSES]
+            cur_diffs = [r['_cur_diff'] for r in delayed_rows
+                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff']))]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
-            delayed_count = len(cur_diffs)
+            delayed_count = len(delayed_rows)
 
             # 모드2: 다음 일정 초과 평균 — 전체 건 기준, 미초과=0 포함
             next_diffs = [max(0, r['_next_diff']) for _, r in step_df.iterrows()
@@ -877,16 +877,15 @@ class DataManager:
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         step_df = df[df['_current_step'] == step]
 
+        DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
         result = []
         for _, row in step_df.iterrows():
+            status = row.get('_status', '')
+            if status not in DELAY_STATUSES:
+                continue
             cur_diff = row.get('_cur_diff')
             if cur_diff is None or (isinstance(cur_diff, float) and pd.isna(cur_diff)):
-                continue
-            if cur_diff <= 0:
-                continue
-            status = row.get('_status', '')
-            if status in ('출고완료', '계산서완료', '데이터오류'):
-                continue
+                cur_diff = 0
 
             result.append({
                 "수주번호":         row.get('수주번호', ''),
