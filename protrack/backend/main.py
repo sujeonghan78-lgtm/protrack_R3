@@ -7,6 +7,7 @@ import io
 import os
 import json
 import shutil
+import unicodedata
 from datetime import datetime, timedelta
 from typing import Optional, List
 import math
@@ -211,6 +212,7 @@ async def upload_excel(
     try:
         engine = 'xlrd' if file.filename.lower().endswith('.xls') else 'openpyxl'
         df = pd.read_excel(io.BytesIO(contents), engine=engine)
+        df.columns = [unicodedata.normalize('NFC', str(c)).strip() for c in df.columns]
         required_cols = ['수주번호', '업체명']
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
