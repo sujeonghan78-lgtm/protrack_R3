@@ -933,7 +933,8 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed' },
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
+      desc: '공정예정일 또는 요구납기일을 초과한 건수' },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
   ];
