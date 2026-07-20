@@ -41,6 +41,20 @@ def safe_date(val):
             return pd.Timestamp(val).strftime('%Y-%m-%d')
         except:
             return None
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return None
+        # 8자리 숫자 문자열(예: '20260812')도 처리
+        if s.isdigit() and len(s) == 8:
+            return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+        try:
+            ts = pd.Timestamp(s)
+            if pd.notna(ts):
+                return ts.strftime('%Y-%m-%d')
+        except:
+            return None
+        return None
     if isinstance(val, (int, float)):
         try:
             s = str(int(val))
@@ -554,10 +568,7 @@ class DataManager:
         d = self._row_to_dict(row)
 
         timeline = []
-        is_domestic = row.get('_vendor_type') == '국내'
-        for step in PROCESS_STEPS:
-            if is_domestic and step == 'OTP':
-                continue
+        for step in get_effective_steps(row):
             mapping = STEP_DATE_MAP.get(step, {})
             planned_col = mapping.get('planned')
             actual_col = mapping.get('actual')
