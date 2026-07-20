@@ -1092,17 +1092,8 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
   // 국내 필터 시 OTP/포장 숨김 (국내는 해당 프로세스 자체가 없음)
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
 
-  const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--muted)', flexShrink: 0 };
-
   return (
     <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* 헤더 행 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ ...labelStyle, width: 40 }}>단계</div>
-        <div style={{ ...labelStyle, width: 44, textAlign: 'right' }}>진행중</div>
-        <div style={{ ...labelStyle, flex: 1, minWidth: 0, textAlign: 'right' }}>지연</div>
-      </div>
-
       {/* 데이터 행 */}
       {filteredData.map((d, i) => {
         const hasCount = d.project_count > 0;
@@ -1111,7 +1102,7 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
           <div key={d.step}
             onClick={() => hasCount && onStepClick(d.step)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
+              display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px',
               borderBottom: '1px solid var(--border)',
               cursor: hasCount ? 'pointer' : 'default',
               opacity: hasCount ? 1 : 0.4,
@@ -1119,15 +1110,23 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
             onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
             onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
-            <div style={{ width: 40, flexShrink: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ width: 36, flexShrink: 0, fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {d.step}
             </div>
-            <div style={{ width: 44, flexShrink: 0, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-              {d.project_count}건
+            <div style={{
+              flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)',
+              background: 'var(--surface2)', borderRadius: 20, padding: '2px 8px',
+            }}>
+              진행중 {d.project_count}
             </div>
-            <div style={{ flex: 1, minWidth: 0, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontWeight: delayedN > 0 ? 700 : 400 }}>
-              {delayedN > 0 ? `${delayedN}건` : '—'}
-            </div>
+            {delayedN > 0 && (
+              <div style={{
+                flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: '#1e40af',
+                background: 'rgba(37,99,235,0.1)', borderRadius: 20, padding: '2px 8px',
+              }}>
+                지연 {delayedN}
+              </div>
+            )}
           </div>
         );
       })}
