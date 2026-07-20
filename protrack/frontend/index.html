@@ -1232,6 +1232,7 @@ function StatusDistribution({ data, onBarClick }) {
           onClick={() => keyV && onBarClick(keyV)}
           onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
           onMouseLeave={e => e.currentTarget.style.opacity='1'}
+          title={`${label} ${val}건`}
         >
           <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
             {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{val}</span>}
@@ -1249,7 +1250,9 @@ function StatusDistribution({ data, onBarClick }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
         <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</div>
-        <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
+        <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}
+          title={`${label} · 정상 ${normal}건 · 지연 ${delayed}건`}
+        >
           {pctN > 0 && (
             <div style={{ width: `${pctN / (pctTotal || 1) * pctTotal}%`, minWidth: pctN > 0 ? 2 : 0, height: '100%', background: '#3b82f6', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: keyN ? 'pointer' : 'default', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
               onClick={() => keyN && onBarClick(keyN)}
