@@ -671,6 +671,7 @@ function SortableTh({ col, sortKey, sortDir, onSort, style }) {
       style={{
         padding: '7px 10px', textAlign: 'left', fontSize: 10, color: active ? 'var(--accent)' : 'var(--muted)',
         fontWeight: 700, cursor: sortable ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis',
         ...style,
       }}
       title={sortable ? '클릭하여 정렬' : undefined}
@@ -932,8 +933,7 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
-      isDelayed: true, desc: '공정예정일 또는 요구납기일을 초과한 건수' },
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed' },
     { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
   ];
@@ -962,16 +962,7 @@ function KpiCards({ kpi, onCardClick }) {
           </div>
           <div className="kpi-val" style={{ color: c.color, animation: 'countUp 0.4s ease-out' }}>{typeof c.val === 'number' ? c.val.toLocaleString() : c.val}</div>
           <div className="kpi-label">{c.label}</div>
-          {c.isDelayed ? (
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.8 }}>
-              {c.desc && <div style={{marginBottom:4}}>{c.desc}</div>}
-              <div>공정 중 지연 : <b style={{color:'#f87171'}}>{kpi.delayed_process ?? 0}건</b></div>
-              <div>출고 지연 : <b style={{color:'#ef4444'}}>{kpi.delayed_delivery ?? 0}건</b></div>
-              <div>출고 이후 지연 : <b style={{color:'#dc2626'}}>{kpi.delayed_post ?? 0}건</b></div>
-            </div>
-          ) : (
-            c.desc && <div className="kpi-desc">{c.desc}</div>
-          )}
+          {c.desc && <div className="kpi-desc">{c.desc}</div>}
         </div>
       ))}
       <div className="kpi-sub-stack">
@@ -1416,7 +1407,7 @@ const STAGE_DELAY_MODAL_COLS = [
   { label: '지연일수', key: '_cur_diff' },
   { label: '프로젝트(호선)', key: '프로젝트' },
   { label: '시스템명', key: '시스템명' },
-  { label: '공정실적일 → 현재단계예정일', key: null },
+  { label: '실적일 → 예정일', key: null },
   { label: '진척도', key: '_progress' },
   { label: '업체명', key: '업체명' },
   { label: '현재단계', key: '_current_step' },
@@ -2444,7 +2435,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         {/* 행1-열3: 지연 TOP5 */}
         <div className="chart-card">
           <div className="chart-title">
-            ⚠ 출고 지연 TOP 5
+            ⚠ 요구납기일 초과 TOP 5
           </div>
           <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>요구납기일 기준 지연일수 상위 5건</div>
           <div className="card-body">
