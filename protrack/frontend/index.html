@@ -990,7 +990,7 @@ function StageByProcessChart({ data, onStepClick, vendorFilter }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
-  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
+  const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
   const systems = filteredData[0]?.by_system?.map(s => s.system) || [];
   const MONO = ['#1e40af','#2563eb','#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
   const colors = systems.map((_, i) => MONO[i % MONO.length]);
@@ -1035,7 +1035,7 @@ function StageByProcessChart({ data, onStepClick, vendorFilter }) {
 function StagePie({ data, onStepClick, vendorFilter }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return null;
-  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
+  const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
   const total = filteredData.reduce((s, d) => s + d.project_count, 0) || 1;
   const COLORS = ['#3b82f6','#3b82f6','#2563eb','#1e40af','#3b82f6','#3b82f6','#2563eb','#3b82f6','#60a5fa'];
   const cx = 70, cy = 70, R = 60, r = 36;
@@ -1089,8 +1089,8 @@ function StagePie({ data, onStepClick, vendorFilter }) {
 function ProjectByStage({ data, onStepClick, vendorFilter }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
 
-  // 국내 필터 시 OTP 숨김
-  const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
+  // 국내 필터 시 OTP/포장 숨김 (국내는 해당 프로세스 자체가 없음)
+  const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
 
   const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
   const maxDelay = Math.max(...filteredData.map(d => getValue(d) || 0), 1);
