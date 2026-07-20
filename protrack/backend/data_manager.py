@@ -262,7 +262,7 @@ def infer_status(row) -> str:
     #    공정 단계(생산/검사/포장 등) 상황과 무관하게 무조건 지연 ──
     요구납기일 = row.get('요구납기일')
     if pd.notna(요구납기일) and today > pd.Timestamp(요구납기일):
-        return '지연'
+        return '출고지연'
 
     diff = calc_stage_diff(row)
     cur_diff  = diff.get('cur_diff')
@@ -741,8 +741,8 @@ class DataManager:
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
 
-        # 7번 수정: 지연은 요구납기일이 오늘 이전인 건만 (실질 납기 초과)
-        delayed_df = df[(df['_status'] == '지연') & df['요구납기일'].notna() & (df['요구납기일'] < today)]
+        # 7번 수정: 지연은 요구납기일이 오늘 이전인 건만 (실질 납기 초과) — 최종납기일 없이 납기 초과된 건은 '출고지연'으로 분류됨
+        delayed_df = df[(df['_status'].isin(['지연', '출고지연'])) & df['요구납기일'].notna() & (df['요구납기일'] < today)]
         delayed = [row_summary(row) for _, row in delayed_df.sort_values('_delay_days', ascending=False).iterrows()]
         at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
 
@@ -788,10 +788,10 @@ class DataManager:
         return [{"name": k, "value": int(v)} for k, v in counts.items()]
 
     def get_urgent_delays(self, limit: int = 5, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
-        """지연 TOP5: 요구납기일 기준 지연일수로 정렬"""
+        """요구납기일 초과 TOP5: 요구납기일 기준 지연일수로 정렬"""
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)  # [FIX-3]
         today = pd.Timestamp.now()
-        delayed = df[df['_status'] == '지연'].copy()
+        delayed = df[df['_status'].isin(['지연', '출고지연'])].copy()
 
         # 요구납기일 기준 지연일수 계산
         def due_delay(row):
