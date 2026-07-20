@@ -8,8 +8,8 @@ class ProcessUpdate(BaseModel):
     자재예상일: Optional[Any] = None
     자재입고일: Optional[Any] = None
     생산완료일: Optional[Any] = None
-    검사예상일: Optional[Any] = None
-    포장완료예정일: Optional[Any] = None
+    품질검사예상일: Optional[Any] = None
+    포장완료예상일: Optional[Any] = None
     포장완료일: Optional[Any] = None
     최종납기일: Optional[Any] = None
     비고: Optional[str] = None
