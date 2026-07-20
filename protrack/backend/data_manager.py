@@ -61,14 +61,19 @@ def get_effective_steps(row) -> list:
 
 
 def infer_current_step(row) -> str:
-    """실적(actual)이 없는 첫 단계를 현재 단계로 반환 (Stage Progress 표시/필터/KPI/지연계산 공용).
-    수주 실적이 있으면 수주는 완료로 보고, 그 다음 실적 없는 단계가 현재 단계가 됨."""
+    """실적(actual)이 찍힌 단계 중 가장 마지막(뒤) 단계를 찾아, 그 다음 단계를 현재 단계로 반환.
+    (Stage Progress 표시/필터/KPI/지연계산 공용)
+    중간에 실적이 비어있는 단계가 있어도(예: 자재 데이터 누락) 더 뒤 단계에 실적이 있으면
+    그 뒤 단계까지는 완료된 것으로 보고 건너뛴다."""
     steps = get_effective_steps(row)
-    for step in steps:
+    last_actual_idx = -1
+    for i, step in enumerate(steps):
         actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
-        if actual_col and pd.isna(row.get(actual_col)):
-            return step
-    return steps[-1] if steps else '수주'
+        if actual_col and pd.notna(row.get(actual_col)):
+            last_actual_idx = i
+    if last_actual_idx == len(steps) - 1:
+        return steps[-1] if steps else '수주'
+    return steps[last_actual_idx + 1] if steps else '수주'
 
 
 def calc_progress(row) -> int:
