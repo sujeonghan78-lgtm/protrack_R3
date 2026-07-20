@@ -10,10 +10,10 @@ PROCESS_STEPS = ['수주', '시방', '자재', '생산', '검사', '포장', '�
 STEP_DATE_MAP = {
     '수주':  {'planned': None,              'actual': '수주일자'},
     '시방':  {'planned': '시방예상일',      'actual': '시방출도일'},
-    '자재':  {'planned': None,             'actual': '자재입고일'},
+    '자재':  {'planned': '자재예상일',      'actual': '자재입고일'},
     '생산':  {'planned': '생산예상일',      'actual': '생산완료일'},
-    '검사':  {'planned': '검사예상일',      'actual': '품질검사일'},
-    '포장':  {'planned': '포장완료예정일',  'actual': '포장완료일'},
+    '검사':  {'planned': '품질검사예상일',  'actual': '품질검사일'},
+    '포장':  {'planned': '포장완료예상일',  'actual': '포장완료일'},
     '출고':  {'planned': '요구납기일',      'actual': '최종납기일'},
     'OTP':  {'planned': 'OTP예상일',       'actual': 'OTP일자'},
     '계산서': {'planned': None,            'actual': '계산서발행일'},
@@ -115,10 +115,10 @@ def get_current_next_step_info(row):
 
 
 def get_display_dates(row, status: str = None) -> dict:
-    """공정 목록 화면 표시용 — 이전공정 실적일 + 다음단계 예정일"""
+    """공정 목록 화면 표시용 — 이전공정 실적일 + 현재단계 예정일"""
     steps = get_effective_steps(row)
 
-    # 현재 단계 = 실적이 없는 첫 단계
+    # 현재 단계 = 실적이 찍힌 마지막 단계의 다음 단계
     current_step = infer_current_step(row)
     cur_idx = steps.index(current_step) if current_step in steps else -1
 
@@ -135,26 +135,28 @@ def get_display_dates(row, status: str = None) -> dict:
                 break
         prev_idx -= 1
 
-    # 모든 단계가 완료된 경우(current_step이 마지막 단계=계산서) 자기 자신의 실적일 사용
-    if prev_actual_date is None and cur_idx == len(steps) - 1:
-        cur_actual_col = STEP_DATE_MAP.get(current_step, {}).get('actual')
-        if cur_actual_col:
-            val = row.get(cur_actual_col)
+    # 모든 단계가 완료된 경우(current_step이 마지막 단계=계산서, 자기 실적도 있음) 자기 자신의 실적일 사용
+    cur_actual_col = STEP_DATE_MAP.get(current_step, {}).get('actual')
+    is_fully_done = bool(cur_actual_col) and pd.notna(row.get(cur_actual_col))
+    if prev_actual_date is None and cur_idx == len(steps) - 1 and is_fully_done:
+        val = row.get(cur_actual_col)
+        prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+
+    # 현재단계 예정일 = current_step 자신의 planned. 없으면 요구납기일로 폴백.
+    # 단, 모든 단계 완료 건은 예정일을 보여줄 필요 없음
+    current_planned_date = None
+    if not is_fully_done:
+        cur_planned_col = STEP_DATE_MAP.get(current_step, {}).get('planned')
+        if cur_planned_col:
+            val = row.get(cur_planned_col)
             if val is not None and pd.notna(val):
-                prev_actual_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+                current_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
+        if current_planned_date is None:
+            due = row.get('요구납기일')
+            if due is not None and pd.notna(due):
+                current_planned_date = pd.Timestamp(due).strftime('%Y-%m-%d')
 
-    # 다음단계 예정일 = 현재 단계 이후 effective_steps 중 planned 값 있는 첫 단계
-    next_planned_date = None
-    for i in range(cur_idx + 1, len(steps)):
-        next_planned_col = STEP_DATE_MAP.get(steps[i], {}).get('planned')
-        if not next_planned_col:
-            continue
-        val = row.get(next_planned_col)
-        if val is not None and pd.notna(val):
-            next_planned_date = pd.Timestamp(val).strftime('%Y-%m-%d')
-            break
-
-    return {'prev_actual_date': prev_actual_date, 'next_planned_date': next_planned_date}
+    return {'prev_actual_date': prev_actual_date, 'current_planned_date': current_planned_date}
 
 
 def calc_stage_diff(row) -> dict:
@@ -397,7 +399,7 @@ class DataManager:
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
                 '_cur_actual_date': display['prev_actual_date'],
-                '_next_planned_date': display['next_planned_date'],
+                '_current_planned_date': display['current_planned_date'],
             })
 
         enriched = df.apply(enrich_row, axis=1)
@@ -505,7 +507,7 @@ class DataManager:
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
                 '_cur_actual_date': display['prev_actual_date'],
-                '_next_planned_date': display['next_planned_date'],
+                '_current_planned_date': display['current_planned_date'],
             })
         refreshed = df.apply(recompute, axis=1)
         for col in refreshed.columns:
@@ -591,7 +593,7 @@ class DataManager:
             self.df.at[idx, '_cur_has_actual'] = diff.get('cur_has_actual', False)
             self.df.at[idx, '_next_diff'] = diff.get('next_diff')
             self.df.at[idx, '_cur_actual_date'] = display['prev_actual_date']      # [FIX-2]
-            self.df.at[idx, '_next_planned_date'] = display['next_planned_date']   # [FIX-2]
+            self.df.at[idx, '_current_planned_date'] = display['current_planned_date']   # [FIX-2]
 
         try:
             save_df = self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
@@ -876,7 +878,7 @@ class DataManager:
                 "_status":          status,
                 "_cur_diff":        int(cur_diff),
                 "_cur_actual_date": row.get('_cur_actual_date'),
-                "_next_planned_date": row.get('_next_planned_date'),
+                "_current_planned_date": row.get('_current_planned_date'),
                 "_progress":        row.get('_progress', 0),
                 "_row_id":          row.get('_row_id', ''),
                 "ordseq":           row.get('ordseq'),
