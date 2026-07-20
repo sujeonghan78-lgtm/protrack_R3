@@ -258,11 +258,12 @@ def infer_status(row) -> str:
         # (실적이 찍힌 시점에서 이미 출고가 끝난 것으로 판단)
         return '출고완료'
 
-    # ── 출고 지연(최우선): 출고 실적 없고 요구납기일이 오늘보다 지났으면
-    #    공정 단계(생산/검사/포장 등) 상황과 무관하게 무조건 지연 ──
+    # ── 요구납기일 초과(최우선): 출고 실적 없고 요구납기일이 오늘보다 지났으면
+    #    공정 단계 상황과 무관하게 무조건 지연 처리. 단, 라벨은 현재 단계로 구분:
+    #    현재 단계가 출고면 '출고지연', 그 외(검사/생산 등)는 '지연'(공정 중 지연) ──
     요구납기일 = row.get('요구납기일')
     if pd.notna(요구납기일) and today > pd.Timestamp(요구납기일):
-        return '출고지연'
+        return '출고지연' if row.get('_current_step') == '출고' else '지연'
 
     diff = calc_stage_diff(row)
     cur_diff  = diff.get('cur_diff')
