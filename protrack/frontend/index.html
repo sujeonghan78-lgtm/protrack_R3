@@ -1100,57 +1100,61 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
   // 국내 필터 시 OTP 숨김
   const filteredData = vendorFilter === '국내' ? data.filter(d => d.step !== 'OTP') : data;
 
-  // 지연 건수만의 평균 사용 (avg_cur_days는 백엔드에서 계산)
   const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
-  const getCount = d => d.delayed_count != null ? d.delayed_count : null;
-
-  const vals = filteredData.filter(d => getValue(d) > 0).map(d => getValue(d)).sort((a,b) => a-b);
-  const p80 = vals[Math.floor(vals.length * 0.8)] || vals[vals.length-1] || 1;
-  const maxVal = Math.max(p80, 1);
-  const H = 120;
+  const maxDelay = Math.max(...filteredData.map(d => getValue(d) || 0), 1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, paddingBottom: 36, position: 'relative', minHeight: H }}>
-        {[0.5, 1].map(r => (
-          <div key={r} style={{ position: 'absolute', left: 0, right: 0, bottom: 36 + H * r, borderTop: '0.5px dashed var(--border)' }} />
-        ))}
-        {filteredData.map((d, i) => {
-          const hasCount = d.project_count > 0;
-          const val = getValue(d);
-          const avg = val != null ? Math.round(val) : null;
-          const delayedN = d.delayed_count ?? null;
-          const clipped = val ? Math.min(val, maxVal * 1.2) : 0;
-          const barH = (avg && avg > 0) ? Math.max(Math.round((clipped / maxVal) * H), 4) : 0;
-          return (
-            <div key={i} onClick={() => hasCount && onStepClick(d.step)}
-              style={{ width: 32, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: hasCount ? 'pointer' : 'default' }}
-              onMouseEnter={e => hasCount && (e.currentTarget.style.opacity = '0.7')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, color: avg > 0 ? '#3b82f6' : 'transparent', minHeight: 13 }}>
-                {avg > 0 ? `+${avg}일` : ''}
-              </div>
-              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{
-                  width: 'min(24px, 80%)',
-                  height: barH || (hasCount ? 2 : 0),
-                  background: barH > 0 ? '#3b82f6' : 'var(--border)',
-                  borderRadius: 'var(--ch-bar-r) var(--ch-bar-r) 0 0',
-                  opacity: hasCount ? (barH > 0 ? 'var(--ch-bar-op)' : 0.25) : 0.1,
-                  transition: 'height 0.45s cubic-bezier(.4,0,.2,1)',
-                }} />
-              </div>
-              <div style={{ fontSize: 10, color: hasCount ? 'var(--text)' : 'var(--muted)', fontWeight: hasCount ? 600 : 400, textAlign: 'center' }}>
-                {d.step}
-              </div>
-              <div style={{ fontSize: 9, color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontFamily: 'var(--mono)', minHeight: 13 }}>
-                {delayedN > 0 ? `${delayedN}건` : ''}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div style={{ flex: 1, overflow: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--muted)' }}>단계</th>
+            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>진행중</th>
+            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>지연건수</th>
+            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>평균 지연일수</th>
+            <th style={{ padding: '6px 8px', width: '30%' }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredData.map((d, i) => {
+            const hasCount = d.project_count > 0;
+            const val = getValue(d);
+            const avg = val != null ? Math.round(val) : null;
+            const delayedN = d.delayed_count ?? 0;
+            const barPct = avg > 0 ? Math.min(Math.round((avg / maxDelay) * 100), 100) : 0;
+            return (
+              <tr key={d.step}
+                onClick={() => hasCount && onStepClick(d.step)}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  cursor: hasCount ? 'pointer' : 'default',
+                  opacity: hasCount ? 1 : 0.4,
+                }}
+                onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <td style={{ padding: '7px 8px', fontWeight: 600 }}>{d.step}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+                  {d.project_count}건
+                </td>
+                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontWeight: delayedN > 0 ? 700 : 400 }}>
+                  {delayedN > 0 ? `${delayedN}건` : '—'}
+                </td>
+                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: avg > 0 ? '#2563eb' : 'var(--muted)', fontWeight: avg > 0 ? 700 : 400 }}>
+                  {avg > 0 ? `+${avg}일` : '—'}
+                </td>
+                <td style={{ padding: '7px 8px' }}>
+                  {avg > 0 && (
+                    <div style={{ width: '100%', height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${barPct}%`, height: '100%', background: '#3b82f6', borderRadius: 3 }} />
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
