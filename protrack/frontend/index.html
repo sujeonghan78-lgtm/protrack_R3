@@ -1098,17 +1098,15 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
       {filteredData.map((d, i) => {
         const hasCount = d.project_count > 0;
         const delayedN = d.delayed_count ?? 0;
+        const normalN = d.project_count - delayedN;
+        const clickable = delayedN > 0;
         return (
           <div key={d.step}
-            onClick={() => hasCount && onStepClick(d.step)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px',
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px',
               borderBottom: '1px solid var(--border)',
-              cursor: hasCount ? 'pointer' : 'default',
               opacity: hasCount ? 1 : 0.4,
             }}
-            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
-            onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
             <div style={{ width: 36, flexShrink: 0, fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {d.step}
@@ -1117,13 +1115,18 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
               flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)',
               background: 'var(--surface2)', borderRadius: 20, padding: '2px 8px',
             }}>
-              진행중 {d.project_count}
+              진행중 {normalN}
             </div>
-            {delayedN > 0 && (
-              <div style={{
-                flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: '#1e40af',
-                background: 'rgba(37,99,235,0.1)', borderRadius: 20, padding: '2px 8px',
-              }}>
+            {clickable && (
+              <div
+                onClick={() => onStepClick(d.step)}
+                onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(0.96)')}
+                onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                style={{
+                  flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: '#1e40af',
+                  background: 'rgba(37,99,235,0.1)', borderRadius: 20, padding: '2px 8px', cursor: 'pointer',
+                }}
+              >
                 지연 {delayedN}
               </div>
             )}
