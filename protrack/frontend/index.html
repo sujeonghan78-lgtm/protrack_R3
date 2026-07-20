@@ -1410,7 +1410,7 @@ const STAGE_DELAY_MODAL_COLS = [
   { label: '지연일수', key: '_cur_diff' },
   { label: '프로젝트(호선)', key: '프로젝트' },
   { label: '시스템명', key: '시스템명' },
-  { label: '공정실적일 → 다음예정일', key: null },
+  { label: '공정실적일 → 현재단계예정일', key: null },
   { label: '진척도', key: '_progress' },
   { label: '업체명', key: '업체명' },
   { label: '현재단계', key: '_current_step' },
@@ -1425,7 +1425,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
     '프로젝트(호선)': item.프로젝트 || '—',
     '시스템명': item.시스템명 || '—',
     '공정실적일': item._cur_actual_date || '—',
-    '다음공정예정일': item._next_planned_date || '—',
+    '현재단계예정일': item._current_planned_date || '—',
     '업체명': item.업체명 || '—',
     '현재단계': item._current_step || '—',
     '수주번호': item.수주번호 || '—',
@@ -1506,7 +1506,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                       </td>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 11 }}>
                         <div style={{ color: item._cur_actual_date ? 'var(--text)' : 'var(--muted)' }}>{item._cur_actual_date || '실적없음'}</div>
-                        <div style={{ color: item._next_planned_date ? '#2563eb' : 'var(--muted)', marginTop: 1 }}>→ {item._next_planned_date || '예정없음'}</div>
+                        <div style={{ color: item._current_planned_date ? '#2563eb' : 'var(--muted)', marginTop: 1 }}>→ {item._current_planned_date || '예정없음'}</div>
                       </td>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', textAlign: 'right' }}>
                         {item._progress != null ? `${item._progress}%` : '—'}
@@ -1988,8 +1988,8 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
     { key: '시방출도일', label: '시방출도일', type: 'date' },
     { key: '자재입고일', label: '자재입고일', type: 'date' },
     { key: '생산완료일', label: '생산완료일', type: 'date' },
-    { key: '검사예상일', label: '검사예상일', type: 'date' },
-    { key: '포장완료예정일', label: '포장완료예정일', type: 'date' },
+    { key: '품질검사예상일', label: '품질검사예상일', type: 'date' },
+    { key: '포장완료예상일', label: '포장완료예상일', type: 'date' },
     { key: '포장완료일', label: '포장완료일', type: 'date' },
   ];
 
@@ -2614,7 +2614,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                   <th style={{ width: 36, padding: '10px 8px' }}>
                     <input type="checkbox" onChange={toggleAll} checked={checkedRows.length === data.items.length && data.items.length > 0} style={{ cursor: 'pointer' }} />
                   </th>
-                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['이전공정 실적일', '_cur_actual_date'], ['다음단계 예정일', '_next_planned_date'], ['요구납기', '요구납기일'], ['비고', '비고']].map(([label, col]) => (
+                  {[['수주번호', '수주번호'], ['업체명', '업체명'], ['호선명', '프로젝트'], ['품명', '품명'], ['현재 단계', '_current_step'], ['진척도', '_progress'], ['상태', '_status'], ['이전공정 실적일', '_cur_actual_date'], ['현재단계 예정일', '_current_planned_date'], ['요구납기', '요구납기일'], ['비고', '비고']].map(([label, col]) => (
                     <th key={col} onClick={() => handleSort(col)}>
                       {label}<SortIcon col={col} />
                     </th>
@@ -2665,8 +2665,8 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>
                       {item._cur_actual_date || '—'}
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._next_planned_date && item._next_planned_date < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--muted)' }}>
-                      {item._next_planned_date || '—'}
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._current_planned_date && item._current_planned_date < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--muted)' }}>
+                      {item._current_planned_date || '—'}
                     </td>
                     <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) && !item['최종납기일'] ? '#ef4444' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
