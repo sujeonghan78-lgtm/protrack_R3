@@ -1103,65 +1103,60 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
   const getValue = d => d.avg_cur_days != null ? d.avg_cur_days : d.avg_delay_days;
   const maxDelay = Math.max(...filteredData.map(d => getValue(d) || 0), 1);
 
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--muted)', flexShrink: 0 };
+
   return (
-    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-        <colgroup>
-          <col style={{ width: '20%' }} />
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '26%' }} />
-        </colgroup>
-        <thead>
-          <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-            <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--muted)' }}>단계</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>진행중</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>지연건수</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--muted)' }}>평균 지연일수</th>
-            <th style={{ padding: '6px 8px' }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredData.map((d, i) => {
-            const hasCount = d.project_count > 0;
-            const val = getValue(d);
-            const avg = val != null ? Math.round(val) : null;
-            const delayedN = d.delayed_count ?? 0;
-            const barPct = avg > 0 ? Math.min(Math.round((avg / maxDelay) * 100), 100) : 0;
-            return (
-              <tr key={d.step}
-                onClick={() => hasCount && onStepClick(d.step)}
-                style={{
-                  borderBottom: '1px solid var(--border)',
-                  cursor: hasCount ? 'pointer' : 'default',
-                  opacity: hasCount ? 1 : 0.4,
-                }}
-                onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
-              >
-                <td style={{ padding: '7px 8px', fontWeight: 600 }}>{d.step}</td>
-                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-                  {d.project_count}건
-                </td>
-                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontWeight: delayedN > 0 ? 700 : 400 }}>
-                  {delayedN > 0 ? `${delayedN}건` : '—'}
-                </td>
-                <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'var(--mono)', color: avg > 0 ? '#2563eb' : 'var(--muted)', fontWeight: avg > 0 ? 700 : 400 }}>
-                  {avg > 0 ? `+${avg}일` : '—'}
-                </td>
-                <td style={{ padding: '7px 8px' }}>
-                  {avg > 0 && (
-                    <div style={{ width: '100%', height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${barPct}%`, height: '100%', background: '#3b82f6', borderRadius: 3 }} />
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* 헤더 행 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ ...labelStyle, width: 40 }}>단계</div>
+        <div style={{ ...labelStyle, width: 44, textAlign: 'right' }}>진행중</div>
+        <div style={{ ...labelStyle, width: 44, textAlign: 'right' }}>지연</div>
+        <div style={{ ...labelStyle, width: 40, textAlign: 'right' }}>평균</div>
+        <div style={{ ...labelStyle, flex: 1, minWidth: 0 }}></div>
+      </div>
+
+      {/* 데이터 행 */}
+      {filteredData.map((d, i) => {
+        const hasCount = d.project_count > 0;
+        const val = getValue(d);
+        const avg = val != null ? Math.round(val) : null;
+        const delayedN = d.delayed_count ?? 0;
+        const barPct = avg > 0 ? Math.min(Math.round((avg / maxDelay) * 100), 100) : 0;
+        return (
+          <div key={d.step}
+            onClick={() => hasCount && onStepClick(d.step)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
+              borderBottom: '1px solid var(--border)',
+              cursor: hasCount ? 'pointer' : 'default',
+              opacity: hasCount ? 1 : 0.4,
+            }}
+            onMouseEnter={e => hasCount && (e.currentTarget.style.background = 'rgba(37,99,235,0.04)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '')}
+          >
+            <div style={{ width: 40, flexShrink: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {d.step}
+            </div>
+            <div style={{ width: 44, flexShrink: 0, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+              {d.project_count}건
+            </div>
+            <div style={{ width: 44, flexShrink: 0, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', color: delayedN > 0 ? '#1e40af' : 'var(--muted)', fontWeight: delayedN > 0 ? 700 : 400 }}>
+              {delayedN > 0 ? `${delayedN}건` : '—'}
+            </div>
+            <div style={{ width: 40, flexShrink: 0, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', color: avg > 0 ? '#2563eb' : 'var(--muted)', fontWeight: avg > 0 ? 700 : 400 }}>
+              {avg > 0 ? `+${avg}` : '—'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {avg > 0 && (
+                <div style={{ width: '100%', height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ width: `${barPct}%`, height: '100%', background: '#3b82f6', borderRadius: 3 }} />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2461,7 +2456,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         <div className="chart-card">
           <div className="chart-title">≡ 단계별 평균 지연일수</div>
           <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>다음 공정으로 진행되지 못한 프로젝트 병목 구간</div>
-          <div className="card-body">
+          <div className="card-body" style={{ minWidth: 0 }}>
             <ProjectByStage data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
           </div>
         </div>
