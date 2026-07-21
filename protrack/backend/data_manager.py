@@ -744,19 +744,22 @@ class DataManager:
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
 
-        # KPI카드 '지연' 정의(지연+출고지연+OTP지연+계산서지연)와 동일한 모수로 통일
+        # 요구납기일 초과: 지연 계열 상태이면서 실제로 요구납기일이 이미 지난 건만
         DELAY_STATUSES_ALL = ['지연', '출고지연', 'OTP지연', '계산서지연']
-        delayed_df = df[df['_status'].isin(DELAY_STATUSES_ALL)].copy()
-        # 요구납기일을 이미 넘긴 건(출고지연)을 맨 위로, 그 안에서는 지연일수 내림차순
+        overdue_mask = df['_status'].isin(DELAY_STATUSES_ALL) & df['요구납기일'].notna() & (df['요구납기일'] < today)
+        delayed_df = df[overdue_mask].copy()
+        # 그중에서도 출고 자체가 안 나간 건(출고지연)을 맨 위로, 그 안에서는 지연일수 내림차순
         delayed_df['_prio'] = (delayed_df['_status'] != '출고지연').astype(int)
         delayed_df = delayed_df.sort_values(['_prio', '_delay_days'], ascending=[True, False])
         delayed = [row_summary(row) for _, row in delayed_df.iterrows()]
         at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
 
-        # 이달 주요 일정 - 임박/정상 통합 리스트: 다음 공정예정일(현재단계 예정일, 요구납기일 폴백 포함)이
-        # 이번 달인 건 전부, 가까운 날짜순
+        # 다가오는 일정: 요구납기일 초과에 안 들어간 건(완료/데이터오류 제외) 전부 —
+        # 정상/임박은 물론, 아직 요구납기일이 안 지난 지연류도 여기로. 다음 공정예정일(요구납기일 폴백 포함)
+        # 기준 이번 달인 것만, 가까운 날짜순
         month_upcoming = []
-        for _, row in df[df['_status'].isin(['On Track', 'At Risk'])].iterrows():
+        not_overdue = df[~overdue_mask & ~df['_status'].isin(['출고완료', '계산서완료', '데이터오류'])]
+        for _, row in not_overdue.iterrows():
             planned = get_display_dates(row).get('current_planned_date')
             if not planned:
                 continue
@@ -894,7 +897,7 @@ class DataManager:
                 "step": step,
                 "total": total_count,
                 "project_count": step_count,
-                "pct": round((completed_count + step_count) / total_count * 100) if total_count > 0 else 0,
+                "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
                 "by_system": by_system,
                 "avg_delay_days": avg_cur,
                 "avg_cur_days": avg_cur,
