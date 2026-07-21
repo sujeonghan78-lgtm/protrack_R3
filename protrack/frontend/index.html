@@ -1810,7 +1810,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
       {/* 지연 목록 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>지연 목록</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>요구납기일 초과</span>
           <input placeholder="검색..." value={qDelay} onChange={e => setQDelay(e.target.value)}
             style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
         </div>
@@ -1849,7 +1849,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
       {/* 임박/정상 목록 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderLeft: '1px solid var(--border)', paddingLeft: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>임박/정상 목록</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>다가오는 일정</span>
           <input placeholder="검색..." value={qUpcoming} onChange={e => setQUpcoming(e.target.value)}
             style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
         </div>
