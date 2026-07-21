@@ -722,7 +722,7 @@ class DataManager:
 
     def get_alerts(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         if self.df.empty:
-            return {"delayed": [], "at_risk": [], "due_soon": {"출고": [], "OTP": []}, "data_error": []}
+            return {"delayed": [], "at_risk": [], "month_upcoming": [], "due_soon": {"출고": [], "OTP": []}, "data_error": []}
 
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         today = pd.Timestamp.now()
@@ -738,14 +738,35 @@ class DataManager:
                 "_current_step": row.get('_current_step', ''),
                 "_progress": int(row.get('_progress', 0)),
                 "_vendor_type": row.get('_vendor_type', '미분류'),
+                "_status": row.get('_status', ''),
+                "_delay_days": int(row['_delay_days']) if pd.notna(row.get('_delay_days')) else 0,
                 "요구납기일": safe_date(row.get('요구납기일')),
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
 
         # 7번 수정: 지연은 요구납기일이 오늘 이전인 건만 (실질 납기 초과) — 최종납기일 없이 납기 초과된 건은 '출고지연'으로 분류됨
-        delayed_df = df[(df['_status'].isin(['지연', '출고지연'])) & df['요구납기일'].notna() & (df['요구납기일'] < today)]
-        delayed = [row_summary(row) for _, row in delayed_df.sort_values('_delay_days', ascending=False).iterrows()]
+        delayed_df = df[(df['_status'].isin(['지연', '출고지연'])) & df['요구납기일'].notna() & (df['요구납기일'] < today)].copy()
+        # 요구납기 초과(출고지연)를 맨 위로, 그 안에서는 지연일수 내림차순
+        delayed_df['_prio'] = (delayed_df['_status'] != '출고지연').astype(int)
+        delayed_df = delayed_df.sort_values(['_prio', '_delay_days'], ascending=[True, False])
+        delayed = [row_summary(row) for _, row in delayed_df.iterrows()]
         at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
+
+        # 이달 주요 일정 - 임박/정상 통합 리스트: 다음 공정예정일(현재단계 예정일, 요구납기일 폴백 포함)이
+        # 이번 달인 건 전부, 가까운 날짜순
+        month_upcoming = []
+        for _, row in df[df['_status'].isin(['On Track', 'At Risk'])].iterrows():
+            planned = get_display_dates(row).get('current_planned_date')
+            if not planned:
+                continue
+            p_ts = pd.Timestamp(planned)
+            if not (this_month_start.date() <= p_ts.date() < next_month_start.date()):
+                continue
+            item = row_summary(row)
+            item['_next_planned_date'] = planned
+            item['_dday'] = int((p_ts.normalize() - today.normalize()).days)
+            month_upcoming.append(item)
+        month_upcoming.sort(key=lambda x: x['_next_planned_date'])
 
         due_soon_출고 = []
         if '요구납기일' in df.columns:
@@ -774,7 +795,7 @@ class DataManager:
             item['오류내용'] = 'OTP 실적 있으나 출고일 미입력'
             data_error.append(item)
 
-        return {"delayed": delayed, "at_risk": at_risk,
+        return {"delayed": delayed, "at_risk": at_risk, "month_upcoming": month_upcoming,
                 "due_soon": {"출고": due_soon_출고, "OTP": due_soon_otp, "생산": due_soon_생산},
                 "data_error": data_error}
 
