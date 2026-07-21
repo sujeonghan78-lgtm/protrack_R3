@@ -216,7 +216,7 @@
   /* ─── KPI Cards ──────────────────────────────────────── */
   .kpi-primary-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr) 1.6fr;
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     align-items: stretch;
   }
@@ -919,12 +919,12 @@ function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, 
   );
 }
 
-// ── KPI Cards (계층화: 주요3 + 보조3) ─────────────────────────────────────────
+// ── KPI Cards (전체/지연/임박/평균 진척률/이달 출고예정 5개 균등) ─────────────
 function KpiCards({ kpi, onCardClick }) {
   if (!kpi) return null;
   const total = kpi.total || 1;
 
-  const mainCards = [
+  const cards = [
     { label: '전체 수주', val: kpi.total, color: '#2563eb', icon: '◈', pct: null, key: null,
       desc: (() => {
         if (!kpi.system_counts) return '';
@@ -935,19 +935,17 @@ function KpiCards({ kpi, onCardClick }) {
       })() },
     { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
       desc: '공정예정일 또는 요구납기일을 초과한 건수' },
-    { label: '임박', val: kpi.at_risk, color: '#2563eb', icon: '⚡', pct: Math.round(kpi.at_risk/total*100), key: 'At Risk',
+    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#f59e0b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), key: 'At Risk',
       desc: '다음 공정 예정일 7일 이내' },
-  ];
-  const subCards = [
-    { label: '진행중',      val: kpi.in_progress ?? 0,      total: kpi.total, color: '#3b82f6', key: 'in_progress' },
-    { label: '출고완료',    val: kpi.delivered ?? 0,         total: kpi.total, color: '#60a5fa', key: '출고완료' },
-    { label: '계산서완료',  val: kpi.invoiced ?? 0,          total: kpi.total, color: '#0ea5e9', key: '계산서완료' },
-    { label: '평균 진척률 (전체)', val: `${kpi.avg_progress}%`, color: '#3b82f6', key: null },
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#16a34a', icon: '✓', pct: null, key: null,
+      desc: '전체 기준' },
+    { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#7c3aed', icon: '📅', pct: null, key: null,
+      desc: '요구납기일 기준 · 이번달' },
   ];
 
   return (
     <div className="kpi-primary-row">
-      {mainCards.map((c, i) => (
+      {cards.map((c, i) => (
         <div key={i} className={`kpi-main-card ${c.key ? 'clickable' : ''}`}
           onClick={() => c.key && onCardClick(c.key)}
           style={{
@@ -966,21 +964,6 @@ function KpiCards({ kpi, onCardClick }) {
           {c.desc && <div className="kpi-desc">{c.desc}</div>}
         </div>
       ))}
-      <div className="kpi-sub-stack">
-        {subCards.map((c, i) => (
-          <div key={i} className={`kpi-sub-card ${c.key ? 'clickable' : ''}`}
-            onClick={() => c.key && onCardClick(c.key)}
-            style={{ flex: 1 }}
-          >
-            <span className="kpi-sub-label">{c.label}</span>
-            <span className="kpi-sub-val" style={{ color: c.color }}>
-              {typeof c.val === 'number' && c.total != null
-                ? <>{c.val.toLocaleString()}<span style={{fontSize:13,fontWeight:400,color:'var(--muted)'}}> / {c.total}</span></>
-                : c.val}
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1142,19 +1125,21 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP', '포장'].includes(d.step)) : data;
 
-  const LEGEND = [
-    { label: '진행중', color: '#3b82f6' },
-    { label: '지연', color: '#dc2626' },
-  ];
+  const systems = filteredData[0]?.by_system?.map(s => s.system) || [];
+  const MONO = ['#1e40af', '#2563eb', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
+  const sysColors = systems.map((_, i) => MONO[i % MONO.length]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-        {LEGEND.map(l => (
-          <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
-            <div style={{ width: 7, height: 7, borderRadius: 2, background: l.color, flexShrink: 0 }} />{l.label}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+        {systems.map((sys, i) => (
+          <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: sysColors[i], flexShrink: 0 }} />{sys}
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
+          <div style={{ width: 7, height: 7, borderRadius: 2, background: '#dc2626', flexShrink: 0 }} />지연
+        </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
         {filteredData.map((d) => {
@@ -1162,6 +1147,7 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
           const delayed = d.delayed_count || 0;
           const inProgress = Math.max(0, (d.project_count || 0) - delayed);
           const clickable = delayed > 0;
+          const sysTotal = (d.by_system || []).reduce((s, sy) => s + (sy.count || 0), 0) || 1;
           return (
             <div key={d.step}
               style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: clickable ? 'pointer' : 'default', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
@@ -1173,7 +1159,11 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
               <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}
                 title={`진행 ${inProgress} · 지연 ${delayed}`}
               >
-                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6' }} />}
+                {(d.by_system || []).map((sy, si) => {
+                  if (!sy.count) return null;
+                  const w = (sy.count / sysTotal) * (inProgress / total) * 100;
+                  return w > 0 ? <div key={si} title={`${sy.system}: ${sy.count}건`} style={{ width: `${w}%`, height: '100%', background: sysColors[si] || sy.color }} /> : null;
+                })}
                 {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626' }} />}
               </div>
               <div style={{ minWidth: 110, fontSize: 11, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -1204,6 +1194,9 @@ function StatusDonut({ data, onSliceClick }) {
     { label: '출고',   val: data.delivered ?? 0, color: '#16a34a', key: '출고완료' },
     { label: '계산서', val: data.invoiced ?? 0,  color: '#7c3aed', key: '계산서완료' },
   ];
+  // OTP 실적 건수는 위 5개 카테고리와 겹치는 값이라(예: 계산서완료 건도 OTP는 이미 지났음) 도넛 조각에는
+  // 안 넣고, 참고용 보조 지표로 아래에 게이지만 하나 더 보여줌
+  const otpCompleted = data.otp_completed ?? 0;
 
   const cx = 70, cy = 70, R = 60, r = 38;
   let angle = -Math.PI / 2;
@@ -1220,6 +1213,26 @@ function StatusDonut({ data, onSliceClick }) {
     return { ...it, path };
   });
 
+  const GaugeRow = ({ label, val, color, onClick, dotIdx }) => {
+    const pct = total > 0 ? Math.round(val / total * 100) : 0;
+    return (
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: onClick ? 'pointer' : 'default' }}
+        onClick={onClick}
+        onMouseEnter={() => dotIdx !== undefined && dotIdx >= 0 && setHovered(dotIdx)}
+        onMouseLeave={() => setHovered(null)}
+      >
+        <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: 'var(--text)', width: 44, flexShrink: 0 }}>{label}</span>
+        <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', minWidth: 40 }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.4s' }} />
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: 'var(--mono)', width: 34, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', width: 44, textAlign: 'right', flexShrink: 0 }}>{val}건</span>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
       <svg width={140} height={140} style={{ flexShrink: 0 }}>
@@ -1235,22 +1248,11 @@ function StatusDonut({ data, onSliceClick }) {
       </svg>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1, minWidth: 0 }}>
         {ITEMS.map((it, i) => {
-          const pct = total > 0 ? Math.round(it.val / total * 100) : 0;
           const sliceIdx = slices.findIndex(s => s.label === it.label);
-          return (
-            <div key={it.label}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              onClick={() => onSliceClick(it.key)}
-              onMouseEnter={() => sliceIdx >= 0 && setHovered(sliceIdx)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: it.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'var(--text)', width: 44, flexShrink: 0 }}>{it.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: it.color, fontFamily: 'var(--mono)', width: 34, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{it.val}건</span>
-            </div>
-          );
+          return <GaugeRow key={it.label} label={it.label} val={it.val} color={it.color} onClick={() => onSliceClick(it.key)} dotIdx={sliceIdx} />;
         })}
+        <div style={{ borderTop: '1px dashed var(--border)', margin: '2px 0' }} />
+        <GaugeRow label="OTP" val={otpCompleted} color="#0ea5e9" />
       </div>
     </div>
   );
@@ -1825,7 +1827,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: overdue ? 800 : 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.프로젝트 || item.수주번호 || '—'}
-                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}
+                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}{item.시스템명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.시스템명}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
                     현재단계: {item._current_step} · 지연 +{item._delay_days}일{overdue ? ' · 요구납기 초과' : ''}
@@ -1861,7 +1863,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.프로젝트 || item.수주번호 || '—'}
-                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}
+                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}{item.시스템명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.시스템명}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
                     현재단계: {item._current_step} · {ddayLabel(item._dday)}
