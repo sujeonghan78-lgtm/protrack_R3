@@ -964,28 +964,29 @@ class DataManager:
         return result
 
     def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
-        """전체 상태 분포 (파이차트용)"""
+        """전체 상태 분포 (도넛차트용) — 정상/임박/지연/출고/OTP/계산서 6분류, 총합이 항상 total과 일치하도록
+        우선순위(계산서 > OTP > 출고 > 진행중상태) 기준으로 완전히 배타적으로 분류"""
         if self.df.empty:
             return {}
         df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
         total = len(df)
+
+        invoiced_mask = df['계산서발행일'].notna() if '계산서발행일' in df.columns else pd.Series(False, index=df.index)
+        otp_mask = (~invoiced_mask) & (df['OTP일자'].notna() if 'OTP일자' in df.columns else pd.Series(False, index=df.index))
+        shipped_mask = (~invoiced_mask) & (~otp_mask) & (df['최종납기일'].notna() if '최종납기일' in df.columns else pd.Series(False, index=df.index))
+        pending_mask = ~invoiced_mask & ~otp_mask & ~shipped_mask
+
+        pending_df = df[pending_mask]
+        DELAY_STATUSES_ALL = ['지연', '출고지연', 'OTP지연', '계산서지연']
         return {
-            "total":        total,
-            "on_track":     int(len(df[df['_status'] == 'On Track'])),
-            "at_risk":      int(len(df[df['_status'] == 'At Risk'])),
-            "delayed":      int(len(df[df['_status'] == '지연'])),
-            "delivered":    int(len(df[df['_status'] == '출고완료'])),
-            "delivered_delayed": int(len(df[df['_status'] == '출고지연'])),
-            "invoiced":     int(len(df[df['_status'] == '계산서완료'])),
-            "invoiced_delayed": int(len(df[df['_status'] == '계산서지연'])),
-            "otp_normal":   int(len(df[
-                (df['_current_step'] == 'OTP') & (df['_status'] == 'On Track')
-            ])),
-            "otp_delayed":  int(len(df[df['_status'] == 'OTP지연'])),
-            "delayed_delivery": int(len(df[df['_status'] == '출고지연'])),
-            "delayed_post": int(len(df[df['_status'].isin(['OTP지연', '계산서지연'])])),
-            "data_error":   int(len(df[df['_status'] == '데이터오류'])),
-            "otp_completed": int(df['OTP일자'].notna().sum()) if 'OTP일자' in df.columns else 0,
+            "total": total,
+            "on_track": int(len(pending_df[pending_df['_status'] == 'On Track'])),
+            "at_risk":  int(len(pending_df[pending_df['_status'] == 'At Risk'])),
+            "delayed":  int(len(pending_df[pending_df['_status'].isin(DELAY_STATUSES_ALL)])),
+            "shipped":  int(shipped_mask.sum()),   # 출고: 최종납기일 있음, OTP/계산서 전
+            "otp":      int(otp_mask.sum()),       # OTP: OTP일자 있음, 계산서 전
+            "invoiced": int(invoiced_mask.sum()),  # 계산서: 계산서발행일 있음
+            "data_error": int(len(df[df['_status'] == '데이터오류'])),
         }
 
     def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
