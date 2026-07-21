@@ -1230,6 +1230,7 @@ function SystemDistribution({ systemCounts, total }) {
               </div>
             </div>
             <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
+            <div style={{ width: 44, fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', flexShrink: 0, textAlign: 'right' }}>{count}/{total}</div>
           </div>
         );
       })}
