@@ -858,16 +858,23 @@ class DataManager:
                           if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff']))]
             avg_next = round(sum(next_diffs) / len(next_diffs)) if next_diffs else None
 
+            # 완료 건수: 현재 위치와 무관하게 이 단계의 실적일(actual) 컬럼이 채워진 전체 건수
+            actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
+            completed_count = int(df[actual_col].notna().sum()) if actual_col and actual_col in df.columns else 0
+            waiting_count = max(0, total_count - completed_count - step_count)
+
             result.append({
                 "step": step,
                 "total": total_count,
                 "project_count": step_count,
-                "pct": round(step_count / total_count * 100) if total_count > 0 else 0,
+                "pct": round((completed_count + step_count) / total_count * 100) if total_count > 0 else 0,
                 "by_system": by_system,
                 "avg_delay_days": avg_cur,
                 "avg_cur_days": avg_cur,
                 "avg_next_days": avg_next,
                 "delayed_count": delayed_count,
+                "completed_count": completed_count,
+                "waiting_count": waiting_count,
             })
         return result
 
