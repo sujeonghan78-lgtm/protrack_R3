@@ -920,12 +920,12 @@ function Sidebar({ user, activeTab, showUpload, onTab, onLogout, productFilter, 
 }
 
 // ── KPI Cards (전체/지연/임박/평균 진척률/이달 출고예정 5개 균등) ─────────────
-function KpiCards({ kpi, onCardClick }) {
+function KpiCards({ kpi, onCardClick, onDueMonthClick }) {
   if (!kpi) return null;
   const total = kpi.total || 1;
 
   const cards = [
-    { label: '전체 수주', val: kpi.total, color: '#2563eb', icon: '◈', pct: null, key: null,
+    { label: '전체 수주', val: kpi.total, color: '#2563eb', icon: '◈', pct: null, onClick: null,
       desc: (() => {
         if (!kpi.system_counts) return '';
         const entries = Object.entries(kpi.system_counts);
@@ -933,21 +933,21 @@ function KpiCards({ kpi, onCardClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), key: 'delayed',
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), onClick: () => onCardClick('delayed'),
       desc: '공정예정일 또는 요구납기일을 초과한 건수' },
-    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#f59e0b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), key: 'At Risk',
+    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#f59e0b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), onClick: () => onCardClick('At Risk'),
       desc: '다음 공정 예정일 7일 이내' },
-    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#16a34a', icon: '✓', pct: null, key: null,
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#16a34a', icon: '✓', pct: null, onClick: null,
       desc: '전체 기준' },
-    { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#7c3aed', icon: '📅', pct: null, key: null,
+    { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#7c3aed', icon: '📅', pct: null, onClick: onDueMonthClick,
       desc: '요구납기일 기준 · 이번달' },
   ];
 
   return (
     <div className="kpi-primary-row">
       {cards.map((c, i) => (
-        <div key={i} className={`kpi-main-card ${c.key ? 'clickable' : ''}`}
-          onClick={() => c.key && onCardClick(c.key)}
+        <div key={i} className={`kpi-main-card ${c.onClick ? 'clickable' : ''}`}
+          onClick={() => c.onClick && c.onClick()}
           style={{
             borderTopColor: c.color,
             background: 'var(--surface)'
@@ -1188,15 +1188,13 @@ function StatusDonut({ data, onSliceClick }) {
   const total = data.total;
 
   const ITEMS = [
-    { label: '정상',   val: data.on_track ?? 0,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk ?? 0,   color: '#f59e0b', key: 'At Risk' },
-    { label: '지연',   val: (data.delayed ?? 0) + (data.delivered_delayed ?? 0) + (data.otp_delayed ?? 0) + (data.invoiced_delayed ?? 0), color: '#dc2626', key: 'delayed' },
-    { label: '출고',   val: data.delivered ?? 0, color: '#16a34a', key: '출고완료' },
-    { label: '계산서', val: data.invoiced ?? 0,  color: '#7c3aed', key: '계산서완료' },
+    { label: '정상',   val: data.on_track ?? 0, color: '#3b82f6', key: 'On Track' },
+    { label: '임박',   val: data.at_risk ?? 0,  color: '#f59e0b', key: 'At Risk' },
+    { label: '지연',   val: data.delayed ?? 0,  color: '#dc2626', key: 'delayed' },
+    { label: '출고',   val: data.shipped ?? 0,  color: '#16a34a', key: null },
+    { label: 'OTP',    val: data.otp ?? 0,      color: '#0ea5e9', key: null },
+    { label: '계산서', val: data.invoiced ?? 0, color: '#7c3aed', key: '계산서완료' },
   ];
-  // OTP 실적 건수는 위 5개 카테고리와 겹치는 값이라(예: 계산서완료 건도 OTP는 이미 지났음) 도넛 조각에는
-  // 안 넣고, 참고용 보조 지표로 아래에 게이지만 하나 더 보여줌
-  const otpCompleted = data.otp_completed ?? 0;
 
   const cx = 70, cy = 70, R = 60, r = 38;
   let angle = -Math.PI / 2;
@@ -1238,8 +1236,8 @@ function StatusDonut({ data, onSliceClick }) {
       <svg width={140} height={140} style={{ flexShrink: 0 }}>
         {slices.map((s, i) => (
           <path key={i} d={s.path} fill={s.color} fillOpacity={hovered === null || hovered === i ? 0.9 : 0.35}
-            style={{ cursor: 'pointer', transition: 'fill-opacity 0.15s' }}
-            onClick={() => onSliceClick(s.key)}
+            style={{ cursor: s.key ? 'pointer' : 'default', transition: 'fill-opacity 0.15s' }}
+            onClick={() => s.key && onSliceClick(s.key)}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
           />
         ))}
@@ -1249,10 +1247,8 @@ function StatusDonut({ data, onSliceClick }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1, minWidth: 0 }}>
         {ITEMS.map((it, i) => {
           const sliceIdx = slices.findIndex(s => s.label === it.label);
-          return <GaugeRow key={it.label} label={it.label} val={it.val} color={it.color} onClick={() => onSliceClick(it.key)} dotIdx={sliceIdx} />;
+          return <GaugeRow key={it.label} label={it.label} val={it.val} color={it.color} onClick={it.key ? () => onSliceClick(it.key) : undefined} dotIdx={sliceIdx} />;
         })}
-        <div style={{ borderTop: '1px dashed var(--border)', margin: '2px 0' }} />
-        <GaugeRow label="OTP" val={otpCompleted} color="#0ea5e9" />
       </div>
     </div>
   );
@@ -2611,6 +2607,13 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
     }
   };
 
+  const handleDueMonthClick = () => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const entry = (monthlyDelivery || []).find(m => m.month === monthKey);
+    if (entry) setMonthlyModal(entry);
+  };
+
   const kpiLabelMap = { 'in_progress': '진행중', 'delayed': '지연 전체', 'On Track': '정상', 'At Risk': '임박', '지연': '공정중 지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료' };
 
   const ModalTable = ({ items, loading, onClose, title }) => {
@@ -2664,7 +2667,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 
   return (
     <>
-      <KpiCards kpi={kpi} onCardClick={handleKpiClick} />
+      <KpiCards kpi={kpi} onCardClick={handleKpiClick} onDueMonthClick={handleDueMonthClick} />
 
       <div className="dash-grid">
         {/* 행1-열1: 단계별 진행·지연 통합 현황 */}
