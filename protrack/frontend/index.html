@@ -1125,21 +1125,19 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP', '포장'].includes(d.step)) : data;
 
-  const systems = filteredData[0]?.by_system?.map(s => s.system) || [];
-  const MONO = ['#1e40af', '#2563eb', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
-  const sysColors = systems.map((_, i) => MONO[i % MONO.length]);
+  const LEGEND = [
+    { label: '진행중', color: '#3b82f6' },
+    { label: '지연', color: '#dc2626' },
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-        {systems.map((sys, i) => (
-          <div key={sys} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
-            <div style={{ width: 7, height: 7, borderRadius: 2, background: sysColors[i], flexShrink: 0 }} />{sys}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+        {LEGEND.map(l => (
+          <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: l.color, flexShrink: 0 }} />{l.label}
           </div>
         ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
-          <div style={{ width: 7, height: 7, borderRadius: 2, background: '#dc2626', flexShrink: 0 }} />지연
-        </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
         {filteredData.map((d) => {
@@ -1147,7 +1145,6 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
           const delayed = d.delayed_count || 0;
           const inProgress = Math.max(0, (d.project_count || 0) - delayed);
           const clickable = delayed > 0;
-          const sysTotal = (d.by_system || []).reduce((s, sy) => s + (sy.count || 0), 0) || 1;
           return (
             <div key={d.step}
               style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: clickable ? 'pointer' : 'default', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
@@ -1159,11 +1156,7 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
               <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}
                 title={`진행 ${inProgress} · 지연 ${delayed}`}
               >
-                {(d.by_system || []).map((sy, si) => {
-                  if (!sy.count) return null;
-                  const w = (sy.count / sysTotal) * (inProgress / total) * 100;
-                  return w > 0 ? <div key={si} title={`${sy.system}: ${sy.count}건`} style={{ width: `${w}%`, height: '100%', background: sysColors[si] || sy.color }} /> : null;
-                })}
+                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6' }} />}
                 {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626' }} />}
               </div>
               <div style={{ minWidth: 110, fontSize: 11, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -1254,6 +1247,86 @@ function StatusDonut({ data, onSliceClick }) {
   );
 }
 
+// ── 연간 출고 현황 (1~12월 전체, 완료/예정 2톤 + 클릭시 하단 인라인 상세) ─────
+function AnnualDeliveryChart({ data, onSelectItem }) {
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const year = new Date().getFullYear();
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const byMonth = {};
+  (data || []).forEach(d => { byMonth[d.month] = d; });
+  const rows = months.map(m => ({ month: m, entry: byMonth[m] || { count: 0, completed: 0, planned_items: [], completed_items: [] } }));
+  const maxVal = Math.max(...rows.map(r => (r.entry.count || 0) + (r.entry.completed || 0)), 1);
+  const H = 110;
+  const selected = selectedMonth ? rows.find(r => r.month === selectedMonth) : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 8, fontSize: 10, color: 'var(--muted)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 7, height: 7, borderRadius: 2, background: '#93c5fd' }} />출고완료</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 7, height: 7, borderRadius: 2, background: '#1d4ed8' }} />출고예정</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: H + 24, paddingBottom: 20, flexShrink: 0 }}>
+        {rows.map((r) => {
+          const completed = r.entry.completed || 0;
+          const planned = r.entry.count || 0;
+          const totalCount = completed + planned;
+          const barH = totalCount > 0 ? Math.max((totalCount / maxVal) * H, 3) : 0;
+          const completedH = totalCount > 0 ? (completed / totalCount) * barH : 0;
+          const plannedH = barH - completedH;
+          const isSel = selectedMonth === r.month;
+          const monthNum = parseInt(r.month.slice(5), 10);
+          return (
+            <div key={r.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer' }}
+              onClick={() => setSelectedMonth(isSel ? null : r.month)}
+            >
+              <div style={{ fontSize: 8, color: 'var(--muted)', fontFamily: 'var(--mono)', minHeight: 11 }}>{totalCount > 0 ? totalCount : ''}</div>
+              <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{ width: 'min(20px, 75%)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: barH, borderRadius: '2px 2px 0 0', overflow: 'hidden', outline: isSel ? '2px solid var(--accent)' : 'none', outlineOffset: 1 }}>
+                  {plannedH > 0 && <div style={{ height: plannedH, background: '#1d4ed8' }} />}
+                  {completedH > 0 && <div style={{ height: completedH, background: '#93c5fd' }} />}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 600, color: isSel ? 'var(--accent)' : 'var(--text)' }}>{monthNum}월</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', borderTop: '1px solid var(--border)', marginTop: 4, paddingTop: 8 }}>
+        {!selected ? (
+          <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '20px 0' }}>월을 클릭하면 상세 내역이 표시됩니다</div>
+        ) : (() => {
+          const items = [
+            ...(selected.entry.completed_items || []).map(it => ({ ...it, _done: true })),
+            ...(selected.entry.planned_items || []).map(it => ({ ...it, _done: false })),
+          ];
+          return (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>
+                {selected.month} 상세 ({items.length}건)
+              </div>
+              {items.length === 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '12px 0' }}>해당 월 데이터 없음</div>
+              ) : items.map((item, i) => (
+                <div key={i} onClick={() => onSelectItem && onSelectItem(item)}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid var(--border)', fontSize: 11, cursor: onSelectItem ? 'pointer' : 'default' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.프로젝트 || item.수주번호 || '—'}
+                    {item.업체명 && <span style={{ color: 'var(--muted)' }}> · {item.업체명}</span>}
+                  </span>
+                  <span style={{ flexShrink: 0, marginLeft: 8, fontWeight: 700, color: item._done ? '#93c5fd' : '#1d4ed8' }}>{item._done ? '완료' : '예정'}</span>
+                </div>
+              ))}
+            </>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
 function MonthlyDeliveryChart({ data, onBarClick }) {
   const [hovered, setHovered] = useState(null);
 
@@ -1322,29 +1395,41 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
   );
 }
 
-function SystemDistribution({ systemCounts, total }) {
+function SystemDistribution({ systemCounts, systemDelayed, total }) {
   if (!systemCounts || !total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
 
   const entries = Object.entries(systemCounts).sort((a, b) => b[1] - a[1]);
   const TOP_N = 6;
   const top = entries.slice(0, TOP_N);
   const restCount = entries.slice(TOP_N).reduce((s, [, v]) => s + v, 0);
-  const rows = restCount > 0 ? [...top, ['기타', restCount]] : top;
+  const restDelayed = entries.slice(TOP_N).reduce((s, [name]) => s + (systemDelayed?.[name] || 0), 0);
+  const rows = restCount > 0 ? [...top, ['기타', restCount, restDelayed]] : top;
 
   const COLORS = ['#2563eb','#3b82f6','#1d4ed8','#60a5fa','#1e40af','#93c5fd','#bfdbfe'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
-      {rows.map(([name, count], i) => {
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>
+        <div style={{ width: 7, height: 7, borderRadius: 2, background: '#dc2626', flexShrink: 0 }} />지연
+      </div>
+      {rows.map((row, i) => {
+        const [name, count] = row;
+        const delayed = row[2] !== undefined ? row[2] : (systemDelayed?.[name] || 0);
+        const normal = Math.max(0, count - delayed);
         const pct = Math.round(count / total * 100);
         const color = COLORS[i % COLORS.length];
         return (
           <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
             <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden' }} title={`${name} ${count}건`}>
-              <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
-                {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{count}</span>}
-              </div>
+            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }} title={`${name} ${count}건 (지연 ${delayed}건)`}>
+              {normal > 0 && (
+                <div style={{ width: `${normal / total * 100}%`, height: '100%', background: color, opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
+                  {(normal / total * 100) >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{normal}</span>}
+                </div>
+              )}
+              {delayed > 0 && (
+                <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />
+              )}
             </div>
             <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
             <div style={{ width: 44, fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', flexShrink: 0, textAlign: 'right' }}>{count}/{total}</div>
@@ -2682,33 +2767,24 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
           </div>
         </div>
 
-        {/* 행1-열2: 전체 상태 분포 */}
-        <div className="chart-card">
+        {/* 행1~2-열2: 연간 출고 현황 (2행 스팬) */}
+        <div className="chart-card" style={{ gridRow: 'span 2' }}>
           <div className="chart-title">
-            ● 전체 상태 분포
-            <span className="chart-badge">클릭 시 목록</span>
+            📈 연간 출고 현황
           </div>
+          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{new Date().getFullYear()}년 1~12월 · 요구납기일 기준</div>
           <div className="card-body">
-            <StatusDonut data={statusDist} onSliceClick={handleKpiClick} />
+            <AnnualDeliveryChart data={monthlyDelivery} onSelectItem={setSelectedAlert} />
           </div>
         </div>
 
-        {/* 행2-열1: 월별 출고예정 */}
+        {/* 행2-열1: 시스템별 비율 */}
         <div className="chart-card">
           <div className="chart-title">
-            📈 월별 출고예정
+            ● 시스템별 비율
           </div>
-          <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>요구납기일 기준 · 납품완료 건 제외</div>
-          <div className="card-body" style={{ justifyContent: 'center' }}>
-            <MonthlyDeliveryChart data={monthlyDelivery} onBarClick={setMonthlyModal} />
-          </div>
-        </div>
-
-        {/* 행2-열2: 이달 일정 */}
-        <div className="chart-card">
-          <div className="chart-title">📅 이달 주요 일정</div>
           <div className="card-body">
-            <MonthSchedulePanel alerts={alerts} onSelect={setSelectedAlert} />
+            <SystemDistribution systemCounts={kpi?.system_counts} systemDelayed={kpi?.system_delayed} total={kpi?.total} />
           </div>
         </div>
       </div>
