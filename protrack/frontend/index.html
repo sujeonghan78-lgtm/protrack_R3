@@ -1208,7 +1208,7 @@ function StatusDonut({ data, onSliceClick }) {
   const ITEMS = [
     { label: '정상',   val: data.on_track ?? 0,  color: '#3b82f6', key: 'On Track' },
     { label: '임박',   val: data.at_risk ?? 0,   color: '#f59e0b', key: 'At Risk' },
-    { label: '지연',   val: data.delayed ?? 0,   color: '#dc2626', key: '지연' },
+    { label: '지연',   val: (data.delayed ?? 0) + (data.delivered_delayed ?? 0) + (data.otp_delayed ?? 0) + (data.invoiced_delayed ?? 0), color: '#dc2626', key: 'delayed' },
     { label: '출고',   val: data.delivered ?? 0, color: '#16a34a', key: '출고완료' },
     { label: '계산서', val: data.invoiced ?? 0,  color: '#7c3aed', key: '계산서완료' },
   ];
@@ -1832,7 +1832,8 @@ function MonthSchedulePanel({ alerts, onSelect }) {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: overdue ? 800 : 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.수주번호}{item.업체명 ? ` · ${item.업체명}` : ''}
+                    {item.프로젝트 || item.수주번호 || '—'}
+                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
                     현재단계: {item._current_step} · 지연 +{item._delay_days}일{overdue ? ' · 요구납기 초과' : ''}
@@ -1867,7 +1868,8 @@ function MonthSchedulePanel({ alerts, onSelect }) {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.수주번호}{item.업체명 ? ` · ${item.업체명}` : ''}
+                    {item.프로젝트 || item.수주번호 || '—'}
+                    {item.업체명 && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--muted)' }}> · {item.업체명}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
                     현재단계: {item._current_step} · {ddayLabel(item._dday)}
