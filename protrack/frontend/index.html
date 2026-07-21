@@ -1782,6 +1782,107 @@ function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
   );
 }
 
+function ddayLabel(d) {
+  if (d === null || d === undefined) return '';
+  if (d === 0) return 'D-day';
+  return d > 0 ? `D-${d}` : `D+${Math.abs(d)}`;
+}
+
+function MonthSchedulePanel({ alerts, onSelect }) {
+  const [qDelay, setQDelay] = useState('');
+  const [qUpcoming, setQUpcoming] = useState('');
+
+  if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
+
+  const matches = (item, q) => {
+    if (!q) return true;
+    const s = q.trim().toLowerCase();
+    return (item.프로젝트 || '').toLowerCase().includes(s) ||
+           (item.업체명 || '').toLowerCase().includes(s) ||
+           (item.수주번호 || '').toLowerCase().includes(s);
+  };
+
+  const delayedList = (alerts.delayed || []).filter(it => matches(it, qDelay));
+  const upcomingList = (alerts.month_upcoming || []).filter(it => matches(it, qUpcoming));
+
+  return (
+    <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+      {/* 지연 목록 */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>지연 목록</span>
+          <input placeholder="검색..." value={qDelay} onChange={e => setQDelay(e.target.value)}
+            style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 260, display: 'flex', flexDirection: 'column', gap: 5, paddingRight: 2 }}>
+          {delayedList.length === 0 && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>추가 지연 항목 없음</div>
+          )}
+          {delayedList.map((item, i) => {
+            const overdue = item._status === '출고지연';
+            return (
+              <div key={i} onClick={() => onSelect(item)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                  borderLeft: '3px solid #dc2626', background: overdue ? 'rgba(220,38,38,0.08)' : 'transparent',
+                  padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.14)'}
+                onMouseLeave={e => e.currentTarget.style.background = overdue ? 'rgba(220,38,38,0.08)' : 'transparent'}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: overdue ? 800 : 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.수주번호}{item.업체명 ? ` · ${item.업체명}` : ''}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                    현재단계: {item._current_step} · 지연 +{item._delay_days}일{overdue ? ' · 요구납기 초과' : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#dc2626', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 임박/정상 목록 */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderLeft: '1px solid var(--border)', paddingLeft: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>임박/정상 목록</span>
+          <input placeholder="검색..." value={qUpcoming} onChange={e => setQUpcoming(e.target.value)}
+            style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 260, display: 'flex', flexDirection: 'column', gap: 5, paddingRight: 2 }}>
+          {upcomingList.length === 0 && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>이번 달 예정 항목 없음</div>
+          )}
+          {upcomingList.map((item, i) => {
+            const atRisk = item._status === 'At Risk';
+            const color = atRisk ? '#f59e0b' : '#3b82f6';
+            return (
+              <div key={i} onClick={() => onSelect(item)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer', borderLeft: `3px solid ${color}`, padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.수주번호}{item.업체명 ? ` · ${item.업체명}` : ''}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                    현재단계: {item._current_step} · {ddayLabel(item._dday)}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color, flexShrink: 0, whiteSpace: 'nowrap' }}>{item._next_planned_date || '—'}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StageProgressChart({ data, onSystemClick }) {
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   return (
@@ -2607,8 +2708,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         {/* 행2-열2: 이달 일정 */}
         <div className="chart-card">
           <div className="chart-title">📅 이달 주요 일정</div>
-          <div className="card-body" style={{ justifyContent: 'center' }}>
-            <DueSoonPanel alerts={alerts} onSelect={setSelectedAlert} onModalOpen={setDueSoonModal} />
+          <div className="card-body">
+            <MonthSchedulePanel alerts={alerts} onSelect={setSelectedAlert} />
           </div>
         </div>
       </div>
