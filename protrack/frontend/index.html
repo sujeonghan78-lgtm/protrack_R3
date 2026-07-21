@@ -2460,7 +2460,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
             ● 시스템별 비율
           </div>
           <div className="card-body">
-            <SystemDistribution systemCounts={kpi.system_counts} total={kpi.total} />
+            <SystemDistribution systemCounts={kpi?.system_counts} total={kpi?.total} />
           </div>
         </div>
 
