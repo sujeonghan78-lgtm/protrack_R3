@@ -744,9 +744,10 @@ class DataManager:
                 "OTP예상일": safe_date(row.get('OTP예상일')),
             }
 
-        # 7번 수정: 지연은 요구납기일이 오늘 이전인 건만 (실질 납기 초과) — 최종납기일 없이 납기 초과된 건은 '출고지연'으로 분류됨
-        delayed_df = df[(df['_status'].isin(['지연', '출고지연'])) & df['요구납기일'].notna() & (df['요구납기일'] < today)].copy()
-        # 요구납기 초과(출고지연)를 맨 위로, 그 안에서는 지연일수 내림차순
+        # KPI카드 '지연' 정의(지연+출고지연+OTP지연+계산서지연)와 동일한 모수로 통일
+        DELAY_STATUSES_ALL = ['지연', '출고지연', 'OTP지연', '계산서지연']
+        delayed_df = df[df['_status'].isin(DELAY_STATUSES_ALL)].copy()
+        # 요구납기일을 이미 넘긴 건(출고지연)을 맨 위로, 그 안에서는 지연일수 내림차순
         delayed_df['_prio'] = (delayed_df['_status'] != '출고지연').astype(int)
         delayed_df = delayed_df.sort_values(['_prio', '_delay_days'], ascending=[True, False])
         delayed = [row_summary(row) for _, row in delayed_df.iterrows()]
