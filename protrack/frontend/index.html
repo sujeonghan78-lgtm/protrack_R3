@@ -1143,10 +1143,8 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP', '포장'].includes(d.step)) : data;
 
   const LEGEND = [
-    { label: '완료', color: '#1e40af' },
-    { label: '진행중', color: '#93c5fd' },
+    { label: '진행중', color: '#3b82f6' },
     { label: '지연', color: '#dc2626' },
-    { label: '대기', color: '#e5e7eb' },
   ];
 
   return (
@@ -1161,14 +1159,9 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
         {filteredData.map((d) => {
           const total = d.total || 1;
-          const completed = d.completed_count || 0;
           const delayed = d.delayed_count || 0;
           const inProgress = Math.max(0, (d.project_count || 0) - delayed);
           const clickable = delayed > 0;
-          const parts = [];
-          if (completed > 0) parts.push(`완료 ${completed}`);
-          if (inProgress > 0) parts.push(`진행 ${inProgress}`);
-          const summary = (parts.length ? parts.join(' / ') : '진행 0') + ` / ${total}`;
           return (
             <div key={d.step}
               style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: clickable ? 'pointer' : 'default', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
@@ -1178,14 +1171,13 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
             >
               <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>{d.step}</div>
               <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}
-                title={`완료 ${completed} · 진행 ${inProgress} · 지연 ${delayed}`}
+                title={`진행 ${inProgress} · 지연 ${delayed}`}
               >
-                {completed > 0 && <div style={{ width: `${completed / total * 100}%`, height: '100%', background: '#1e40af' }} />}
-                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#93c5fd' }} />}
+                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6' }} />}
                 {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626' }} />}
               </div>
-              <div style={{ minWidth: 150, fontSize: 11, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
-                {summary}
+              <div style={{ minWidth: 110, fontSize: 11, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                진행 {inProgress} / {total}
                 {delayed > 0 && (
                   <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.1)', borderRadius: 20, padding: '1px 7px' }}>지연 {delayed}</span>
                 )}
@@ -1858,8 +1850,8 @@ function MonthSchedulePanel({ alerts, onSelect }) {
             <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>이번 달 예정 항목 없음</div>
           )}
           {upcomingList.map((item, i) => {
-            const atRisk = item._status === 'At Risk';
-            const color = atRisk ? '#f59e0b' : '#3b82f6';
+            const UPCOMING_COLOR = { 'At Risk': '#f59e0b', '지연': '#dc2626', 'OTP지연': '#dc2626', '계산서지연': '#dc2626' };
+            const color = UPCOMING_COLOR[item._status] || '#3b82f6';
             return (
               <div key={i} onClick={() => onSelect(item)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer', borderLeft: `3px solid ${color}`, padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s' }}
