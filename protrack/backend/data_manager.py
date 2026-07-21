@@ -851,6 +851,9 @@ class DataManager:
         systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
         system_colors = ['#2563eb','#3b82f6','#1e40af','#60a5fa','#1d4ed8','#93c5fd','#bfdbfe','#1e3a8a']
 
+        step_order = {s: i for i, s in enumerate(PROCESS_STEPS)}
+        cur_step_idx = df['_current_step'].map(step_order)
+
         result = []
         for step in PROCESS_STEPS:
             if step == '수주':
@@ -879,10 +882,12 @@ class DataManager:
                           if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff']))]
             avg_next = round(sum(next_diffs) / len(next_diffs)) if next_diffs else None
 
-            # 완료 건수: 현재 위치와 무관하게 이 단계의 실적일(actual) 컬럼이 채워진 전체 건수
-            actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
-            completed_count = int(df[actual_col].notna().sum()) if actual_col and actual_col in df.columns else 0
-            waiting_count = max(0, total_count - completed_count - step_count)
+            # 완료 건수: 실적일 컬럼의 존재 여부가 아니라, 이미 계산된 현재단계(_current_step) 위치 기준으로 판단.
+            # (실적일만 보면 중간 단계 데이터 누락 시 순서가 깨짐 — infer_current_step이 이미 그 누락/스킵을
+            #  반영해서 현재단계를 정했으므로, 그 위치보다 뒤에 있으면 이 단계는 완료로 본다)
+            idx = step_order[step]
+            completed_count = int((cur_step_idx > idx).sum())
+            waiting_count = int((cur_step_idx < idx).sum())
 
             result.append({
                 "step": step,
