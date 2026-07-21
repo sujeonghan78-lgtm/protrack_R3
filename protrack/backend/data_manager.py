@@ -647,12 +647,26 @@ class DataManager:
                 system_completed[str(sys)] = len(grp[grp['_status'].isin(['출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연'])])
 
         in_progress = on_track + at_risk + delayed_process
+
+        # 이달 출고예정: 요구납기일이 이번 달이고 아직 출고(최종납기일) 안 된 건 (alerts의 due_soon_출고와 동일 기준)
+        due_this_month = 0
+        if '요구납기일' in df.columns:
+            today = pd.Timestamp.now()
+            this_month_start = today.replace(day=1)
+            next_month_start = this_month_start + pd.DateOffset(months=1)
+            mask = (df['요구납기일'].notna() &
+                    (df['요구납기일'].dt.date >= this_month_start.date()) &
+                    (df['요구납기일'].dt.date < next_month_start.date()) &
+                    df['최종납기일'].isna())
+            due_this_month = int(mask.sum())
+
         return {"total": total, "in_progress": in_progress, "on_track": on_track,
                 "at_risk": at_risk,
                 "delayed": delayed_total,
                 "delayed_process": delayed_process,
                 "delayed_delivery": delayed_delivery,
                 "delayed_post": delayed_post,
+                "due_this_month": due_this_month,
                 "completed": completed, "delivered": delivered, "invoiced": invoiced,
                 "data_error": data_error,
                 "avg_progress": avg_progress,
@@ -735,6 +749,7 @@ class DataManager:
                 "ordseq": int(row.get('ordseq', 0)),
                 "업체명": row.get('업체명', ''),
                 "프로젝트": row.get('프로젝트', ''),
+                "시스템명": row.get('시스템명', ''),
                 "_current_step": row.get('_current_step', ''),
                 "_progress": int(row.get('_progress', 0)),
                 "_vendor_type": row.get('_vendor_type', '미분류'),
@@ -755,16 +770,21 @@ class DataManager:
         at_risk = [row_summary(row) for _, row in df[df['_status'] == 'At Risk'].iterrows()]
 
         # 다가오는 일정: 요구납기일 초과에 안 들어간 건(완료/데이터오류 제외) 전부 —
-        # 정상/임박은 물론, 아직 요구납기일이 안 지난 지연류도 여기로. 다음 공정예정일(요구납기일 폴백 포함)
-        # 기준 이번 달인 것만, 가까운 날짜순
+        # 정상/임박은 이번 달 예정인 것만, 아직 요구납기일이 안 지난 지연류는 달과 무관하게 항상 표시
+        # (그래야 KPI 지연 합계가 요구납기일초과+다가오는일정 어딘가엔 반드시 다 잡힘)
         month_upcoming = []
         not_overdue = df[~overdue_mask & ~df['_status'].isin(['출고완료', '계산서완료', '데이터오류'])]
         for _, row in not_overdue.iterrows():
+            status = row.get('_status', '')
+            is_delay_type = status in DELAY_STATUSES_ALL
             planned = get_display_dates(row).get('current_planned_date')
+            if not planned and is_delay_type:
+                planned = safe_date(row.get('요구납기일'))  # 예정일 컬럼 자체가 없는 지연류는 요구납기일로라도 표시
             if not planned:
                 continue
             p_ts = pd.Timestamp(planned)
-            if not (this_month_start.date() <= p_ts.date() < next_month_start.date()):
+            in_this_month = this_month_start.date() <= p_ts.date() < next_month_start.date()
+            if not in_this_month and not is_delay_type:
                 continue
             item = row_summary(row)
             item['_next_planned_date'] = planned
@@ -965,6 +985,7 @@ class DataManager:
             "delayed_delivery": int(len(df[df['_status'] == '출고지연'])),
             "delayed_post": int(len(df[df['_status'].isin(['OTP지연', '계산서지연'])])),
             "data_error":   int(len(df[df['_status'] == '데이터오류'])),
+            "otp_completed": int(df['OTP일자'].notna().sum()) if 'OTP일자' in df.columns else 0,
         }
 
     def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
