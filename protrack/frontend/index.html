@@ -1205,6 +1205,42 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
   );
 }
 
+function SystemDistribution({ systemCounts, total }) {
+  if (!systemCounts || !total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
+
+  const entries = Object.entries(systemCounts).sort((a, b) => b[1] - a[1]);
+  const TOP_N = 6;
+  const top = entries.slice(0, TOP_N);
+  const restCount = entries.slice(TOP_N).reduce((s, [, v]) => s + v, 0);
+  const rows = restCount > 0 ? [...top, ['기타', restCount]] : top;
+
+  const COLORS = ['#2563eb','#3b82f6','#1d4ed8','#60a5fa','#1e40af','#93c5fd','#bfdbfe'];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
+      {rows.map(([name, count], i) => {
+        const pct = Math.round(count / total * 100);
+        const color = COLORS[i % COLORS.length];
+        return (
+          <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
+            <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden' }} title={`${name} ${count}건`}>
+              <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 'var(--ch-bar-r)', opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
+                {pct >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{count}</span>}
+              </div>
+            </div>
+            <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
+          </div>
+        );
+      })}
+      <div style={{ padding: '6px var(--ch-row-px)', background: 'var(--surface2)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, marginTop: 2 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>전체</span>
+        <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'var(--mono)', color: 'var(--text)' }}>{total}</span>
+      </div>
+    </div>
+  );
+}
+
 function StatusDistribution({ data, onBarClick }) {
   if (!data?.total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
   const total = data.total;
@@ -2418,14 +2454,13 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
           </div>
         </div>
 
-        {/* 행1-열2: 전체 상태 분포 */}
+        {/* 행1-열2: 시스템별 비율 */}
         <div className="chart-card">
           <div className="chart-title">
-            ● 전체 상태 분포
-            <span className="chart-badge">클릭 시 목록</span>
+            ● 시스템별 비율
           </div>
           <div className="card-body">
-            <StatusDistribution data={statusDist} onBarClick={handleKpiClick} />
+            <SystemDistribution systemCounts={kpi.system_counts} total={kpi.total} />
           </div>
         </div>
 
