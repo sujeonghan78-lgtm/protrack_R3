@@ -641,10 +641,13 @@ class DataManager:
 
         system_counts = {}
         system_completed = {}
+        system_delayed = {}
+        DELAY_STATUSES_ALL = ['지연', '출고지연', 'OTP지연', '계산서지연']
         if '시스템명' in df.columns:
             for sys, grp in df.groupby('시스템명'):
                 system_counts[str(sys)] = len(grp)
                 system_completed[str(sys)] = len(grp[grp['_status'].isin(['출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연'])])
+                system_delayed[str(sys)] = len(grp[grp['_status'].isin(DELAY_STATUSES_ALL)])
 
         in_progress = on_track + at_risk + delayed_process
 
@@ -670,7 +673,7 @@ class DataManager:
                 "completed": completed, "delivered": delivered, "invoiced": invoiced,
                 "data_error": data_error,
                 "avg_progress": avg_progress,
-                "system_counts": system_counts, "system_completed": system_completed}
+                "system_counts": system_counts, "system_completed": system_completed, "system_delayed": system_delayed}
 
     def get_process_load(self, product_filter: str = "", vendor_filter: str = "") -> List[Dict]:
         if self.df.empty:
