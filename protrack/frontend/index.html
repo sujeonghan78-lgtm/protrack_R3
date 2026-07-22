@@ -17,12 +17,13 @@
     --surface2:  #f7f9fc;
     --border:    #e2e8f0;
     --border2:   #cbd5e1;
-    --accent:    #2563eb;
-    --accent2:   #2563eb;
-    --danger:    #2563eb;
-    --warn:      #2563eb;
-    --success:   #3b82f6;
-    --purple:    #2563eb;
+    --accent:    #376092;
+    --accent2:   #17375e;
+    --powder:    #d4ebf1;
+    --danger:    #a3403f;
+    --warn:      #b8860b;
+    --success:   #3f7d5c;
+    --purple:    #3b6ca3;
     --text:      #0f172a;
     --text2:     #475569;
     --muted:     #94a3b8;
@@ -69,7 +70,7 @@
     padding: 48px;
     width: 420px;
     position: relative;
-    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.1);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(55,96,146,0.1);
   }
   .login-logo {
     display: flex; align-items: center; gap: 12px; margin-bottom: 36px;
@@ -84,7 +85,7 @@
   .login-logo-text { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
   .login-logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
   .login-logo-kor { font-size: 11px; font-weight: 500; margin-top: 5px; letter-spacing: 0.3px;
-    background: linear-gradient(90deg, var(--accent), #60a5fa);
+    background: linear-gradient(90deg, var(--accent), #6f93bb);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .login-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
   .login-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
@@ -96,18 +97,18 @@
     border-radius: 10px; color: var(--text); font-size: 14px; font-family: var(--sans);
     transition: border-color 0.2s, box-shadow 0.2s; outline: none;
   }
-  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(55,96,146,0.15); }
   .btn-primary {
     width: 100%; padding: 13px;
-    background: linear-gradient(135deg, var(--accent), #2563eb);
+    background: linear-gradient(135deg, var(--accent), #376092);
     border: none; border-radius: 10px; color: #fff;
     font-size: 15px; font-weight: 700; cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s; margin-top: 8px;
     font-family: var(--sans);
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.4); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(55,96,146,0.4); }
   .btn-primary:active { transform: translateY(0); }
-  .login-hints { margin-top: 24px; padding: 16px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 10px; }
+  .login-hints { margin-top: 24px; padding: 16px; background: rgba(55,96,146,0.06); border: 1px solid rgba(55,96,146,0.15); border-radius: 10px; }
   .login-hints p { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
   .login-hints span { font-family: var(--mono); font-size: 11px; color: var(--accent); }
   .error-msg { color: var(--accent); font-size: 13px; margin-top: 10px; text-align: center; }
@@ -148,8 +149,8 @@
   }
   .nav-item:hover { background: var(--surface2); color: var(--text); }
   .nav-item.active {
-    background: rgba(59,130,246,0.15); color: var(--accent);
-    border-color: rgba(59,130,246,0.2);
+    background: rgba(55,96,146,0.15); color: var(--accent);
+    border-color: rgba(55,96,146,0.2);
   }
   .nav-icon { font-size: 17px; min-width: 17px; }
   .sidebar-footer {
@@ -165,15 +166,15 @@
     font-size: 12px; font-weight: 700;
   }
   .admin-avatar { background: linear-gradient(135deg, var(--accent), var(--accent)); }
-  .viewer-avatar { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+  .viewer-avatar { background: linear-gradient(135deg, #376092, #6f93bb); }
   .user-info { overflow: hidden; }
   .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .user-role {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
     padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;
   }
-  .role-admin { background: rgba(59,130,246,0.2); color: var(--accent); }
-  .role-viewer { background: rgba(37,99,235,0.1); color: #60a5fa; }
+  .role-admin { background: rgba(55,96,146,0.2); color: var(--accent); }
+  .role-viewer { background: rgba(55,96,146,0.1); color: #6f93bb; }
   .logout-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
     font-size: 18px; padding: 4px; margin-left: auto; min-width: 24px;
@@ -245,16 +246,16 @@
   .kpi-label { font-size: 12px; color: var(--text2,#475569); margin-top: 5px; font-weight: 500; }
   .kpi-desc { font-size: 10px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
-  .bg-blue { background: rgba(59,130,246,0.15); }
-  .bg-orange { background: rgba(59,130,246,0.15); }
-  .bg-red { background: rgba(37,99,235,0.1); }
-  .bg-green { background: rgba(59,130,246,0.12); }
+  .bg-blue { background: rgba(55,96,146,0.15); }
+  .bg-orange { background: rgba(55,96,146,0.15); }
+  .bg-red { background: rgba(55,96,146,0.1); }
+  .bg-green { background: rgba(55,96,146,0.12); }
   .text-blue { color: var(--accent); }
-  .text-orange { color: #3b82f6; }
+  .text-orange { color: #376092; }
   .text-red { color: var(--accent); }
-  .text-green { color: #3b82f6; }
-  .badge-green { background: rgba(59,130,246,0.12); color: #3b82f6; }
-  .badge-red { background: rgba(37,99,235,0.1); color: var(--accent); }
+  .text-green { color: #376092; }
+  .badge-green { background: rgba(55,96,146,0.12); color: #376092; }
+  .badge-red { background: rgba(55,96,146,0.1); color: var(--accent); }
 
   /* ─── Chart design tokens ────────────────────────────── */
   :root {
@@ -312,13 +313,13 @@
     background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
     cursor: pointer; transition: all 0.15s;
   }
-  .delay-item:hover { border-color: rgba(37,99,235,0.15); background: rgba(37,99,235,0.03); }
+  .delay-item:hover { border-color: rgba(55,96,146,0.15); background: rgba(55,96,146,0.03); }
   .delay-badge {
     border-radius: 6px; padding: 3px 7px; font-family: var(--mono);
     font-size: 11px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: center;
   }
-  .delay-badge.critical { background: rgba(37,99,235,0.1); color: #1e40af; }
-  .delay-badge.high     { background: rgba(37,99,235,0.07); color: #2563eb; }
+  .delay-badge.critical { background: rgba(55,96,146,0.1); color: #17375e; }
+  .delay-badge.high     { background: rgba(55,96,146,0.07); color: #376092; }
   .delay-badge.medium   { background: rgba(100,116,139,0.1); color: #475569; }
   .delay-badge.low      { background: rgba(100,116,139,0.07); color: #64748b; }
   .delay-info { flex: 1; min-width: 0; }
@@ -362,32 +363,32 @@
   }
   th:hover { color: var(--text); }
   td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid rgba(31,45,69,0.6); }
-  tr:hover td { background: rgba(59,130,246,0.04); cursor: pointer; }
+  tr:hover td { background: rgba(55,96,146,0.04); cursor: pointer; }
   .td-mono { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); }
   .td-name { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   .step-badge {
     padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700;
-    background: rgba(59,130,246,0.15); color: var(--accent); display: inline-block;
+    background: rgba(55,96,146,0.15); color: var(--accent); display: inline-block;
   }
   .vendor-badge {
     padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;
     display: inline-block; margin-left: 5px; vertical-align: middle;
   }
-  .vendor-badge.국내 { background: rgba(37,99,235,0.1); color: var(--accent); }
+  .vendor-badge.국내 { background: rgba(55,96,146,0.1); color: var(--accent); }
   .vendor-badge.해외 { background: rgba(100,116,139,0.1); color: var(--muted); }
   .vendor-badge.미분류 { background: rgba(203,213,225,0.3); color: #94a3b8; }
 
   .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   .status-진행중 { background: var(--accent); }
   .status-지연 { background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
-  .status-완료 { background: #3b82f6; }
-  .status-출고완료 { background: #60a5fa; }
-  .status-계산서완료 { background: #0ea5e9; }
-  .status-출고지연 { background: #f87171; }
-  .status-OTP지연 { background: #ef4444; }
-  .status-계산서지연 { background: #ef4444; }
-  .status-데이터오류 { background: #9333ea; }
+  .status-완료 { background: #376092; }
+  .status-출고완료 { background: #6f93bb; }
+  .status-계산서완료 { background: #3b6ca3; }
+  .status-출고지연 { background: #c17372; }
+  .status-OTP지연 { background: #a3403f; }
+  .status-계산서지연 { background: #a3403f; }
+  .status-데이터오류 { background: #5c5470; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -485,12 +486,12 @@
     justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; z-index: 1;
     border: 2px solid transparent;
   }
-  .dot-done { background: rgba(37,99,235,0.12); border-color: #3b82f6; color: #3b82f6; }
-  .dot-current { background: rgba(59,130,246,0.2); border-color: var(--accent); color: var(--accent); animation: dotPulse 2s ease-in-out infinite; }
+  .dot-done { background: rgba(55,96,146,0.12); border-color: #376092; color: #376092; }
+  .dot-current { background: rgba(55,96,146,0.2); border-color: var(--accent); color: var(--accent); animation: dotPulse 2s ease-in-out infinite; }
   .dot-pending { background: var(--surface2); border-color: var(--border); color: var(--muted); }
-  @keyframes dotPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 6px rgba(59,130,246,0); } }
+  @keyframes dotPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(55,96,146,0.4); } 50% { box-shadow: 0 0 0 6px rgba(55,96,146,0); } }
   .timeline-line { width: 2px; flex: 1; min-height: 20px; background: var(--border); margin-top: 4px; }
-  .timeline-line.done { background: #3b82f6; }
+  .timeline-line.done { background: #376092; }
   .timeline-content { flex: 1; padding-top: 4px; }
   .tl-step-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
   .tl-dates { display: flex; gap: 16px; }
@@ -509,7 +510,7 @@
   .edit-item input:focus { border-color: var(--accent); }
   .edit-actions { display: flex; gap: 8px; margin-top: 4px; }
   .btn-save {
-    flex: 1; padding: 11px; background: linear-gradient(135deg, var(--accent), #2563eb);
+    flex: 1; padding: 11px; background: linear-gradient(135deg, var(--accent), #376092);
     border: none; border-radius: 9px; color: #fff; font-size: 13px; font-weight: 700;
     cursor: pointer; font-family: var(--sans); transition: opacity 0.15s;
   }
@@ -538,7 +539,7 @@
     border: 2px dashed var(--border); border-radius: 12px; padding: 32px;
     text-align: center; cursor: pointer; transition: all 0.2s;
   }
-  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(55,96,146,0.05); }
   .upload-icon { font-size: 40px; margin-bottom: 12px; }
   .upload-text { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
   .upload-sub { font-size: 12px; color: var(--muted); }
@@ -560,7 +561,7 @@
     display: flex; align-items: center; gap: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
-  .toast-success { background: #3b82f6; color: #fff; }
+  .toast-success { background: #376092; color: #fff; }
   .toast-error { background: var(--accent); color: #fff; }
   @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
@@ -603,8 +604,8 @@ function useDebounce(value, delay) {
 const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
-const PIE_COLORS = ['#2563eb','#3b82f6','#2563eb','#2563eb','#3b82f6','#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
-const STATUS_COLORS = { 'On Track': '#3b82f6', 'At Risk': '#93c5fd', '지연': '#fca5a5', '출고지연': '#f87171', 'OTP지연': '#ef4444', '계산서지연': '#ef4444', '출고완료': '#60a5fa', '계산서완료': '#0ea5e9', '데이터오류': '#9333ea' };
+const PIE_COLORS = ['#376092','#376092','#376092','#376092','#376092','#17375e','#376092','#376092','#6f93bb','#9ab6d1'];
+const STATUS_COLORS = { 'On Track': '#376092', 'At Risk': '#9ab6d1', '지연': '#d9a3a2', '출고지연': '#c17372', 'OTP지연': '#a3403f', '계산서지연': '#a3403f', '출고완료': '#6f93bb', '계산서완료': '#3b6ca3', '데이터오류': '#5c5470' };
 const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
@@ -925,7 +926,7 @@ function KpiCards({ kpi, onCardClick, onDueMonthClick }) {
   const total = kpi.total || 1;
 
   const cards = [
-    { label: '전체 수주', val: kpi.total, color: '#2563eb', icon: '◈', pct: null, onClick: null,
+    { label: '전체 수주', val: kpi.total, color: '#376092', icon: '◈', pct: null, onClick: null,
       desc: (() => {
         if (!kpi.system_counts) return '';
         const entries = Object.entries(kpi.system_counts);
@@ -933,13 +934,13 @@ function KpiCards({ kpi, onCardClick, onDueMonthClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#f87171', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), onClick: () => onCardClick('delayed'),
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#a3403f', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), onClick: () => onCardClick('delayed'),
       desc: '공정예정일 또는 요구납기일을 초과한 건수' },
-    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#f59e0b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), onClick: () => onCardClick('At Risk'),
+    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#b8860b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), onClick: () => onCardClick('At Risk'),
       desc: '다음 공정 예정일 7일 이내' },
-    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#16a34a', icon: '✓', pct: null, onClick: null,
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#3f7d5c', icon: '✓', pct: null, onClick: null,
       desc: '전체 기준' },
-    { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#7c3aed', icon: '📅', pct: null, onClick: onDueMonthClick,
+    { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#3b6ca3', icon: '📅', pct: null, onClick: onDueMonthClick,
       desc: '요구납기일 기준 · 이번달' },
   ];
 
@@ -975,7 +976,7 @@ function StageByProcessChart({ data, onStepClick, vendorFilter }) {
 
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
   const systems = filteredData[0]?.by_system?.map(s => s.system) || [];
-  const MONO = ['#1e40af','#2563eb','#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
+  const MONO = ['#17375e','#376092','#17375e','#376092','#6f93bb','#9ab6d1','#d4ebf1'];
   const colors = systems.map((_, i) => MONO[i % MONO.length]);
 
   return (
@@ -1020,7 +1021,7 @@ function StagePie({ data, onStepClick, vendorFilter }) {
   if (!data?.length) return null;
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP','포장'].includes(d.step)) : data;
   const total = filteredData.reduce((s, d) => s + d.project_count, 0) || 1;
-  const COLORS = ['#3b82f6','#3b82f6','#2563eb','#1e40af','#3b82f6','#3b82f6','#2563eb','#3b82f6','#60a5fa'];
+  const COLORS = ['#376092','#376092','#376092','#17375e','#376092','#376092','#376092','#376092','#6f93bb'];
   const cx = 70, cy = 70, R = 60, r = 36;
   let angle = -Math.PI / 2;
   const slices = filteredData.filter(d => d.project_count > 0).map((d, i) => {
@@ -1106,8 +1107,8 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
                 onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(0.96)')}
                 onMouseLeave={e => (e.currentTarget.style.filter = '')}
                 style={{
-                  flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: '#1e40af',
-                  background: 'rgba(37,99,235,0.1)', borderRadius: 20, padding: '2px 8px', cursor: 'pointer',
+                  flexShrink: 0, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: '#17375e',
+                  background: 'rgba(55,96,146,0.1)', borderRadius: 20, padding: '2px 8px', cursor: 'pointer',
                 }}
               >
                 지연 {delayedN}
@@ -1127,8 +1128,8 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP', '포장'].includes(d.step)) : data;
 
   const LEGEND = [
-    { label: '진행중', color: '#3b82f6' },
-    { label: '지연', color: '#dc2626' },
+    { label: '진행중', color: '#376092' },
+    { label: '지연', color: '#a3403f' },
   ];
 
   return (
@@ -1161,15 +1162,15 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
               )}
               <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>{d.step}</div>
               <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
-                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
-                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
+                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#376092', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
+                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#a3403f', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
               </div>
               <div style={{ width: 64, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
                 {inProgress} / {total}
               </div>
               <div style={{ width: 48, flexShrink: 0, display: 'flex', justifyContent: 'flex-start' }}>
                 {delayed > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#a3403f', background: 'rgba(163,64,63,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
                 )}
               </div>
               <div style={{ width: 34, fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)', flexShrink: 0, textAlign: 'right' }}>{d.pct}%</div>
@@ -1195,12 +1196,12 @@ function StatusDonut({ data, onSliceClick }) {
   const total = data.total;
 
   const ITEMS = [
-    { label: '정상',   val: data.on_track ?? 0, color: '#3b82f6', key: 'On Track' },
-    { label: '임박',   val: data.at_risk ?? 0,  color: '#f59e0b', key: 'At Risk' },
-    { label: '지연',   val: data.delayed ?? 0,  color: '#dc2626', key: 'delayed' },
-    { label: '출고',   val: data.shipped ?? 0,  color: '#16a34a', key: null },
-    { label: 'OTP',    val: data.otp ?? 0,      color: '#0ea5e9', key: null },
-    { label: '계산서', val: data.invoiced ?? 0, color: '#7c3aed', key: '계산서완료' },
+    { label: '정상',   val: data.on_track ?? 0, color: '#376092', key: 'On Track' },
+    { label: '임박',   val: data.at_risk ?? 0,  color: '#b8860b', key: 'At Risk' },
+    { label: '지연',   val: data.delayed ?? 0,  color: '#a3403f', key: 'delayed' },
+    { label: '출고',   val: data.shipped ?? 0,  color: '#3f7d5c', key: null },
+    { label: 'OTP',    val: data.otp ?? 0,      color: '#3b6ca3', key: null },
+    { label: '계산서', val: data.invoiced ?? 0, color: '#3b6ca3', key: '계산서완료' },
   ];
 
   const cx = 70, cy = 70, R = 60, r = 38;
@@ -1283,8 +1284,8 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <div style={{ display: 'flex', gap: 14, marginBottom: 8, fontSize: 11, color: 'var(--muted)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: '#93c5fd' }} />출고완료</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: '#1d4ed8' }} />출고예정</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: '#376092' }} />출고완료</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: '#d4ebf1', border: '1px solid var(--border)' }} />출고예정</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: H + 24, paddingBottom: 20, flexShrink: 0 }}>
         {rows.map((r) => {
@@ -1303,8 +1304,8 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
               <div style={{ fontSize: 10, fontWeight: 700, color: isSel ? 'var(--accent)' : 'var(--text)', fontFamily: 'var(--mono)', minHeight: 13 }}>{totalCount > 0 ? totalCount : ''}</div>
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                 <div style={{ width: 'min(20px, 75%)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: barH, borderRadius: '2px 2px 0 0', overflow: 'hidden', boxShadow: isSel ? '0 0 0 2px #fff, 0 0 0 4px var(--accent)' : 'none', transition: 'box-shadow 0.15s' }}>
-                  {plannedH > 0 && <div style={{ height: plannedH, background: '#1d4ed8' }} />}
-                  {completedH > 0 && <div style={{ height: completedH, background: '#93c5fd' }} />}
+                  {plannedH > 0 && <div style={{ height: plannedH, background: '#d4ebf1' }} />}
+                  {completedH > 0 && <div style={{ height: completedH, background: '#376092' }} />}
                 </div>
               </div>
               <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 600, color: isSel ? 'var(--accent)' : 'var(--text)' }}>{monthNum}월</div>
@@ -1382,13 +1383,13 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
                               {item.프로젝트 || item.수주번호 || '—'}
                               {item.업체명 && <span style={{ color: 'var(--muted)' }}> · {item.업체명}</span>}
                             </span>
-                            <span style={{ flexShrink: 0, marginLeft: 8, fontWeight: 700, color: item._done ? '#93c5fd' : '#1d4ed8' }}>{item._done ? '완료' : '예정'}</span>
+                            <span style={{ flexShrink: 0, marginLeft: 8, fontWeight: 700, color: item._done ? '#376092' : '#3b6ca3' }}>{item._done ? '완료' : '예정'}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3, fontSize: 10, color: 'var(--muted)' }}>
                             {item.시스템명 && <span>{item.시스템명}</span>}
                             <span>출고일자 {item.요구납기일 || '-'}</span>
                             {!isDomestic && (
-                              <span style={{ fontWeight: 700, color: otpDone ? '#16a34a' : 'var(--muted)' }}>
+                              <span style={{ fontWeight: 700, color: otpDone ? '#3f7d5c' : 'var(--muted)' }}>
                                 {otpDone ? `OTP 완료 · ${item.OTP일자}` : 'OTP 미완료'}
                               </span>
                             )}
@@ -1434,8 +1435,8 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 3, paddingBottom: 20 }}>
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 20 + avgPct * H,
-          borderTop: '0.5px dashed #bfdbfe', pointerEvents: 'none', zIndex: 0 }}>
-          <span style={{ position: 'absolute', right: 0, top: -10, fontSize: 7, color: '#93c5fd' }}>avg</span>
+          borderTop: '0.5px dashed #d4ebf1', pointerEvents: 'none', zIndex: 0 }}>
+          <span style={{ position: 'absolute', right: 0, top: -10, fontSize: 7, color: '#9ab6d1' }}>avg</span>
         </div>
         {sorted.map((d, i) => {
           const val = d.count || 0;
@@ -1455,7 +1456,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
               onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
               onClick={() => onBarClick && onBarClick(d)}
             >
-              <div style={{ fontSize: 8, color: '#3b82f6', fontFamily: 'var(--mono)', fontWeight: 600,
+              <div style={{ fontSize: 8, color: '#376092', fontFamily: 'var(--mono)', fontWeight: 600,
                 minHeight: 11, opacity: val > 0 && !isHov ? 1 : 0 }}>{val}</div>
               {isHov && val > 0 && (
                 <div style={{ position: 'absolute', bottom: 20 + barH + 4, fontSize: 8, background: '#0f172a',
@@ -1466,14 +1467,14 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
               <div style={{ width: '100%', height: H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                 <div style={{
                   width: 'min(18px, 75%)', height: barH || 0,
-                  background: '#3b82f6', opacity: isHov ? 0.6 : 0.82,
+                  background: '#376092', opacity: isHov ? 0.6 : 0.82,
                   borderRadius: '2px 2px 0 0',
                   transformOrigin: 'bottom',
                   animation: 'barGrow 0.4s cubic-bezier(.4,0,.2,1)',
                 }} />
               </div>
               {showLabel && <div style={{ fontSize: isNewYear ? 9 : 10,
-                color: isNewYear ? '#1e40af' : 'var(--text)',
+                color: isNewYear ? '#17375e' : 'var(--text)',
                 fontWeight: isNewYear ? 700 : 600, whiteSpace: 'nowrap' }}>{xLabel}</div>}
             </div>
           );
@@ -1494,12 +1495,12 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
   const restDelayed = entries.slice(TOP_N).reduce((s, [name]) => s + (systemDelayed?.[name] || 0), 0);
   const rows = restCount > 0 ? [...top, ['기타', restCount, restDelayed]] : top;
 
-  const COLORS = ['#2563eb','#3b82f6','#1d4ed8','#60a5fa','#1e40af','#93c5fd','#bfdbfe'];
+  const COLORS = ['#17375e','#2c5079','#376092','#4a76a8','#6f93bb','#9ab6d1','#d4ebf1'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>
-        <div style={{ width: 7, height: 7, borderRadius: 2, background: '#dc2626', flexShrink: 0 }} />지연
+        <div style={{ width: 7, height: 7, borderRadius: 2, background: '#a3403f', flexShrink: 0 }} />지연
       </div>
       {rows.map((row, i) => {
         const [name, count] = row;
@@ -1527,7 +1528,7 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
                 </div>
               )}
               {delayed > 0 && (
-                <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />
+                <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#a3403f', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />
               )}
             </div>
             <div style={{ width: 64, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -1535,7 +1536,7 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
             </div>
             <div style={{ width: 48, flexShrink: 0, display: 'flex', justifyContent: 'flex-start' }}>
               {delayed > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#a3403f', background: 'rgba(163,64,63,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
               )}
             </div>
             <div style={{ width: 34, fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
@@ -1557,9 +1558,9 @@ function StatusDistribution({ data, onBarClick }) {
 
   // 단색 바 항목
   const simpleItems = [
-    { label: '정상',  val: data.on_track,  color: '#3b82f6', key: 'On Track' },
-    { label: '임박',  val: data.at_risk,   color: '#93c5fd', key: 'At Risk' },
-    { label: '지연',  val: data.delayed,   color: '#fca5a5', key: '지연' },
+    { label: '정상',  val: data.on_track,  color: '#376092', key: 'On Track' },
+    { label: '임박',  val: data.at_risk,   color: '#9ab6d1', key: 'At Risk' },
+    { label: '지연',  val: data.delayed,   color: '#d9a3a2', key: '지연' },
   ];
 
   // 2색 바 항목 (정상=파랑, 지연=빨강)
@@ -1600,7 +1601,7 @@ function StatusDistribution({ data, onBarClick }) {
           title={`${label} · 정상 ${normal}건 · 지연 ${delayed}건`}
         >
           {pctN > 0 && (
-            <div style={{ width: `${pctN / (pctTotal || 1) * pctTotal}%`, minWidth: pctN > 0 ? 2 : 0, height: '100%', background: '#3b82f6', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: keyN ? 'pointer' : 'default', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
+            <div style={{ width: `${pctN / (pctTotal || 1) * pctTotal}%`, minWidth: pctN > 0 ? 2 : 0, height: '100%', background: '#376092', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: keyN ? 'pointer' : 'default', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
               onClick={() => keyN && onBarClick(keyN)}
               title={`정상 ${normal}건`}
             >
@@ -1608,7 +1609,7 @@ function StatusDistribution({ data, onBarClick }) {
             </div>
           )}
           {pctD > 0 && (
-            <div style={{ width: `${pctD / (pctTotal || 1) * pctTotal}%`, minWidth: pctD > 0 ? 2 : 0, height: '100%', background: '#dc2626', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: 'pointer', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
+            <div style={{ width: `${pctD / (pctTotal || 1) * pctTotal}%`, minWidth: pctD > 0 ? 2 : 0, height: '100%', background: '#a3403f', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: 'pointer', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
               onClick={() => onBarClick(keyD)}
               title={`지연 ${delayed}건`}
             >
@@ -1617,7 +1618,7 @@ function StatusDistribution({ data, onBarClick }) {
           )}
         </div>
         <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, textAlign: 'right', flexShrink: 0 }}>
-          <span style={{color:'#3b82f6'}}>{pctN}%</span><span style={{color:'var(--muted)'}}>/</span><span style={{color:'#dc2626'}}>{pctD}%</span>
+          <span style={{color:'#376092'}}>{pctN}%</span><span style={{color:'var(--muted)'}}>/</span><span style={{color:'#a3403f'}}>{pctD}%</span>
         </div>
       </div>
     );
@@ -1680,7 +1681,7 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
                 {items.map((item, i) => (
                   <tr key={i} onClick={() => { onSelect(item); onClose(); }}
                     style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
                     <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
@@ -1824,13 +1825,13 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
               <tbody>
                 {sortedItems.map((item, i) => {
                   const days = item._cur_diff;
-                  const badgeBg = days >= 30 ? 'rgba(37,99,235,0.12)' : days >= 14 ? 'rgba(37,99,235,0.08)' : 'rgba(100,116,139,0.1)';
-                  const badgeColor = days >= 30 ? '#1e40af' : days >= 14 ? '#2563eb' : '#475569';
+                  const badgeBg = days >= 30 ? 'rgba(55,96,146,0.12)' : days >= 14 ? 'rgba(55,96,146,0.08)' : 'rgba(100,116,139,0.1)';
+                  const badgeColor = days >= 30 ? '#17375e' : days >= 14 ? '#376092' : '#475569';
                   return (
                     <tr key={i}
                       onClick={() => onSelectItem(item)}
                       style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.05)'}
                       onMouseLeave={e => e.currentTarget.style.background = ''}
                     >
                       <td style={{ padding: '8px 10px' }}>
@@ -1846,7 +1847,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                       </td>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 11 }}>
                         <div style={{ color: item._cur_actual_date ? 'var(--text)' : 'var(--muted)' }}>{item._cur_actual_date || '실적없음'}</div>
-                        <div style={{ color: item._current_planned_date ? '#2563eb' : 'var(--muted)', marginTop: 1 }}>→ {item._current_planned_date || '예정없음'}</div>
+                        <div style={{ color: item._current_planned_date ? '#376092' : 'var(--muted)', marginTop: 1 }}>→ {item._current_planned_date || '예정없음'}</div>
                       </td>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', textAlign: 'right' }}>
                         {item._progress != null ? `${item._progress}%` : '—'}
@@ -1914,7 +1915,7 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
                 {sorted.map((item, i) => (
                   <tr key={i} onClick={() => { onSelectItem(item); onClose(); }}
                     style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
                     <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
@@ -1938,7 +1939,7 @@ function DueSoonPanel({ alerts, onSelect, onModalOpen }) {
   if (!alerts) return null;
 
   const sections = [
-    { key: '출고', label: '이달 출고 예정', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
+    { key: '출고', label: '이달 출고 예정', color: '#376092', items: alerts.due_soon?.출고 || [] },
   ];
 
   return (
@@ -1992,7 +1993,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
       {/* 지연 목록 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>요구납기일 초과</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#a3403f', flexShrink: 0 }}>요구납기일 초과</span>
           <input placeholder="검색..." value={qDelay} onChange={e => setQDelay(e.target.value)}
             style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
         </div>
@@ -2006,11 +2007,11 @@ function MonthSchedulePanel({ alerts, onSelect }) {
               <div key={i} onClick={() => onSelect(item)}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
-                  borderLeft: '3px solid #dc2626', background: overdue ? 'rgba(220,38,38,0.08)' : 'transparent',
+                  borderLeft: '3px solid #a3403f', background: overdue ? 'rgba(163,64,63,0.08)' : 'transparent',
                   padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background = overdue ? 'rgba(220,38,38,0.08)' : 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(163,64,63,0.14)'}
+                onMouseLeave={e => e.currentTarget.style.background = overdue ? 'rgba(163,64,63,0.08)' : 'transparent'}
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: overdue ? 800 : 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2021,7 +2022,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
                     현재단계: {item._current_step} · 지연 +{item._delay_days}일{overdue ? ' · 요구납기 초과' : ''}
                   </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#dc2626', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#a3403f', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</div>
               </div>
             );
           })}
@@ -2040,8 +2041,8 @@ function MonthSchedulePanel({ alerts, onSelect }) {
             <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>이번 달 예정 항목 없음</div>
           )}
           {upcomingList.map((item, i) => {
-            const UPCOMING_COLOR = { 'At Risk': '#f59e0b', '지연': '#dc2626', 'OTP지연': '#dc2626', '계산서지연': '#dc2626' };
-            const color = UPCOMING_COLOR[item._status] || '#3b82f6';
+            const UPCOMING_COLOR = { 'At Risk': '#b8860b', '지연': '#a3403f', 'OTP지연': '#a3403f', '계산서지연': '#a3403f' };
+            const color = UPCOMING_COLOR[item._status] || '#376092';
             return (
               <div key={i} onClick={() => onSelect(item)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer', borderLeft: `3px solid ${color}`, padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s' }}
@@ -2074,7 +2075,7 @@ function StageProgressChart({ data, onSystemClick }) {
       {data.map((d, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', borderRadius: 6, padding: '2px 4px', transition: 'background 0.15s' }}
           onClick={() => onSystemClick(d.system)}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.05)'}
           onMouseLeave={e => e.currentTarget.style.background = ''}
         >
           <div style={{ width: 70, fontSize: 11, color: 'var(--muted)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.system}</div>
@@ -2096,7 +2097,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
   if (!alerts) return <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>;
 
   const sections = [
-    { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#3b82f6', items: alerts.due_soon?.출고 || [] },
+    { key: 'due_soon_출고', label: '이달 출고 예정', desc: '이번 달 요구납기일', color: '#376092', items: alerts.due_soon?.출고 || [] },
   ];
 
   const modalItems = modal === 'due_soon_출고' ? alerts.due_soon?.출고 : [];
@@ -2150,7 +2151,7 @@ function AlertsPanel({ alerts, onSelectItem }) {
                 <tbody>
                   {modalItems?.map((item, i) => (
                     <tr key={i} onClick={() => { onSelectItem(item); setModal(null); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.05)'}
                       onMouseLeave={e => e.currentTarget.style.background = ''}
                     >
                       <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
@@ -2216,13 +2217,13 @@ function ProcessLoadChart({ data, onBarClick }) {
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
             >
-              {isHov && <rect x={PL + i * gap + 2} y={PT} width={gap - 4} height={chartH} fill="rgba(59,130,246,0.06)" rx={4} />}
+              {isHov && <rect x={PL + i * gap + 2} y={PT} width={gap - 4} height={chartH} fill="rgba(55,96,146,0.06)" rx={4} />}
               {/* 지연(빨강) - 맨 아래 */}
-              {delayedH > 0 && <rect x={x} y={baseY - delayedH} width={barW} height={delayedH} fill="#1e40af" fillOpacity={isHov ? 1 : 0.85} rx={2} />}
+              {delayedH > 0 && <rect x={x} y={baseY - delayedH} width={barW} height={delayedH} fill="#17375e" fillOpacity={isHov ? 1 : 0.85} rx={2} />}
               {/* 허용(초록) - 중간 */}
-              {warningH > 0 && <rect x={x} y={baseY - delayedH - warningH} width={barW} height={warningH} fill="#3b82f6" fillOpacity={isHov ? 1 : 0.85} />}
+              {warningH > 0 && <rect x={x} y={baseY - delayedH - warningH} width={barW} height={warningH} fill="#376092" fillOpacity={isHov ? 1 : 0.85} />}
               {/* 정상(파랑) - 맨 위 */}
-              {normalH > 0 && <rect x={x} y={baseY - delayedH - warningH - normalH} width={barW} height={normalH} fill="#3b82f6" fillOpacity={isHov ? 1 : 0.85} rx={[4,4,0,0]} />}
+              {normalH > 0 && <rect x={x} y={baseY - delayedH - warningH - normalH} width={barW} height={normalH} fill="#376092" fillOpacity={isHov ? 1 : 0.85} rx={[4,4,0,0]} />}
               {isHov && total > 0 && (
                 <g>
                   <rect x={x - 12} y={baseY - totalH - 44} width={barW + 24} height={40} fill="#1e293b" rx={5} stroke="#e2e8f0" strokeWidth={1} />
@@ -2356,9 +2357,9 @@ function ProcessTimeline({ timeline }) {
               {i < timeline.length - 1 && <div className={`timeline-line ${lineDone ? 'done' : ''}`} />}
             </div>
             <div className="timeline-content">
-              <div className="tl-step-name" style={{ color: item.is_current ? 'var(--accent)' : isDone ? '#3b82f6' : 'var(--muted)' }}>
+              <div className="tl-step-name" style={{ color: item.is_current ? 'var(--accent)' : isDone ? '#376092' : 'var(--muted)' }}>
                 {item.step}
-                {item.is_current && <span style={{ fontSize: 10, marginLeft: 8, background: 'rgba(59,130,246,0.2)', color: 'var(--accent)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>현재</span>}
+                {item.is_current && <span style={{ fontSize: 10, marginLeft: 8, background: 'rgba(55,96,146,0.2)', color: 'var(--accent)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>현재</span>}
               </div>
               <div className="tl-dates">
                 {item.planned && (
@@ -2370,7 +2371,7 @@ function ProcessTimeline({ timeline }) {
                 {item.actual && (
                   <div className="tl-date-item">
                     <span className="tl-date-label">실적</span>
-                    <span className="tl-date-val" style={{ color: '#3b82f6' }}>{item.actual}</span>
+                    <span className="tl-date-val" style={{ color: '#376092' }}>{item.actual}</span>
                   </div>
                 )}
               </div>
@@ -2466,7 +2467,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
                 <span style={{ fontWeight: 700, color: statusColorMap[detail._status] }}>{detail._status}</span>
                 <span style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 4 }}>· {detail._current_step} 단계</span>
               </div>
-              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: detail._progress > 80 ? '#3b82f6' : 'var(--text)' }}>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: detail._progress > 80 ? '#376092' : 'var(--text)' }}>
                 {detail._progress}%
               </div>
             </div>
@@ -2502,7 +2503,7 @@ function DetailDrawer({ item, isAdmin, api, onClose, onToast }) {
                 <div className="drawer-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   공정 일자 수정
                   {!editMode && (
-                    <button onClick={() => setEditMode(true)} style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}>
+                    <button onClick={() => setEditMode(true)} style={{ background: 'rgba(55,96,146,0.15)', color: 'var(--accent)', border: '1px solid rgba(55,96,146,0.3)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}>
                       수정
                     </button>
                   )}
@@ -2639,8 +2640,8 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
           {versions.map(v => (
             <div key={v.id} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-              background: v.is_active ? 'rgba(37,99,235,0.06)' : 'var(--surface2)',
-              border: `1px solid ${v.is_active ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`,
+              background: v.is_active ? 'rgba(55,96,146,0.06)' : 'var(--surface2)',
+              border: `1px solid ${v.is_active ? 'rgba(55,96,146,0.2)' : 'var(--border)'}`,
               borderRadius: 10, transition: 'all 0.15s',
             }}>
               {/* 활성 뱃지 */}
@@ -2649,7 +2650,7 @@ function UploadModal({ api, onClose, onToast, onRefresh }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {v.filename}
-                  {v.is_active && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(37,99,235,0.15)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 10 }}>현재</span>}
+                  {v.is_active && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(55,96,146,0.15)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 10 }}>현재</span>}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
                   {v.uploaded_at} · {v.rows?.toLocaleString()}행 · {fmtSize(v.size_bytes)} · {v.uploaded_by}
@@ -2837,7 +2838,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
               <tbody>
                 {sorted.map((item, i) => (
                   <tr key={i} onClick={() => { setSelectedAlert(item); onClose(); }} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(55,96,146,0.05)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
                     <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
@@ -3051,7 +3052,7 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                   const curHasActual = item._cur_has_actual;
                   const nextDiff = item._next_diff;
                   return (
-                  <tr key={i} onClick={() => setSelected(item)} style={{ background: isChecked ? 'rgba(59,130,246,0.05)' : '' }}>
+                  <tr key={i} onClick={() => setSelected(item)} style={{ background: isChecked ? 'rgba(55,96,146,0.05)' : '' }}>
                     <td style={{ padding: '10px 8px' }} onClick={e => { e.stopPropagation(); toggleCheck(item._row_id); }}>
                       <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ cursor: 'pointer' }} />
                     </td>
@@ -3082,20 +3083,20 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     </td>
                     <td>
                       <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
-                      <span style={{ color: ['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? '#ef4444' : (statusColorMap[item._status] || 'var(--muted)'), fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
+                      <span style={{ color: ['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? '#a3403f' : (statusColorMap[item._status] || 'var(--muted)'), fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
                     </td>
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>
                       {item._cur_actual_date || '—'}
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._current_planned_date && item._current_planned_date < new Date().toISOString().slice(0,10) ? '#ef4444' : 'var(--muted)' }}>
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._current_planned_date && item._current_planned_date < new Date().toISOString().slice(0,10) ? '#a3403f' : 'var(--muted)' }}>
                       {item._current_planned_date || '—'}
                     </td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) && !item['최종납기일'] ? '#ef4444' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) && !item['최종납기일'] ? '#a3403f' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
                       {item['비고'] || ''}
                     </td>
                     <td>
-                      <button style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 6, padding: '5px 10px', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}
+                      <button style={{ background: 'rgba(55,96,146,0.1)', border: '1px solid rgba(55,96,146,0.2)', borderRadius: 6, padding: '5px 10px', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Noto Sans KR' }}
                         onClick={e => { e.stopPropagation(); setSelected(item); }}
                       >보기</button>
                     </td>
@@ -3219,7 +3220,7 @@ function VendorsTab({ api, onToast }) {
             ↑ 엑셀 업로드
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { handleFile(e.target.files[0]); e.target.value=''; }} />
-          <button className="btn-icon" onClick={() => setAdding(true)} style={{ color: 'var(--accent)', borderColor: 'rgba(37,99,235,0.3)' }}>
+          <button className="btn-icon" onClick={() => setAdding(true)} style={{ color: 'var(--accent)', borderColor: 'rgba(55,96,146,0.3)' }}>
             + 업체 추가
           </button>
         </div>
@@ -3227,7 +3228,7 @@ function VendorsTab({ api, onToast }) {
 
       {/* 추가 폼 */}
       {adding && (
-        <div style={{ display: 'flex', gap: 8, padding: '12px 16px', background: 'rgba(37,99,235,0.05)', borderRadius: 10, border: '1px solid rgba(37,99,235,0.15)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, padding: '12px 16px', background: 'rgba(55,96,146,0.05)', borderRadius: 10, border: '1px solid rgba(55,96,146,0.15)', alignItems: 'center' }}>
           <input value={newName} onChange={e => setNewName(e.target.value)}
             placeholder="업체명 입력" autoFocus
             style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontFamily: 'var(--sans)', background: 'var(--surface)', color: 'var(--text)' }}
@@ -3266,14 +3267,14 @@ function VendorsTab({ api, onToast }) {
                   <button onClick={() => toggleType(v.name, v.type)} style={{
                     padding: '3px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
                     fontSize: 12, fontWeight: 700, fontFamily: 'var(--sans)', transition: 'all 0.15s',
-                    background: v.type === '국내' ? 'rgba(37,99,235,0.12)' : 'rgba(100,116,139,0.12)',
+                    background: v.type === '국내' ? 'rgba(55,96,146,0.12)' : 'rgba(100,116,139,0.12)',
                     color: v.type === '국내' ? 'var(--accent)' : 'var(--muted)',
                   }}>{v.type}</button>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                   <button onClick={() => deleteVendor(v.name)}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '2px 6px' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                    onMouseEnter={e => e.currentTarget.style.color = '#a3403f'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}>✕</button>
                 </td>
               </tr>
@@ -3412,7 +3413,7 @@ function App() {
             {productFilter !== '전체' && (
               <div style={{ display: 'flex', gap: 4, marginLeft: 4, flexWrap: 'wrap' }}>
                 {(Array.isArray(productFilter) ? productFilter : [productFilter]).map(p => (
-                  <span key={p} style={{ fontSize: 11, background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                  <span key={p} style={{ fontSize: 11, background: 'rgba(55,96,146,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                     {p}
                   </span>
                 ))}
@@ -3449,7 +3450,7 @@ function App() {
               >↺</button>
             )}
             {activeTab === 'dashboard' && dueDateCol !== '요구납기일' && (
-              <span style={{ fontSize: 11, background: 'rgba(37,99,235,0.1)', color: 'var(--accent)', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>기준: {dueDateCol}</span>
+              <span style={{ fontSize: 11, background: 'rgba(55,96,146,0.1)', color: 'var(--accent)', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>기준: {dueDateCol}</span>
             )}
           </div>
         </div>
