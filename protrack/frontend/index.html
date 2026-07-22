@@ -381,14 +381,14 @@
 
   .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   .status-진행중 { background: var(--accent); }
-  .status-지연 { background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  .status-지연 { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
   .status-완료 { background: #376092; }
-  .status-출고완료 { background: #6f93bb; }
+  .status-출고완료 { background: #376092; }
   .status-계산서완료 { background: #3b6ca3; }
-  .status-출고지연 { background: #c17372; }
+  .status-출고지연 { background: #a5281c; }
   .status-OTP지연 { background: #c0392b; }
-  .status-계산서지연 { background: #c0392b; }
-  .status-데이터오류 { background: #5c5470; }
+  .status-계산서지연 { background: #a5281c; }
+  .status-데이터오류 { background: #7c6a94; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -422,7 +422,7 @@
   .progress-bar { height: 4px; background: var(--border); border-radius: 2px; min-width: 80px; }
   .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
   .progress-blue { background: linear-gradient(90deg, var(--accent), var(--accent)); }
-  .progress-red { background: var(--accent); }
+  .progress-red { background: var(--danger); }
 
   .table-footer {
     padding: 12px 20px; border-top: 1px solid var(--border);
@@ -605,7 +605,7 @@ const API = window.location.hostname === 'localhost' || window.location.hostname
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#376092','#376092','#376092','#376092','#376092','#17375e','#376092','#376092','#6f93bb','#9ab6d1'];
-const STATUS_COLORS = { 'On Track': '#376092', 'At Risk': '#9ab6d1', '지연': '#d9a3a2', '출고지연': '#c17372', 'OTP지연': '#c0392b', '계산서지연': '#c0392b', '출고완료': '#6f93bb', '계산서완료': '#3b6ca3', '데이터오류': '#5c5470' };
+const STATUS_COLORS = { 'On Track': '#1f8a5f', 'At Risk': '#d97706', '지연': '#c0392b', '출고지연': '#a5281c', 'OTP지연': '#c0392b', '계산서지연': '#a5281c', '출고완료': '#376092', '계산서완료': '#3b6ca3', '데이터오류': '#7c6a94' };
 const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
