@@ -20,9 +20,9 @@
     --accent:    #376092;
     --accent2:   #17375e;
     --powder:    #d4ebf1;
-    --danger:    #a3403f;
-    --warn:      #b8860b;
-    --success:   #3f7d5c;
+    --danger:    #c0392b;
+    --warn:      #d97706;
+    --success:   #1f8a5f;
     --purple:    #3b6ca3;
     --text:      #0f172a;
     --text2:     #475569;
@@ -386,8 +386,8 @@
   .status-출고완료 { background: #6f93bb; }
   .status-계산서완료 { background: #3b6ca3; }
   .status-출고지연 { background: #c17372; }
-  .status-OTP지연 { background: #a3403f; }
-  .status-계산서지연 { background: #a3403f; }
+  .status-OTP지연 { background: #c0392b; }
+  .status-계산서지연 { background: #c0392b; }
   .status-데이터오류 { background: #5c5470; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @keyframes fadeIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
@@ -605,7 +605,7 @@ const API = window.location.hostname === 'localhost' || window.location.hostname
   ? 'http://localhost:8000'
   : `${window.location.protocol}//${window.location.hostname}:8000`;
 const PIE_COLORS = ['#376092','#376092','#376092','#376092','#376092','#17375e','#376092','#376092','#6f93bb','#9ab6d1'];
-const STATUS_COLORS = { 'On Track': '#376092', 'At Risk': '#9ab6d1', '지연': '#d9a3a2', '출고지연': '#c17372', 'OTP지연': '#a3403f', '계산서지연': '#a3403f', '출고완료': '#6f93bb', '계산서완료': '#3b6ca3', '데이터오류': '#5c5470' };
+const STATUS_COLORS = { 'On Track': '#376092', 'At Risk': '#9ab6d1', '지연': '#d9a3a2', '출고지연': '#c17372', 'OTP지연': '#c0392b', '계산서지연': '#c0392b', '출고완료': '#6f93bb', '계산서완료': '#3b6ca3', '데이터오류': '#5c5470' };
 const STATUS_LABELS = { 'On Track': '정상', 'At Risk': '임박', '지연': '지연', '출고지연': '출고지연', 'OTP지연': 'OTP지연', '계산서지연': '계산서지연', '출고완료': '출고완료', '계산서완료': '계산서완료', '데이터오류': '데이터오류' };
 
 // ── 엑셀 출력 헬퍼 ────────────────────────────────────────────────────────────
@@ -934,11 +934,11 @@ function KpiCards({ kpi, onCardClick, onDueMonthClick }) {
         const rest = entries.slice(4).reduce((s,[,v]) => s+v, 0);
         return rest > 0 ? `${shown} · 외 ${rest}건` : shown;
       })() },
-    { label: '지연', val: (kpi.delayed ?? 0), color: '#a3403f', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), onClick: () => onCardClick('delayed'),
+    { label: '지연', val: (kpi.delayed ?? 0), color: '#c0392b', icon: '⚠', pct: Math.round((kpi.delayed ?? 0)/total*100), onClick: () => onCardClick('delayed'),
       desc: '공정예정일 또는 요구납기일을 초과한 건수' },
-    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#b8860b', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), onClick: () => onCardClick('At Risk'),
+    { label: '임박 (7일 이내)', val: kpi.at_risk ?? 0, color: '#d97706', icon: '⚡', pct: Math.round((kpi.at_risk ?? 0)/total*100), onClick: () => onCardClick('At Risk'),
       desc: '다음 공정 예정일 7일 이내' },
-    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#3f7d5c', icon: '✓', pct: null, onClick: null,
+    { label: '평균 진척률', val: `${kpi.avg_progress}%`, color: '#1f8a5f', icon: '✓', pct: null, onClick: null,
       desc: '전체 기준' },
     { label: '이달 출고예정', val: kpi.due_this_month ?? 0, color: '#3b6ca3', icon: '📅', pct: null, onClick: onDueMonthClick,
       desc: '요구납기일 기준 · 이번달' },
@@ -1129,7 +1129,7 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
 
   const LEGEND = [
     { label: '진행중', color: '#376092' },
-    { label: '지연', color: '#a3403f' },
+    { label: '지연', color: '#c0392b' },
   ];
 
   return (
@@ -1163,14 +1163,14 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
               <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>{d.step}</div>
               <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
                 {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#376092', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
-                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#a3403f', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
+                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#c0392b', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
               </div>
               <div style={{ width: 64, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
                 {inProgress} / {total}
               </div>
               <div style={{ width: 48, flexShrink: 0, display: 'flex', justifyContent: 'flex-start' }}>
                 {delayed > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#a3403f', background: 'rgba(163,64,63,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#c0392b', background: 'rgba(192,57,43,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
                 )}
               </div>
               <div style={{ width: 34, fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)', flexShrink: 0, textAlign: 'right' }}>{d.pct}%</div>
@@ -1197,9 +1197,9 @@ function StatusDonut({ data, onSliceClick }) {
 
   const ITEMS = [
     { label: '정상',   val: data.on_track ?? 0, color: '#376092', key: 'On Track' },
-    { label: '임박',   val: data.at_risk ?? 0,  color: '#b8860b', key: 'At Risk' },
-    { label: '지연',   val: data.delayed ?? 0,  color: '#a3403f', key: 'delayed' },
-    { label: '출고',   val: data.shipped ?? 0,  color: '#3f7d5c', key: null },
+    { label: '임박',   val: data.at_risk ?? 0,  color: '#d97706', key: 'At Risk' },
+    { label: '지연',   val: data.delayed ?? 0,  color: '#c0392b', key: 'delayed' },
+    { label: '출고',   val: data.shipped ?? 0,  color: '#1f8a5f', key: null },
     { label: 'OTP',    val: data.otp ?? 0,      color: '#3b6ca3', key: null },
     { label: '계산서', val: data.invoiced ?? 0, color: '#3b6ca3', key: '계산서완료' },
   ];
@@ -1389,7 +1389,7 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
                             {item.시스템명 && <span>{item.시스템명}</span>}
                             <span>출고일자 {item.요구납기일 || '-'}</span>
                             {!isDomestic && (
-                              <span style={{ fontWeight: 700, color: otpDone ? '#3f7d5c' : 'var(--muted)' }}>
+                              <span style={{ fontWeight: 700, color: otpDone ? '#1f8a5f' : 'var(--muted)' }}>
                                 {otpDone ? `OTP 완료 · ${item.OTP일자}` : 'OTP 미완료'}
                               </span>
                             )}
@@ -1500,7 +1500,7 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-evenly', gap: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>
-        <div style={{ width: 7, height: 7, borderRadius: 2, background: '#a3403f', flexShrink: 0 }} />지연
+        <div style={{ width: 7, height: 7, borderRadius: 2, background: '#c0392b', flexShrink: 0 }} />지연
       </div>
       {rows.map((row, i) => {
         const [name, count] = row;
@@ -1528,7 +1528,7 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
                 </div>
               )}
               {delayed > 0 && (
-                <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#a3403f', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />
+                <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#c0392b', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />
               )}
             </div>
             <div style={{ width: 64, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -1536,7 +1536,7 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
             </div>
             <div style={{ width: 48, flexShrink: 0, display: 'flex', justifyContent: 'flex-start' }}>
               {delayed > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#a3403f', background: 'rgba(163,64,63,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#c0392b', background: 'rgba(192,57,43,0.1)', borderRadius: 20, padding: '1px 7px', whiteSpace: 'nowrap' }}>지연 {delayed}</span>
               )}
             </div>
             <div style={{ width: 34, fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color, textAlign: 'right', flexShrink: 0 }}>{pct}%</div>
@@ -1609,7 +1609,7 @@ function StatusDistribution({ data, onBarClick }) {
             </div>
           )}
           {pctD > 0 && (
-            <div style={{ width: `${pctD / (pctTotal || 1) * pctTotal}%`, minWidth: pctD > 0 ? 2 : 0, height: '100%', background: '#a3403f', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: 'pointer', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
+            <div style={{ width: `${pctD / (pctTotal || 1) * pctTotal}%`, minWidth: pctD > 0 ? 2 : 0, height: '100%', background: '#c0392b', display: 'flex', alignItems: 'center', padding: '0 4px', cursor: 'pointer', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}
               onClick={() => onBarClick(keyD)}
               title={`지연 ${delayed}건`}
             >
@@ -1618,7 +1618,7 @@ function StatusDistribution({ data, onBarClick }) {
           )}
         </div>
         <div style={{ width: 'var(--ch-val-w)', fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, textAlign: 'right', flexShrink: 0 }}>
-          <span style={{color:'#376092'}}>{pctN}%</span><span style={{color:'var(--muted)'}}>/</span><span style={{color:'#a3403f'}}>{pctD}%</span>
+          <span style={{color:'#376092'}}>{pctN}%</span><span style={{color:'var(--muted)'}}>/</span><span style={{color:'#c0392b'}}>{pctD}%</span>
         </div>
       </div>
     );
@@ -1993,7 +1993,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
       {/* 지연 목록 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#a3403f', flexShrink: 0 }}>요구납기일 초과</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#c0392b', flexShrink: 0 }}>요구납기일 초과</span>
           <input placeholder="검색..." value={qDelay} onChange={e => setQDelay(e.target.value)}
             style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, width: 84, minWidth: 0, background: 'var(--surface)', color: 'var(--text)' }} />
         </div>
@@ -2007,11 +2007,11 @@ function MonthSchedulePanel({ alerts, onSelect }) {
               <div key={i} onClick={() => onSelect(item)}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
-                  borderLeft: '3px solid #a3403f', background: overdue ? 'rgba(163,64,63,0.08)' : 'transparent',
+                  borderLeft: '3px solid #c0392b', background: overdue ? 'rgba(192,57,43,0.08)' : 'transparent',
                   padding: '6px 10px', borderRadius: 6, transition: 'background 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(163,64,63,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background = overdue ? 'rgba(163,64,63,0.08)' : 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(192,57,43,0.14)'}
+                onMouseLeave={e => e.currentTarget.style.background = overdue ? 'rgba(192,57,43,0.08)' : 'transparent'}
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: overdue ? 800 : 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2022,7 +2022,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
                     현재단계: {item._current_step} · 지연 +{item._delay_days}일{overdue ? ' · 요구납기 초과' : ''}
                   </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#a3403f', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#c0392b', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</div>
               </div>
             );
           })}
@@ -2041,7 +2041,7 @@ function MonthSchedulePanel({ alerts, onSelect }) {
             <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>이번 달 예정 항목 없음</div>
           )}
           {upcomingList.map((item, i) => {
-            const UPCOMING_COLOR = { 'At Risk': '#b8860b', '지연': '#a3403f', 'OTP지연': '#a3403f', '계산서지연': '#a3403f' };
+            const UPCOMING_COLOR = { 'At Risk': '#d97706', '지연': '#c0392b', 'OTP지연': '#c0392b', '계산서지연': '#c0392b' };
             const color = UPCOMING_COLOR[item._status] || '#376092';
             return (
               <div key={i} onClick={() => onSelect(item)}
@@ -3083,15 +3083,15 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
                     </td>
                     <td>
                       <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
-                      <span style={{ color: ['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? '#a3403f' : (statusColorMap[item._status] || 'var(--muted)'), fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
+                      <span style={{ color: ['지연','출고지연','OTP지연','계산서지연'].includes(item._status) ? '#c0392b' : (statusColorMap[item._status] || 'var(--muted)'), fontWeight: 600, fontSize: 12 }}>{STATUS_LABELS[item._status] || item._status}</span>
                     </td>
                     <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>
                       {item._cur_actual_date || '—'}
                     </td>
-                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._current_planned_date && item._current_planned_date < new Date().toISOString().slice(0,10) ? '#a3403f' : 'var(--muted)' }}>
+                    <td style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: item._current_planned_date && item._current_planned_date < new Date().toISOString().slice(0,10) ? '#c0392b' : 'var(--muted)' }}>
                       {item._current_planned_date || '—'}
                     </td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) && !item['최종납기일'] ? '#a3403f' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: item['요구납기일'] && item['요구납기일'] < new Date().toISOString().slice(0,10) && !item['최종납기일'] ? '#c0392b' : 'var(--text)' }}>{item['요구납기일'] || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, minWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>
                       {item['비고'] || ''}
                     </td>
@@ -3274,7 +3274,7 @@ function VendorsTab({ api, onToast }) {
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                   <button onClick={() => deleteVendor(v.name)}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '2px 6px' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#a3403f'}
+                    onMouseEnter={e => e.currentTarget.style.color = '#c0392b'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}>✕</button>
                 </td>
               </tr>
