@@ -1015,8 +1015,10 @@ class DataManager:
                 "시스템명": row.get('시스템명', ''),
                 "_current_step": row.get('_current_step', ''),
                 "_progress": int(row.get('_progress', 0)),
+                "_vendor_type": row.get('_vendor_type', ''),
                 "요구납기일": safe_date(row.get('요구납기일')),
                 "최종납기일": safe_date(row.get('최종납기일')),
+                "OTP일자": safe_date(row.get('OTP일자')),
             }
 
         # 출고예정: date_col 기준 + 날짜 범위 + 아직 출고 안 된 건만 (중복 제거)
