@@ -1122,6 +1122,7 @@ function ProjectByStage({ data, onStepClick, vendorFilter }) {
 
 // ── 단계별 진행·지연 통합 현황 (완료/진행/지연/대기 통합 바) ───────────────────
 function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
+  const [hoveredStep, setHoveredStep] = useState(null);
   if (!data?.length) return <div className="empty-state">데이터 없음</div>;
   const filteredData = vendorFilter === '국내' ? data.filter(d => !['OTP', '포장'].includes(d.step)) : data;
 
@@ -1145,19 +1146,23 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
           const delayed = d.delayed_count || 0;
           const inProgress = Math.max(0, (d.project_count || 0) - delayed);
           const clickable = delayed > 0;
+          const isHov = hoveredStep === d.step;
           return (
             <div key={d.step}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: clickable ? 'pointer' : 'default', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', transition: 'background 0.15s' }}
+              style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, cursor: clickable ? 'pointer' : 'default', borderRadius: 4, padding: 'var(--ch-row-py) var(--ch-row-px)', background: isHov ? 'var(--surface2)' : 'transparent', transition: 'background 0.15s' }}
               onClick={() => clickable && onStepClick(d.step)}
-              onMouseEnter={e => clickable && (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => e.currentTarget.style.background = ''}
+              onMouseEnter={() => setHoveredStep(d.step)}
+              onMouseLeave={() => setHoveredStep(null)}
             >
+              {isHov && (
+                <div style={{ position: 'absolute', left: 'var(--ch-label-w)', bottom: '100%', marginBottom: 4, zIndex: 20, background: '#0f172a', color: '#fff', fontSize: 10, borderRadius: 5, padding: '4px 8px', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', pointerEvents: 'none' }}>
+                  {d.step} · 진행 {inProgress} · 지연 {delayed} · 전체 {total}건
+                </div>
+              )}
               <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color: 'var(--text)', textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>{d.step}</div>
-              <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}
-                title={`진행 ${inProgress} · 지연 ${delayed}`}
-              >
-                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6' }} />}
-                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626' }} />}
+              <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--border)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
+                {inProgress > 0 && <div style={{ width: `${inProgress / total * 100}%`, height: '100%', background: '#3b82f6', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
+                {delayed > 0 && <div style={{ width: `${delayed / total * 100}%`, height: '100%', background: '#dc2626', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }} />}
               </div>
               <div style={{ minWidth: 110, fontSize: 11, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
                 진행 {inProgress} / {total}
@@ -1166,6 +1171,9 @@ function StageIntegratedChart({ data, onStepClick, vendorFilter }) {
                 )}
               </div>
               <div style={{ width: 34, fontSize: 'var(--ch-fs-val)', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)', flexShrink: 0, textAlign: 'right' }}>{d.pct}%</div>
+              <div style={{ width: 12, flexShrink: 0, fontSize: 12, color: 'var(--muted)', textAlign: 'center', opacity: clickable ? (isHov ? 1 : 0.5) : 0, transform: isHov ? 'translateX(2px)' : 'translateX(0)', transition: 'opacity 0.15s, transform 0.15s' }}>
+                {clickable ? '›' : ''}
+              </div>
             </div>
           );
         })}
@@ -1396,6 +1404,7 @@ function MonthlyDeliveryChart({ data, onBarClick }) {
 }
 
 function SystemDistribution({ systemCounts, systemDelayed, total }) {
+  const [hoveredName, setHoveredName] = useState(null);
   if (!systemCounts || !total) return <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>데이터 없음</div>;
 
   const entries = Object.entries(systemCounts).sort((a, b) => b[1] - a[1]);
@@ -1418,10 +1427,20 @@ function SystemDistribution({ systemCounts, systemDelayed, total }) {
         const normal = Math.max(0, count - delayed);
         const pct = Math.round(count / total * 100);
         const color = COLORS[i % COLORS.length];
+        const isHov = hoveredName === name;
         return (
-          <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)' }}>
+          <div key={name}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--ch-row-py) var(--ch-row-px)', borderRadius: 4, background: isHov ? 'var(--surface2)' : 'transparent', transition: 'background 0.15s' }}
+            onMouseEnter={() => setHoveredName(name)}
+            onMouseLeave={() => setHoveredName(null)}
+          >
+            {isHov && (
+              <div style={{ position: 'absolute', left: 'var(--ch-label-w)', bottom: '100%', marginBottom: 4, zIndex: 20, background: '#0f172a', color: '#fff', fontSize: 10, borderRadius: 5, padding: '4px 8px', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', pointerEvents: 'none' }}>
+                {name} · 전체 {count}건 · 지연 {delayed}건
+              </div>
+            )}
             <div style={{ width: 'var(--ch-label-w)', fontSize: 'var(--ch-fs-label)', color, textAlign: 'right', flexShrink: 0, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }} title={`${name} ${count}건 (지연 ${delayed}건)`}>
+            <div style={{ flex: 1, height: 'var(--ch-bar-h)', background: 'var(--bg)', borderRadius: 'var(--ch-bar-r)', overflow: 'hidden', display: 'flex' }}>
               {normal > 0 && (
                 <div style={{ width: `${normal / total * 100}%`, height: '100%', background: color, opacity: 'var(--ch-bar-op)', display: 'flex', alignItems: 'center', padding: '0 7px', animation: 'barGrow 0.5s cubic-bezier(.4,0,.2,1)', transformOrigin: 'left' }}>
                   {(normal / total * 100) >= 12 && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)' }}>{normal}</span>}
