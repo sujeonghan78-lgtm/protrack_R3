@@ -966,6 +966,41 @@ class DataManager:
         result.sort(key=lambda x: x['_cur_diff'], reverse=True)
         return result
 
+    def get_all_delayed_items(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
+        """전체 지연 건 목록 (지연 관리 탭용) — 공정중지연/출고지연/OTP지연/계산서지연 모두 포함"""
+        if self.df.empty:
+            return []
+        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
+
+        DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
+        result = []
+        for _, row in df.iterrows():
+            status = row.get('_status', '')
+            if status not in DELAY_STATUSES:
+                continue
+            cur_diff = row.get('_cur_diff')
+            if cur_diff is None or (isinstance(cur_diff, float) and pd.isna(cur_diff)):
+                cur_diff = 0
+
+            result.append({
+                "수주번호":         row.get('수주번호', ''),
+                "프로젝트":         row.get('프로젝트', ''),
+                "업체명":           row.get('업체명', ''),
+                "시스템명":         row.get('시스템명', ''),
+                "_current_step":    row.get('_current_step', ''),
+                "_status":          status,
+                "_cur_diff":        int(cur_diff),
+                "_cur_actual_date": row.get('_cur_actual_date'),
+                "_current_planned_date": row.get('_current_planned_date'),
+                "_progress":        row.get('_progress', 0),
+                "요구납기일":       row.get('요구납기일'),
+                "_row_id":          row.get('_row_id', ''),
+                "ordseq":           row.get('ordseq'),
+            })
+
+        result.sort(key=lambda x: x['_cur_diff'], reverse=True)
+        return result
+
     def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
         """전체 상태 분포 (도넛차트용) — 정상/임박/지연/출고/OTP/계산서 6분류, 총합이 항상 total과 일치하도록
         우선순위(계산서 > OTP > 출고 > 진행중상태) 기준으로 완전히 배타적으로 분류"""
