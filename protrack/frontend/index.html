@@ -1265,11 +1265,24 @@ function StatusDonut({ data, onSliceClick }) {
 }
 
 // ── 연간 출고 현황 (1~12월 전체, 완료/예정 2톤 + 클릭시 하단 인라인 상세) ─────
+const ANNUAL_DETAIL_SORT_FIELDS = [
+  { key: '_statusOrder', label: '상태' },
+  { key: '프로젝트', label: '프로젝트' },
+  { key: '시스템명', label: '시스템명' },
+  { key: '요구납기일', label: '출고일자' },
+];
+
 function AnnualDeliveryChart({ data, onSelectItem }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [sysFilter, setSysFilter] = useState('전체');
+  const [sortKey, setSortKey] = useState('_statusOrder');
+  const [sortDir, setSortDir] = useState('asc');
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  };
   const PAGE_SIZE = 8;
   const year = new Date().getFullYear();
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
@@ -1320,16 +1333,25 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
           <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '20px 0' }}>월을 클릭하면 상세 내역이 표시됩니다</div>
         ) : (() => {
           const allItems = [
-            ...(selected.entry.completed_items || []).map(it => ({ ...it, _done: true })),
-            ...(selected.entry.planned_items || []).map(it => ({ ...it, _done: false })),
+            ...(selected.entry.completed_items || []).map(it => ({ ...it, _done: true, _statusOrder: 1 })),
+            ...(selected.entry.planned_items || []).map(it => ({ ...it, _done: false, _statusOrder: 0 })),
           ];
           const systems = [...new Set(allItems.map(it => it.시스템명).filter(Boolean))].sort();
           const q = search.trim().toLowerCase();
-          const items = allItems.filter(it => {
+          const itemsFiltered = allItems.filter(it => {
             if (sysFilter !== '전체' && it.시스템명 !== sysFilter) return false;
             if (!q) return true;
             const hay = `${it.프로젝트 || ''} ${it.수주번호 || ''} ${it.업체명 || ''}`.toLowerCase();
             return hay.includes(q);
+          });
+          const items = [...itemsFiltered].sort((a, b) => {
+            let av = a[sortKey], bv = b[sortKey];
+            if (av == null) av = '';
+            if (bv == null) bv = '';
+            const cmp = (typeof av === 'number' && typeof bv === 'number')
+              ? av - bv
+              : String(av).localeCompare(String(bv), 'ko');
+            return sortDir === 'asc' ? cmp : -cmp;
           });
           const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
           const pageSafe = Math.min(page, totalPages);
@@ -1370,6 +1392,20 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
                 </div>
               ) : (
                 <>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 4, padding: '0 8px' }}>
+                    {ANNUAL_DETAIL_SORT_FIELDS.map(f => {
+                      const active = sortKey === f.key;
+                      return (
+                        <span key={f.key} onClick={() => toggleSort(f.key)}
+                          title="클릭하여 정렬"
+                          style={{ fontSize: 10, fontWeight: 700, cursor: 'pointer', userSelect: 'none', color: active ? 'var(--accent)' : 'var(--muted)' }}
+                        >
+                          {f.label}
+                          <span style={{ marginLeft: 2, opacity: active ? 1 : 0.35 }}>{active ? (sortDir === 'asc' ? '▲' : '▼') : '▼'}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                   <div style={{ maxHeight: 260, overflowY: 'auto' }}>
                     {paged.map((item, i) => {
                       const isDomestic = item._vendor_type === '국내';
@@ -1644,6 +1680,7 @@ const MONTHLY_MODAL_COLS = [
   { label: '진척도', key: '_progress' },
   { label: '현재단계', key: '_current_step' },
   { label: '호선명', key: '프로젝트' },
+  { label: '시스템명', key: '시스템명' },
   { label: '거래처', key: '업체명' },
   { label: '요구납기일', key: '요구납기일' },
   { label: '수주번호', key: '수주번호' },
@@ -1655,7 +1692,7 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'min(760px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(760px, 92vw)', maxWidth: '96vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고예정 ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1663,15 +1700,11 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+        <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
           {items.length === 0 ? (
             <div className="empty-state">해당 항목 없음</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
-              </colgroup>
+            <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                   {MONTHLY_MODAL_COLS.map(col => (
@@ -1686,12 +1719,13 @@ function MonthlyModal({ monthData, onClose, onSelect }) {
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
-                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || '—'}</td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{item._progress}%</td>
+                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td title={item.프로젝트 || ''} style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{item.프로젝트 || '—'}</td>
+                    <td title={item.시스템명 || ''} style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160, color: 'var(--muted)', fontSize: 11 }}>{item.시스템명 || '—'}</td>
+                    <td title={item.업체명 || ''} style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11, whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1776,7 +1810,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'min(860px, 95vw)', maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(860px, 95vw)', maxWidth: '96vw', maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div>
             <div className="modal-title">{modalTitle}</div>
@@ -1800,23 +1834,13 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
           </div>
         </div>
 
-        <div style={{ overflowY: 'auto', flex: 1, marginTop: 12 }}>
+        <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1, marginTop: 12 }}>
           {loading ? (
             <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div>
           ) : !items?.length ? (
             <div className="empty-state">지연 건 없음</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '7%' }} />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '14%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '14%' }} />
-              </colgroup>
+            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', position: 'sticky', top: 0, zIndex: 1 }}>
                   {STAGE_DELAY_MODAL_COLS.map(col => (
@@ -1836,31 +1860,31 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.05)'}
                       onMouseLeave={e => e.currentTarget.style.background = ''}
                     >
-                      <td style={{ padding: '8px 10px' }}>
+                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, background: badgeBg, color: badgeColor, fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 11 }}>
                           +{days}일
                         </span>
                       </td>
-                      <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td title={item.프로젝트 || ''} style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
                         {item.프로젝트 || '—'}
                       </td>
-                      <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 11 }}>
+                      <td title={item.시스템명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160, color: 'var(--muted)', fontSize: 11 }}>
                         {item.시스템명 || '—'}
                       </td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 11 }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
                         <div style={{ color: item._cur_actual_date ? 'var(--text)' : 'var(--muted)' }}>{item._cur_actual_date || '실적없음'}</div>
                         <div style={{ color: item._current_planned_date ? '#2563eb' : 'var(--muted)', marginTop: 1 }}>→ {item._current_planned_date || '예정없음'}</div>
                       </td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', textAlign: 'right' }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {item._progress != null ? `${item._progress}%` : '—'}
                       </td>
-                      <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td title={item.업체명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
                         {item.업체명 || '—'}
                       </td>
-                      <td style={{ padding: '8px 10px' }}>
+                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
                         <span className="step-badge">{item._current_step || '—'}</span>
                       </td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180, fontSize: 11 }}>
                         {item.수주번호 || '—'}
                       </td>
                     </tr>
@@ -1879,6 +1903,7 @@ const ITEM_MODAL_COLS = [
   { label: '진척도', key: '_progress' },
   { label: '현재단계', key: '_current_step' },
   { label: '호선명', key: '프로젝트' },
+  { label: '시스템명', key: '시스템명' },
   { label: '거래처', key: '업체명' },
   { label: '요구납기일', key: '요구납기일' },
   { label: '수주번호', key: '수주번호' },
@@ -1889,7 +1914,7 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
   if (!items) return null;
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(720px, 92vw)', maxWidth: '96vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1897,15 +1922,11 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+        <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
           {items.length === 0 ? (
             <div className="empty-state">해당 항목 없음</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
-              </colgroup>
+            <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                   {ITEM_MODAL_COLS.map(col => (
@@ -1920,12 +1941,13 @@ function ItemModal({ title, items, onClose, onSelectItem }) {
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.04)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)' }}>{item._progress}%</td>
-                    <td style={{ padding: '7px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11 }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
-                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{item._progress}%</td>
+                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td title={item.프로젝트 || ''} style={{ padding: '7px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{item.프로젝트 || '—'}</td>
+                    <td title={item.시스템명 || ''} style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160, color: 'var(--muted)', fontSize: 11 }}>{item.시스템명 || '—'}</td>
+                    <td title={item.업체명 || ''} style={{ padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{item.업체명}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--muted)', fontSize: 11, whiteSpace: 'nowrap' }}>{item.요구납기일 || item.OTP예상일 || '—'}</td>
+                    <td style={{ padding: '7px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2687,6 +2709,7 @@ const MODAL_TABLE_COLS = [
   { label: '진척도', key: '_progress' },
   { label: '현재단계', key: '_current_step' },
   { label: '호선명', key: '프로젝트' },
+  { label: '시스템명', key: '시스템명' },
   { label: '거래처', key: '업체명' },
   { label: '요구납기일', key: '요구납기일' },
   { label: '수주번호', key: '수주번호' },
@@ -2815,7 +2838,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
     const { sorted, sortKey, sortDir, toggleSort } = useSortableData(items, '프로젝트', 'desc');
     return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(720px, 92vw)', maxWidth: '96vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="modal-title">{title} ({items.length}건)</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -2823,13 +2846,9 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+        <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
           {loading ? <div className="loading"><div className="dot-loader"><span/><span/><span/></div></div> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '16%' }} />
-              </colgroup>
+            <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
                   {MODAL_TABLE_COLS.map(col => (
@@ -2843,12 +2862,13 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.05)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono' }}>{item._progress}%</td>
-                    <td style={{ padding: '8px 10px' }}><span className="step-badge">{item._current_step}</span></td>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.프로젝트 || '—'}</td>
-                    <td style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.업체명}</td>
-                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item['요구납기일'] || '—'}</td>
-                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.수주번호}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>{item._progress}%</td>
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}><span className="step-badge">{item._current_step}</span></td>
+                    <td title={item.프로젝트 || ''} style={{ padding: '8px 10px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{item.프로젝트 || '—'}</td>
+                    <td title={item.시스템명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160, color: 'var(--muted)', fontSize: 11 }}>{item.시스템명 || '—'}</td>
+                    <td title={item.업체명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{item.업체명}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{item['요구납기일'] || '—'}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{item.수주번호}</td>
                   </tr>
                 ))}
               </tbody>
