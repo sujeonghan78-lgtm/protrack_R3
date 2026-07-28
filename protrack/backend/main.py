@@ -17,7 +17,7 @@ from auth import (
     require_admin, Token, User, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from data_manager import DataManager
-from models import ProcessUpdate, PaginationParams
+from models import ProcessUpdate, PaginationParams, DelayReasonUpdate
 
 app = FastAPI(title="PRO-TRACK API", version="1.0.0")
 
@@ -32,6 +32,7 @@ app.add_middleware(
 DATA_FILE = os.path.join(os.path.dirname(__file__), "../data/sample.xlsx")
 VERSIONS_DIR = os.path.join(os.path.dirname(__file__), "../data/versions")
 VERSIONS_META = os.path.join(os.path.dirname(__file__), "../data/versions.json")
+DELAY_REASONS_FILE = os.path.join(os.path.dirname(__file__), "../data/delay_reasons.json")
 MAX_VERSIONS = 10
 
 os.makedirs(VERSIONS_DIR, exist_ok=True)
@@ -51,6 +52,27 @@ def load_versions() -> list:
 def save_versions(versions: list):
     with open(VERSIONS_META, 'w', encoding='utf-8') as f:
         json.dump(versions, f, ensure_ascii=False, indent=2)
+
+
+# ─── 지연 사유 영구 저장소 (엑셀 재업로드와 무관하게 수주번호+시스템명 기준으로 유지) ──
+
+def load_delay_reasons() -> dict:
+    if not os.path.exists(DELAY_REASONS_FILE):
+        return {}
+    try:
+        with open(DELAY_REASONS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+def save_delay_reasons(data: dict):
+    with open(DELAY_REASONS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def delay_reason_key(order_no: str, system_name: str = "") -> str:
+    return f"{order_no or ''}::{system_name or ''}"
 
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
@@ -107,6 +129,55 @@ async def get_stage_by_process(product_filter: str = "", date_col: str = "", dat
 @app.get("/api/dashboard/stage-delayed-items")
 async def get_stage_delayed_items(step: str, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     return dm.get_stage_delayed_items(step=step, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+
+
+# ─── 지연 관리 (수주번호+시스템명 기준으로 지연 사유를 엑셀 재업로드와 무관하게 유지) ──
+
+@app.get("/api/delay-management")
+async def get_delay_management(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    items = dm.get_all_delayed_items(product_filter=product_filter, vendor_filter=vendor_filter)
+    reasons = load_delay_reasons()
+    for it in items:
+        key = delay_reason_key(it.get('수주번호', ''), it.get('시스템명', ''))
+        r = reasons.get(key)
+        it['_reason'] = r.get('reason', '') if r else ''
+        it['_reason_updated_at'] = r.get('updated_at') if r else None
+        it['_reason_updated_by'] = r.get('updated_by') if r else None
+    return items
+
+
+@app.put("/api/delay-management/reason")
+async def update_delay_reason(
+    order_no: str,
+    system_name: str = "",
+    body: DelayReasonUpdate = None,
+    current_user: User = Depends(require_admin)
+):
+    reasons = load_delay_reasons()
+    key = delay_reason_key(order_no, system_name)
+    reasons[key] = {
+        "수주번호": order_no,
+        "시스템명": system_name,
+        "reason": body.reason if body else "",
+        "updated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "updated_by": current_user.username,
+    }
+    save_delay_reasons(reasons)
+    return {"success": True, "reason": reasons[key]}
+
+
+@app.delete("/api/delay-management/reason")
+async def delete_delay_reason(
+    order_no: str,
+    system_name: str = "",
+    current_user: User = Depends(require_admin)
+):
+    reasons = load_delay_reasons()
+    key = delay_reason_key(order_no, system_name)
+    if key in reasons:
+        del reasons[key]
+        save_delay_reasons(reasons)
+    return {"success": True}
 
 
 @app.get("/api/dashboard/status-distribution")
