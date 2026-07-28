@@ -1814,7 +1814,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(860px, 95vw)', maxWidth: '96vw', maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'fit-content', minWidth: 'min(980px, 96vw)', maxWidth: '96vw', maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div>
             <div className="modal-title">{modalTitle}</div>
@@ -1844,7 +1844,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
           ) : !items?.length ? (
             <div className="empty-state">지연 건 없음</div>
           ) : (
-            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', position: 'sticky', top: 0, zIndex: 1 }}>
                   {STAGE_DELAY_MODAL_COLS.map(col => (
@@ -1891,7 +1891,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180, fontSize: 11 }}>
                         {item.수주번호 || '—'}
                       </td>
-                      <td title={item._reason || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220, color: item._reason ? 'var(--text)' : 'var(--muted)', fontSize: 11 }}>
+                      <td title={item._reason || ''} style={{ padding: '8px 10px', whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 260, minWidth: 160, color: item._reason ? 'var(--text)' : 'var(--muted)', fontSize: 11, lineHeight: 1.4 }}>
                         {item._reason || '—'}
                       </td>
                     </tr>
@@ -3173,17 +3173,21 @@ function ListTab({ api, user, initialStepFilter, initialStatusFilter, search: se
 }
 
 // ── 지연 관리 탭 ────────────────────────────────────────────────────────────────
-// 수주번호+시스템명+현재단계 기준으로 지연 사유를 저장 — 엑셀을 새로 업로드해 데이터가 갱신돼도
-// 동일 건이 같은 단계에서 다시 지연으로 뜨면 이전에 적어둔 사유가 자동으로 매칭됨.
-// 같은 수주번호+시스템명이라도 지연이 발생한 단계가 바뀌면 별개 건으로 새로 추가되지만,
-// 목록에서는 같은 수주번호+시스템명끼리 이전 이력으로 묶어서 함께 보여줌.
+// 수주번호+시스템명 기준으로 지연 사유를 로그 형태로 누적 저장(각 사유마다 고유 id) —
+// 엑셀을 새로 업로드해 기존 데이터가 사라져도 이 로그는 별도로 유지됨.
+// 메인 행에는 그 수주번호+시스템명에 대해 가장 최근에 작성된 사유를 대표로 보여주고,
+// "+"를 누르면 새 사유를 추가 기록할 수 있음(현재단계 기준으로 저장되지만 표시는 항상 최신 우선).
+// 이력을 펼치면 어느 단계에서 작성된 사유인지 함께 표시되고, 체크박스로 여러 건을 선택해 한 번에 삭제 가능.
 function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체', onToast }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState({}); // groupKey -> 이력 펼침 여부
+  const [addOpen, setAddOpen] = useState({}); // groupKey -> + 입력창 열림 여부
+  const [addDrafts, setAddDrafts] = useState({}); // groupKey -> 입력 중인 텍스트
   const [savingKey, setSavingKey] = useState(null);
-  const [drafts, setDrafts] = useState({}); // key -> 편집 중인 사유 텍스트
-  const [expanded, setExpanded] = useState({}); // key -> 이력 펼침 여부
+  const [selectedIds, setSelectedIds] = useState({}); // entry id -> true
+  const [deleting, setDeleting] = useState(false);
   const [selected, setSelected] = useState(null);
   const isAdmin = user.role === 'admin';
 
@@ -3191,7 +3195,6 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
   const pf = pfVal ? `?product_filter=${encodeURIComponent(pfVal)}` : '';
   const vf = vendorFilter && vendorFilter !== '전체' ? `${pf ? '&' : '?'}vendor_filter=${encodeURIComponent(vendorFilter)}` : '';
 
-  const rowKey = (it) => `${it.수주번호 || ''}::${it.시스템명 || ''}::${it._current_step || ''}`;
   const groupKey = (it) => `${it.수주번호 || ''}::${it.시스템명 || ''}`;
 
   const load = useCallback(() => {
@@ -3213,18 +3216,23 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
   }) : sorted;
 
   const withReasonCount = items.filter(it => it._reason).length;
+  const selectedCount = Object.values(selectedIds).filter(Boolean).length;
 
-  const reasonParams = (item) =>
-    `order_no=${encodeURIComponent(item.수주번호 || '')}&system_name=${encodeURIComponent(item.시스템명 || '')}&step=${encodeURIComponent(item._current_step || '')}`;
+  const toggleSelect = (id) => setSelectedIds(s => ({ ...s, [id]: !s[id] }));
 
-  const handleSave = async (item) => {
-    const key = rowKey(item);
-    const reason = drafts[key] ?? item._reason ?? '';
+  const handleAdd = async (item) => {
+    const key = groupKey(item);
+    const text = (addDrafts[key] || '').trim();
+    if (!text) return;
     setSavingKey(key);
     try {
-      await api.put(`/api/delay-management/reason?${reasonParams(item)}`, { reason });
-      setItems(prev => prev.map(it => rowKey(it) === key ? { ...it, _reason: reason, _reason_updated_by: user.username, _reason_updated_at: new Date().toISOString().slice(0,16).replace('T',' ') } : it));
-      onToast && onToast('지연 사유가 저장되었습니다.');
+      await api.post('/api/delay-management/reason', {
+        order_no: item.수주번호 || '', system_name: item.시스템명 || '', step: item._current_step || '', reason: text,
+      });
+      setAddDrafts(d => ({ ...d, [key]: '' }));
+      setAddOpen(o => ({ ...o, [key]: false }));
+      onToast && onToast('지연 사유가 추가되었습니다.');
+      load();
     } catch {
       onToast && onToast('저장에 실패했습니다.', 'error');
     } finally {
@@ -3232,19 +3240,21 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
     }
   };
 
-  const handleDelete = async (item) => {
-    const key = rowKey(item);
-    if (!window.confirm('작성된 지연 사유를 삭제할까요?')) return;
-    setSavingKey(key);
+  const handleBulkDelete = async () => {
+    const ids = Object.keys(selectedIds).filter(id => selectedIds[id]);
+    if (ids.length === 0) return;
+    if (!window.confirm(`선택한 지연 사유 ${ids.length}건을 삭제할까요?`)) return;
+    setDeleting(true);
     try {
-      await api.delete(`/api/delay-management/reason?${reasonParams(item)}`);
-      setItems(prev => prev.map(it => rowKey(it) === key ? { ...it, _reason: '', _reason_updated_by: null, _reason_updated_at: null } : it));
-      setDrafts(d => { const next = { ...d }; delete next[key]; return next; });
-      onToast && onToast('지연 사유가 삭제되었습니다.');
+      await Promise.all(ids.map(id => api.delete(`/api/delay-management/reason/${encodeURIComponent(id)}`)));
+      onToast && onToast(`${ids.length}건 삭제되었습니다.`);
+      setSelectedIds({});
+      load();
     } catch {
-      onToast && onToast('삭제에 실패했습니다.', 'error');
+      onToast && onToast('삭제 중 일부 실패했습니다.', 'error');
+      load();
     } finally {
-      setSavingKey(null);
+      setDeleting(false);
     }
   };
 
@@ -3257,7 +3267,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
     { label: '현재단계', key: '_current_step' },
     { label: '요구납기일', key: '요구납기일' },
     { label: '수주번호', key: '수주번호' },
-    { label: '지연 사유', key: null },
+    { label: '지연 사유(최신)', key: null },
   ];
 
   return (
@@ -3272,9 +3282,14 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>⌕</span>
               <input placeholder="수주번호, 업체명, 호선명, 시스템명 검색..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
+            {isAdmin && selectedCount > 0 && (
+              <button onClick={handleBulkDelete} disabled={deleting} style={{ fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(220,38,38,0.3)', background: 'rgba(220,38,38,0.08)', color: '#dc2626', cursor: 'pointer' }}>
+                {deleting ? '삭제중...' : `선택 삭제 (${selectedCount})`}
+              </button>
+            )}
             <button className="btn-icon" onClick={() => {
               if (!filtered.length) return;
-              const headers = ['지연일수', '상태', '호선명', '시스템명', '업체명', '현재단계', '요구납기일', '수주번호', '지연사유'];
+              const headers = ['지연일수', '상태', '호선명', '시스템명', '업체명', '현재단계', '요구납기일', '수주번호', '지연사유(최신)'];
               const rows = filtered.map(it => [
                 `+${it._cur_diff}일`, STATUS_LABELS[it._status] || it._status, it.프로젝트 || '', it.시스템명 || '',
                 it.업체명 || '', it._current_step || '', it.요구납기일 || '', it.수주번호 || '', it._reason || '',
@@ -3300,24 +3315,22 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                   {DELAY_COLS.map(col => (
                     <SortableTh key={col.label} col={col} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
-                  <th style={{ width: 60 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((item) => {
-                  const key = rowKey(item);
                   const gKey = groupKey(item);
-                  const draft = drafts[key] ?? item._reason ?? '';
-                  const dirty = draft !== (item._reason ?? '');
-                  const history = item._history || [];
+                  const entries = item._entries || [];
                   const isExpanded = !!expanded[gKey];
+                  const isAddOpen = !!addOpen[gKey];
+                  const repIsOtherStep = item._reason_step && item._reason_step !== item._current_step;
                   return (
-                    <React.Fragment key={key}>
+                    <React.Fragment key={gKey}>
                     <tr style={{ cursor: 'default' }}>
                       <td style={{ padding: '10px 4px', textAlign: 'center' }}>
-                        {history.length > 0 && (
+                        {entries.length > 0 && (
                           <span onClick={() => setExpanded(e => ({ ...e, [gKey]: !e[gKey] }))}
-                            title="이전 이력 보기"
+                            title="사유 이력 보기"
                             style={{ cursor: 'pointer', fontSize: 10, color: 'var(--accent)', fontWeight: 700, userSelect: 'none' }}
                           >{isExpanded ? '▾' : '▸'}</span>
                         )}
@@ -3331,68 +3344,65 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                       </td>
                       <td onClick={() => setSelected(item)} style={{ fontSize: 13, fontWeight: 700, cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.프로젝트 || ''}>
                         {item.프로젝트 || '—'}
-                        {history.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>이력 {history.length}건</span>}
+                        {entries.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>이력 {entries.length}건</span>}
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.시스템명 || ''}>{item.시스템명 || '—'}</td>
                       <td style={{ fontSize: 12, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.업체명 || ''}>{item.업체명}</td>
                       <td style={{ whiteSpace: 'nowrap' }}><span className="step-badge">{item._current_step}</span></td>
                       <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{item.요구납기일 || '—'}</td>
                       <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.수주번호}</td>
-                      <td style={{ minWidth: 260 }}>
+                      <td style={{ minWidth: 280 }}>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                          <textarea
-                            rows={1}
-                            value={draft}
-                            disabled={!isAdmin}
-                            onChange={e => setDrafts(d => ({ ...d, [key]: e.target.value }))}
-                            placeholder={isAdmin ? '지연 사유를 입력하세요...' : '작성된 사유 없음'}
-                            style={{
-                              flex: 1, resize: 'vertical', minHeight: 30, padding: '5px 8px', fontSize: 12,
-                              border: `1px solid ${dirty ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6,
-                              background: isAdmin ? 'var(--surface2)' : 'transparent', color: 'var(--text)', fontFamily: 'Noto Sans KR',
-                            }}
-                          />
-                        </div>
-                        {item._reason_updated_at && (
-                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
-                            {item._reason_updated_by} · {item._reason_updated_at}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ verticalAlign: 'top', paddingTop: 10 }}>
-                        {isAdmin && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <button
-                              onClick={() => handleSave(item)}
-                              disabled={!dirty || savingKey === key}
-                              style={{
-                                fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6,
-                                border: '1px solid var(--border)', cursor: dirty ? 'pointer' : 'default',
-                                background: dirty ? 'var(--accent)' : 'var(--surface2)', color: dirty ? '#fff' : 'var(--muted)',
-                              }}
-                            >{savingKey === key ? '저장중' : '저장'}</button>
-                            {item._reason && (
-                              <button
-                                onClick={() => handleDelete(item)}
-                                disabled={savingKey === key}
-                                style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--surface2)', color: '#dc2626' }}
-                              >삭제</button>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {item._reason ? (
+                              <>
+                                <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'normal', wordBreak: 'break-word' }}>{item._reason}</div>
+                                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
+                                  {repIsOtherStep && <span className="step-badge" style={{ marginRight: 4, fontSize: 9 }}>{item._reason_step}</span>}
+                                  {item._reason_updated_by} · {item._reason_updated_at}
+                                </div>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>작성된 사유 없음</span>
                             )}
+                          </div>
+                          {isAdmin && (
+                            <button onClick={() => setAddOpen(o => ({ ...o, [gKey]: !o[gKey] }))}
+                              title="사유 추가"
+                              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
+                            >+</button>
+                          )}
+                        </div>
+                        {isAddOpen && (
+                          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                            <textarea
+                              rows={1}
+                              autoFocus
+                              value={addDrafts[gKey] || ''}
+                              onChange={e => setAddDrafts(d => ({ ...d, [gKey]: e.target.value }))}
+                              placeholder={`${item._current_step} 단계 지연 사유 추가...`}
+                              style={{ flex: 1, resize: 'vertical', minHeight: 30, padding: '5px 8px', fontSize: 12, border: '1px solid var(--accent)', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text)', fontFamily: 'Noto Sans KR' }}
+                            />
+                            <button onClick={() => handleAdd(item)} disabled={savingKey === gKey || !(addDrafts[gKey] || '').trim()}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--accent)', color: '#fff', flexShrink: 0 }}
+                            >{savingKey === gKey ? '저장중' : '저장'}</button>
                           </div>
                         )}
                       </td>
                     </tr>
-                    {isExpanded && history.map((h, hi) => (
-                      <tr key={`${key}-hist-${hi}`} style={{ background: 'var(--surface2)' }}>
-                        <td></td>
-                        <td colSpan={5} style={{ padding: '6px 8px 6px 24px', fontSize: 11, color: 'var(--muted)' }}>
-                          <span className="step-badge" style={{ marginRight: 6 }}>{h._current_step || '—'}</span>
-                          단계에서의 이전 지연 이력
+                    {isExpanded && entries.map((h) => (
+                      <tr key={h.id} style={{ background: 'var(--surface2)' }}>
+                        <td style={{ textAlign: 'center' }}>
+                          {isAdmin && <input type="checkbox" checked={!!selectedIds[h.id]} onChange={() => toggleSelect(h.id)} style={{ cursor: 'pointer' }} />}
                         </td>
-                        <td colSpan={3} style={{ padding: '6px 8px', fontSize: 11, color: 'var(--muted)' }}>
+                        <td colSpan={5} style={{ padding: '6px 8px 6px 24px', fontSize: 11, color: 'var(--muted)' }}>
+                          <span className="step-badge" style={{ marginRight: 6 }}>{h._current_step || '단계 미기록'}</span>
+                          {h._current_step === item._current_step ? '현재단계' : '이전단계'} 지연 사유
+                        </td>
+                        <td colSpan={3} style={{ padding: '6px 8px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                           {h.updated_by} · {h.updated_at}
                         </td>
-                        <td style={{ padding: '6px 8px', fontSize: 12, color: 'var(--text2)' }} colSpan={2}>{h.reason || '—'}</td>
+                        <td style={{ padding: '6px 8px', fontSize: 12, color: 'var(--text2)', whiteSpace: 'normal', wordBreak: 'break-word' }}>{h.reason || '—'}</td>
                       </tr>
                     ))}
                     </React.Fragment>
