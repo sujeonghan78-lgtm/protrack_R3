@@ -993,7 +993,7 @@ class DataManager:
                 "_cur_actual_date": row.get('_cur_actual_date'),
                 "_current_planned_date": row.get('_current_planned_date'),
                 "_progress":        row.get('_progress', 0),
-                "요구납기일":       row.get('요구납기일'),
+                "요구납기일":       safe_date(row.get('요구납기일')),
                 "_row_id":          row.get('_row_id', ''),
                 "ordseq":           row.get('ordseq'),
             })
