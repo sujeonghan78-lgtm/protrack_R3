@@ -8,6 +8,7 @@ import os
 import json
 import shutil
 import unicodedata
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
 import math
@@ -17,7 +18,7 @@ from auth import (
     require_admin, Token, User, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from data_manager import DataManager
-from models import ProcessUpdate, PaginationParams, DelayReasonUpdate
+from models import ProcessUpdate, PaginationParams, DelayReasonUpdate, DelayReasonCreate
 
 app = FastAPI(title="PRO-TRACK API", version="1.0.0")
 
@@ -54,16 +55,29 @@ def save_versions(versions: list):
         json.dump(versions, f, ensure_ascii=False, indent=2)
 
 
-# ─── 지연 사유 영구 저장소 (엑셀 재업로드와 무관하게 수주번호+시스템명 기준으로 유지) ──
+# ─── 지연 사유 영구 저장소 ────────────────────────────────────────────────────
+# 엑셀 재업로드/dm.reload와 무관하게 유지되는 별도 로그. 항목마다 고유 id를 가지며,
+# 수주번호+시스템명을 기준으로 여러 건(여러 단계, 같은 단계라도 여러 번)이 쌓일 수 있음.
+# {entry_id: {id, 수주번호, 시스템명, _current_step, reason, updated_at, updated_by}}
 
 def load_delay_reasons() -> dict:
     if not os.path.exists(DELAY_REASONS_FILE):
         return {}
     try:
         with open(DELAY_REASONS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
     except:
         return {}
+    # 이전 스키마(수주번호::시스템명::현재단계 형태의 키만 있고 id 필드가 없던 버전) 호환 —
+    # 기존 딕셔너리 키를 그대로 id로 사용
+    changed = False
+    for k, v in data.items():
+        if isinstance(v, dict) and not v.get('id'):
+            v['id'] = k
+            changed = True
+    if changed:
+        save_delay_reasons(data)
+    return data
 
 
 def save_delay_reasons(data: dict):
@@ -71,18 +85,26 @@ def save_delay_reasons(data: dict):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def delay_reason_key(order_no: str, system_name: str = "", step: str = "") -> str:
-    return f"{order_no or ''}::{system_name or ''}::{step or ''}"
+def _group_reasons(reasons: dict) -> dict:
+    """(수주번호, 시스템명) 기준으로 사유 항목들을 묶어서 반환"""
+    groups = {}
+    for v in reasons.values():
+        gkey = (v.get('수주번호', ''), v.get('시스템명', ''))
+        groups.setdefault(gkey, []).append(v)
+    return groups
 
 
 def attach_reasons(items: list, reasons: dict = None) -> list:
-    """공정 목록/지연 모달 등에서 재사용 — 수주번호+시스템명+현재단계 기준으로 지연사유를 매칭해 _reason 필드를 붙임"""
+    """공정 목록/지연 모달 등에서 재사용 — 수주번호+시스템명 기준으로 가장 최근 작성된
+    지연사유를 대표로 매칭해 _reason 필드를 붙임(작성된 단계가 현재단계와 달라도 최신 사유를 표시)"""
     if reasons is None:
         reasons = load_delay_reasons()
+    groups = _group_reasons(reasons)
     for it in items:
-        key = delay_reason_key(it.get('수주번호', ''), it.get('시스템명', ''), it.get('_current_step', ''))
-        r = reasons.get(key)
-        it['_reason'] = r.get('reason', '') if r else ''
+        gkey = (it.get('수주번호', ''), it.get('시스템명', ''))
+        entries = groups.get(gkey, [])
+        rep = max(entries, key=lambda e: e.get('updated_at') or '') if entries else None
+        it['_reason'] = rep.get('reason', '') if rep else ''
     return items
 
 
@@ -143,73 +165,63 @@ async def get_stage_delayed_items(step: str, product_filter: str = "", date_col:
     return attach_reasons(items)
 
 
-# ─── 지연 관리 (수주번호+시스템명 기준으로 지연 사유를 엑셀 재업로드와 무관하게 유지) ──
+# ─── 지연 관리 (수주번호+시스템명 기준, 사유는 여러 건 누적 가능한 로그) ──────────
 
 @app.get("/api/delay-management")
 async def get_delay_management(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     items = dm.get_all_delayed_items(product_filter=product_filter, vendor_filter=vendor_filter)
     reasons = load_delay_reasons()
+    groups = _group_reasons(reasons)
     for it in items:
         order_no = it.get('수주번호', '')
         system_name = it.get('시스템명', '')
-        step = it.get('_current_step', '')
-        key = delay_reason_key(order_no, system_name, step)
-        r = reasons.get(key)
-        it['_reason'] = r.get('reason', '') if r else ''
-        it['_reason_updated_at'] = r.get('updated_at') if r else None
-        it['_reason_updated_by'] = r.get('updated_by') if r else None
-        # 같은 수주번호+시스템명이지만 단계가 달라 별개 건으로 취급되는 과거 이력 — 그룹핑해서 함께 표시
-        history = []
-        for k, v in reasons.items():
-            if k == key:
-                continue
-            if v.get('수주번호') == order_no and v.get('시스템명') == system_name:
-                history.append({
-                    "_current_step": v.get('_current_step', ''),
-                    "reason": v.get('reason', ''),
-                    "updated_at": v.get('updated_at'),
-                    "updated_by": v.get('updated_by'),
-                })
-        history.sort(key=lambda h: h.get('updated_at') or '', reverse=True)
-        it['_history'] = history
+        entries = sorted(groups.get((order_no, system_name), []), key=lambda e: e.get('updated_at') or '', reverse=True)
+        rep = entries[0] if entries else None
+        it['_reason'] = rep.get('reason', '') if rep else ''
+        it['_reason_updated_at'] = rep.get('updated_at') if rep else None
+        it['_reason_updated_by'] = rep.get('updated_by') if rep else None
+        it['_reason_step'] = rep.get('_current_step') if rep else None
+        it['_entries'] = entries  # 전체 사유 이력(현재단계 포함) — 각 항목에 id, _current_step, reason, updated_at, updated_by
     return items
 
 
-@app.put("/api/delay-management/reason")
-async def update_delay_reason(
-    order_no: str,
-    system_name: str = "",
-    step: str = "",
-    body: DelayReasonUpdate = None,
-    current_user: User = Depends(require_admin)
-):
+@app.post("/api/delay-management/reason")
+async def create_delay_reason(body: DelayReasonCreate, current_user: User = Depends(require_admin)):
     reasons = load_delay_reasons()
-    key = delay_reason_key(order_no, system_name, step)
-    reasons[key] = {
-        "수주번호": order_no,
-        "시스템명": system_name,
-        "_current_step": step,
-        "reason": body.reason if body else "",
+    entry_id = uuid.uuid4().hex
+    reasons[entry_id] = {
+        "id": entry_id,
+        "수주번호": body.order_no,
+        "시스템명": body.system_name,
+        "_current_step": body.step,
+        "reason": body.reason,
         "updated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "updated_by": current_user.username,
     }
     save_delay_reasons(reasons)
-    return {"success": True, "reason": reasons[key]}
+    return {"success": True, "entry": reasons[entry_id]}
 
 
-@app.delete("/api/delay-management/reason")
-async def delete_delay_reason(
-    order_no: str,
-    system_name: str = "",
-    step: str = "",
-    current_user: User = Depends(require_admin)
-):
+@app.put("/api/delay-management/reason/{entry_id}")
+async def update_delay_reason_entry(entry_id: str, body: DelayReasonUpdate, current_user: User = Depends(require_admin)):
     reasons = load_delay_reasons()
-    key = delay_reason_key(order_no, system_name, step)
-    if key in reasons:
-        del reasons[key]
+    if entry_id not in reasons:
+        raise HTTPException(status_code=404, detail="사유를 찾을 수 없습니다.")
+    reasons[entry_id]["reason"] = body.reason
+    reasons[entry_id]["updated_at"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    reasons[entry_id]["updated_by"] = current_user.username
+    save_delay_reasons(reasons)
+    return {"success": True, "entry": reasons[entry_id]}
+
+
+@app.delete("/api/delay-management/reason/{entry_id}")
+async def delete_delay_reason_entry(entry_id: str, current_user: User = Depends(require_admin)):
+    reasons = load_delay_reasons()
+    if entry_id in reasons:
+        del reasons[entry_id]
         save_delay_reasons(reasons)
     return {"success": True}
+
 
 
 @app.get("/api/dashboard/status-distribution")
