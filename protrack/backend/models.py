@@ -26,3 +26,10 @@ class PaginationParams(BaseModel):
 
 class DelayReasonUpdate(BaseModel):
     reason: str
+
+
+class DelayReasonCreate(BaseModel):
+    order_no: str
+    system_name: str = ""
+    step: str = ""
+    reason: str
