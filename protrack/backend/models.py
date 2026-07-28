@@ -22,3 +22,7 @@ class ProcessUpdate(BaseModel):
 class PaginationParams(BaseModel):
     page: int = 1
     page_size: int = 50
+
+
+class DelayReasonUpdate(BaseModel):
+    reason: str
