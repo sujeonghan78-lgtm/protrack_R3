@@ -71,8 +71,19 @@ def save_delay_reasons(data: dict):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def delay_reason_key(order_no: str, system_name: str = "") -> str:
-    return f"{order_no or ''}::{system_name or ''}"
+def delay_reason_key(order_no: str, system_name: str = "", step: str = "") -> str:
+    return f"{order_no or ''}::{system_name or ''}::{step or ''}"
+
+
+def attach_reasons(items: list, reasons: dict = None) -> list:
+    """공정 목록/지연 모달 등에서 재사용 — 수주번호+시스템명+현재단계 기준으로 지연사유를 매칭해 _reason 필드를 붙임"""
+    if reasons is None:
+        reasons = load_delay_reasons()
+    for it in items:
+        key = delay_reason_key(it.get('수주번호', ''), it.get('시스템명', ''), it.get('_current_step', ''))
+        r = reasons.get(key)
+        it['_reason'] = r.get('reason', '') if r else ''
+    return items
 
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
@@ -128,7 +139,8 @@ async def get_stage_by_process(product_filter: str = "", date_col: str = "", dat
 
 @app.get("/api/dashboard/stage-delayed-items")
 async def get_stage_delayed_items(step: str, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
-    return dm.get_stage_delayed_items(step=step, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+    items = dm.get_stage_delayed_items(step=step, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+    return attach_reasons(items)
 
 
 # ─── 지연 관리 (수주번호+시스템명 기준으로 지연 사유를 엑셀 재업로드와 무관하게 유지) ──
@@ -138,11 +150,28 @@ async def get_delay_management(product_filter: str = "", vendor_filter: str = ""
     items = dm.get_all_delayed_items(product_filter=product_filter, vendor_filter=vendor_filter)
     reasons = load_delay_reasons()
     for it in items:
-        key = delay_reason_key(it.get('수주번호', ''), it.get('시스템명', ''))
+        order_no = it.get('수주번호', '')
+        system_name = it.get('시스템명', '')
+        step = it.get('_current_step', '')
+        key = delay_reason_key(order_no, system_name, step)
         r = reasons.get(key)
         it['_reason'] = r.get('reason', '') if r else ''
         it['_reason_updated_at'] = r.get('updated_at') if r else None
         it['_reason_updated_by'] = r.get('updated_by') if r else None
+        # 같은 수주번호+시스템명이지만 단계가 달라 별개 건으로 취급되는 과거 이력 — 그룹핑해서 함께 표시
+        history = []
+        for k, v in reasons.items():
+            if k == key:
+                continue
+            if v.get('수주번호') == order_no and v.get('시스템명') == system_name:
+                history.append({
+                    "_current_step": v.get('_current_step', ''),
+                    "reason": v.get('reason', ''),
+                    "updated_at": v.get('updated_at'),
+                    "updated_by": v.get('updated_by'),
+                })
+        history.sort(key=lambda h: h.get('updated_at') or '', reverse=True)
+        it['_history'] = history
     return items
 
 
@@ -150,14 +179,16 @@ async def get_delay_management(product_filter: str = "", vendor_filter: str = ""
 async def update_delay_reason(
     order_no: str,
     system_name: str = "",
+    step: str = "",
     body: DelayReasonUpdate = None,
     current_user: User = Depends(require_admin)
 ):
     reasons = load_delay_reasons()
-    key = delay_reason_key(order_no, system_name)
+    key = delay_reason_key(order_no, system_name, step)
     reasons[key] = {
         "수주번호": order_no,
         "시스템명": system_name,
+        "_current_step": step,
         "reason": body.reason if body else "",
         "updated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "updated_by": current_user.username,
@@ -170,10 +201,11 @@ async def update_delay_reason(
 async def delete_delay_reason(
     order_no: str,
     system_name: str = "",
+    step: str = "",
     current_user: User = Depends(require_admin)
 ):
     reasons = load_delay_reasons()
-    key = delay_reason_key(order_no, system_name)
+    key = delay_reason_key(order_no, system_name, step)
     if key in reasons:
         del reasons[key]
         save_delay_reasons(reasons)
@@ -224,7 +256,9 @@ async def get_processes(
     vendor_filter: str = "",
     current_user: User = Depends(get_current_user)
 ):
-    return dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+    result = dm.get_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, sort_by=sort_by, sort_dir=sort_dir, product_filter=product_filter, date_col=date_col, date_from=date_from, date_to=date_to, vendor_filter=vendor_filter)
+    result["items"] = attach_reasons(result.get("items", []))
+    return result
 
 
 @app.get("/api/processes/{order_no}/{ordseq}")
