@@ -126,10 +126,13 @@ def calc_progress(row) -> int:
     return min(100, total)
 
 
-def get_current_next_step_info(row):
-    """지연 판단용 — 현재(미완료) 단계와 다음 단계의 예상/실적일 반환 (원래 로직)"""
+def get_current_next_step_info(row, current_step=None):
+    """지연 판단용 — 현재(미완료) 단계와 다음 단계의 예상/실적일 반환 (원래 로직).
+    current_step을 미리 알고 있으면(예: df에 이미 _current_step 컬럼이 있으면) 넘겨서
+    infer_current_step 재계산을 생략할 수 있다(성능 최적화)."""
     today = pd.Timestamp.now()
-    current_step = infer_current_step(row)
+    if current_step is None:
+        current_step = infer_current_step(row)
 
     cur_map = STEP_DATE_MAP.get(current_step, {})
     cur_actual_col  = cur_map.get('actual')
@@ -152,12 +155,14 @@ def get_current_next_step_info(row):
     }
 
 
-def get_display_dates(row, status: str = None) -> dict:
-    """공정 목록 화면 표시용 — 이전공정 실적일 + 현재단계 예정일"""
+def get_display_dates(row, status: str = None, current_step: str = None) -> dict:
+    """공정 목록 화면 표시용 — 이전공정 실적일 + 현재단계 예정일.
+    current_step을 미리 알고 있으면 넘겨서 재계산을 생략(성능 최적화)."""
     steps = get_effective_steps(row)
 
     # 현재 단계 = 실적이 찍힌 마지막 단계의 다음 단계
-    current_step = infer_current_step(row)
+    if current_step is None:
+        current_step = infer_current_step(row)
     cur_idx = steps.index(current_step) if current_step in steps else -1
 
     # 이전공정 실적일 = current_step 바로 이전 단계의 actual
@@ -201,10 +206,10 @@ def get_display_dates(row, status: str = None) -> dict:
     return {'prev_actual_date': prev_actual_date, 'current_planned_date': current_planned_date}
 
 
-def calc_stage_diff(row) -> dict:
+def calc_stage_diff(row, current_step=None) -> dict:
     """현재/다음 단계 날짜 차이 계산.
     planned 없는 단계(수주/포장/계산서)는 요구납기일로 fallback."""
-    info = get_current_next_step_info(row)
+    info = get_current_next_step_info(row, current_step=current_step)
     today = info['today']
     result = {'cur_diff': None, 'cur_has_actual': False, 'next_diff': None}
 
@@ -295,13 +300,15 @@ def infer_status(row) -> str:
     return 'On Track'
 
 
-def calc_delay_days(row) -> int:
+def calc_delay_days(row, current_step=None) -> int:
     """현재 단계 기준 지연일수.
     실적 있음: 실적일 - 예상일 (양수면 지연)
     실적 없음: 오늘 - 예상일 (양수면 지연)
-    예상일 없음: 요구납기일 기준 fallback"""
+    예상일 없음: 요구납기일 기준 fallback
+    current_step을 미리 알고 있으면 넘겨서 재계산 생략(성능 최적화)."""
     today = pd.Timestamp.now()
-    current_step = infer_current_step(row)
+    if current_step is None:
+        current_step = infer_current_step(row)
 
     # 완료 건은 0
     if row.get('_status') in ('출고완료', '계산서완료') or pd.notna(row.get('계산서발행일')):
@@ -436,13 +443,14 @@ class DataManager:
         df['_vendor_type'] = df['업체명'].apply(get_vendor_type)
 
         def enrich_row(row):
-            diff = calc_stage_diff(row)
+            current_step = row.get('_current_step')
+            diff = calc_stage_diff(row, current_step=current_step)
             status = infer_status(row)
-            display = get_display_dates(row, status)
+            display = get_display_dates(row, status, current_step=current_step)
             return pd.Series({
                 '_status': status,
                 '_progress': calc_progress(row),
-                '_delay_days': calc_delay_days(row),
+                '_delay_days': calc_delay_days(row, current_step=current_step),
                 '_cur_diff': diff.get('cur_diff'),
                 '_cur_has_actual': diff.get('cur_has_actual', False),
                 '_next_diff': diff.get('next_diff'),
@@ -547,12 +555,13 @@ class DataManager:
         df = df.copy()
         # _current_step은 실적 기반이라 날짜 무관 — 재계산 불필요
         def recompute(row):
+            current_step = row.get('_current_step')
             status = infer_status(row)
             row = row.copy()
             row['_status'] = status
-            delay = calc_delay_days(row)
-            diff = calc_stage_diff(row)
-            display = get_display_dates(row, status)
+            delay = calc_delay_days(row, current_step=current_step)
+            diff = calc_stage_diff(row, current_step=current_step)
+            display = get_display_dates(row, status, current_step=current_step)
             return pd.Series({
                 '_status': status,
                 '_delay_days': delay,
