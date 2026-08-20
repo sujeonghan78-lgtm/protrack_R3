@@ -3083,7 +3083,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
   };
 
   const ORDER_COLS = '24px 150px 1fr 280px 100px 100px 80px 140px';
-  const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px 140px';
+  const LOT_COLS = '24px 150px 1fr 200px 100px 140px 70px 140px';
 
   return (
     <>
@@ -3173,8 +3173,14 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                             style={{ display: 'grid', gridTemplateColumns: LOT_COLS, gap: 8, padding: '10px 12px 10px 36px', alignItems: 'center', cursor: 'pointer', background: lotOpen ? 'var(--surface2)' : 'rgba(37,99,235,0.02)', borderBottom: '1px solid var(--border)' }}
                           >
                             <div style={{ transform: lotOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', color: 'var(--muted)', fontSize: 10 }}>▶</div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{lot.label}</div>
-                            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{lot.요구납기일 || '—'}</div>
+                            {/* 대표행(수주)의 24px+150px+1fr 구조와 폭을 맞춰서, 차수의 게이지가
+                                대표 게이지보다 왼쪽으로 튀어나오지 않고 자연스럽게 더 오른쪽에서
+                                시작하도록 함(행 자체의 padding-left 36px만큼 항상 더 뒤로 밀림) */}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{lot.label}</div>
+                              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{lot.요구납기일 || '—'}</div>
+                            </div>
+                            <div></div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div className="progress-bar" style={{ flex: 1, maxWidth: 160, minWidth: 0 }}>
                                 <div className={`progress-fill ${lot.is_delayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${lot.progress}%` }} />
@@ -3214,8 +3220,8 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                                     <th style={{ textAlign: 'left', padding: '4px 6px' }}>현재단계</th>
                                     <th style={{ textAlign: 'left', padding: '4px 6px' }}>진척도</th>
                                     <th style={{ textAlign: 'left', padding: '4px 6px' }}>상태</th>
-                                    <th style={{ textAlign: 'left', padding: '4px 6px' }}>실적일</th>
-                                    <th style={{ textAlign: 'left', padding: '4px 6px' }}>예정일</th>
+                                    <th style={{ textAlign: 'left', padding: '4px 6px' }}>이전공정 실적일</th>
+                                    <th style={{ textAlign: 'left', padding: '4px 6px' }}>현재단계 예정일</th>
                                     <th style={{ textAlign: 'left', padding: '4px 6px' }}>비고</th>
                                     <th></th>
                                   </tr>
