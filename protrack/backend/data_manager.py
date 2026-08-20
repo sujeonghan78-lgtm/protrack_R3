@@ -33,6 +33,24 @@ PROGRESS_WEIGHTS = {
     '계산서발행일':  5,
 }
 
+# [BOM개편] 마일스톤 바용 — PROCESS_STEPS 각 단계가 calc_progress의 0~100% 스케일에서
+# 차지하는 폭. PROGRESS_WEIGHTS는 자재를 '자재확인일'+'자재입고일' 두 컬럼(10+10)으로
+# 나눠서 세지만, 여기선 '자재' 한 단계로 묶어 20으로 합산 — PROCESS_STEPS 9단계와 1:1 대응시키기 위함.
+STEP_WIDTH = {
+    '수주': 5, '시방': 10, '자재': 20, '생산': 20, '검사': 10,
+    '포장': 10, '출고': 10, 'OTP': 10, '계산서': 5,
+}
+STEP_CUM_END = {}
+_cum = 0
+for _s in PROCESS_STEPS:
+    _cum += STEP_WIDTH[_s]
+    STEP_CUM_END[_s] = _cum
+# 출고 단계가 끝나는 지점(=수주~출고 누적 비중) — 마일스톤 점 고정 위치로 사용
+SHIP_MILESTONE_PCT = STEP_CUM_END['출고']  # 85
+
+# "출고까지 실제로 끝났다"고 볼 수 있는 상태 — 출고지연(아직 실제 출고 안 됨)은 제외
+SHIPPED_STATUSES = {'출고완료', '계산서완료', 'OTP지연', '계산서지연'}
+
 # 지연으로 간주하는 _status 값 (여러 곳에서 중복 정의되어 있던 걸 재사용 가능하도록 통합)
 DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
 
@@ -704,12 +722,23 @@ class DataManager:
             # 병목 아이템(가장 뒤처진 그 아이템)의 이전공정실적일/현재단계예정일을 대표값으로 사용
             bottleneck_actual_date = None
             bottleneck_planned_date = None
+            bottleneck_delayed = False
             if bottleneck_step is not None and '_current_step' in order_df.columns:
                 bn_rows = order_df[order_df['_current_step'] == bottleneck_step]
                 if not bn_rows.empty:
                     bn_row = bn_rows.iloc[0]
                     bottleneck_actual_date = bn_row.get('_cur_actual_date')
                     bottleneck_planned_date = bn_row.get('_current_planned_date')
+                    bottleneck_delayed = bool(bn_rows['_status'].isin(DELAY_STATUSES).any())
+
+            # [BOM개편] 마일스톤 바 — 파란구간(공통 완료=overall_progress)까지, 병목이
+            # 지연이면 그 단계 폭만큼만 빨간구간을 이어붙인다(병목 단계가 끝나는 지점까지).
+            bar_red_end = overall_progress
+            if bottleneck_delayed and bottleneck_step in STEP_CUM_END:
+                bar_red_end = min(100, STEP_CUM_END[bottleneck_step])
+
+            # 마일스톤 점(출고 지점 고정) — 전체 아이템이 실제 출고(이상) 단계까지 갔는지
+            shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
 
             order_groups.append({
                 "수주번호": order_no,
@@ -725,6 +754,10 @@ class DataManager:
                 "nearest_due_date": nearest_due,
                 "bottleneck_actual_date": bottleneck_actual_date,
                 "bottleneck_planned_date": bottleneck_planned_date,
+                "bar_blue_end": overall_progress,
+                "bar_red_end": bar_red_end,
+                "ship_milestone_pct": SHIP_MILESTONE_PCT,
+                "shipped_all": shipped_all,
                 "lots": lots,
             })
 
