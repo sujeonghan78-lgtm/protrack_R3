@@ -1000,6 +1000,11 @@ class DataManager:
             if pending_dues:
                 nearest_due = min(pending_dues)
 
+            # 완료된(급한 요구납기일이 없는) 수주가 날짜 필터에서 통째로 빠지지 않도록,
+            # 차수 전체(완료 포함) 중 가장 마지막(늦은) 요구납기일을 폴백으로 남겨둔다.
+            all_dues = [lot['요구납기일'] for lot in lots if lot['요구납기일']]
+            last_due_date = max(all_dues) if all_dues else None
+
             shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
             last_ship_date = None
             if '최종납기일' in order_df.columns:
@@ -1030,6 +1035,7 @@ class DataManager:
                 "bottleneck_cur_diff": bottleneck_cur_diff,
                 "progress": overall_progress,
                 "nearest_due_date": nearest_due,
+                "last_due_date": last_due_date,
                 "shipped_all": shipped_all,
                 "last_ship_date": last_ship_date,
                 "lots": lots_light,
@@ -1043,6 +1049,10 @@ class DataManager:
         rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
         if date_from or date_to:
             def _in_range(o):
+                # 완료된 수주(전체 차수 출고완료)는 날짜필터와 무관하게 항상 포함 —
+                # 필터는 "지금 스케줄상 관련있는 것"을 좁히는 용도라 이미 끝난 건 대상이 아님
+                if o.get('shipped_all'):
+                    return True
                 d = o.get('nearest_due_date')
                 if not d:
                     return False
@@ -1307,6 +1317,9 @@ class DataManager:
             return []
         if date_from or date_to:
             def _in_range(o):
+                # 완료된 수주는 날짜필터와 무관하게 항상 포함 (get_kpi와 동일 기준)
+                if o.get('shipped_all'):
+                    return True
                 d = o.get('nearest_due_date')
                 if not d:
                     return False
