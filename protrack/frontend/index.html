@@ -3068,6 +3068,20 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
     return pages;
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await api.post('/api/refresh', {});
+      await loadData();
+      onToast && onToast('최신 상태로 새로고침했어요.');
+    } catch (e) {
+      onToast && onToast('새로고침 중 오류가 발생했어요.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const ORDER_COLS = '24px 150px 1fr 200px 110px 90px 90px 80px';
   const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px';
 
@@ -3077,6 +3091,15 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
         <div className="table-header">
           <div className="table-header-title">프로젝트 공정 상세 목록 (수주 → 차수 → 품목)</div>
           <div className="filter-group">
+            <button
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              title="방금 수정/업로드한 내용을 바로 반영합니다 (평소엔 최대 10분 캐시)"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--text)', cursor: refreshing ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, opacity: refreshing ? 0.6 : 1 }}
+            >
+              <span style={{ display: 'inline-block', transform: refreshing ? 'rotate(360deg)' : 'none', transition: 'transform 0.6s linear' }}>↻</span>
+              {refreshing ? '새로고침 중...' : '새로고침'}
+            </button>
             <select className="filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               {statuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
             </select>
