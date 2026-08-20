@@ -3,6 +3,7 @@ import numpy as np
 import unicodedata
 from datetime import datetime, date
 import math
+import time
 from typing import Optional, Dict, Any, List
 
 
@@ -379,10 +380,35 @@ def apply_date_range(df: pd.DataFrame, date_col: str, date_from: str, date_to: s
     return df
 
 class DataManager:
+    CACHE_TTL_SECONDS = 600  # [BOM개편] 상태 재계산(_refresh_dynamic) 결과 캐시 유효시간(10분)
+
     def __init__(self, filepath: str):
         self.filepath = filepath
         self.df: pd.DataFrame = pd.DataFrame()
+        self._refreshed_cache = None
+        self._refreshed_cache_at = 0.0
+        self._grouped_cache = None       # [BOM개편] "필터 없는 전체" 그룹핑 결과 캐시(수주→차수→아이템)
+        self._grouped_cache_at = 0.0
         self._load()
+
+    def _invalidate_cache(self):
+        """데이터가 바뀌는 시점(업로드/버전전환/수정/거래처갱신)마다 호출 — 캐시 즉시 무효화."""
+        self._refreshed_cache = None
+        self._refreshed_cache_at = 0.0
+        self._grouped_cache = None
+        self._grouped_cache_at = 0.0
+
+    def _get_refreshed_df(self) -> pd.DataFrame:
+        """self.df 전체를 _refresh_dynamic한 결과를 캐시해서 재사용.
+        CACHE_TTL_SECONDS 안에 또 호출되면 재계산 없이 캐시 반환,
+        지나면 이번 호출에서 한 번만 다시 계산."""
+        now = time.time()
+        if self._refreshed_cache is not None and (now - self._refreshed_cache_at) < self.CACHE_TTL_SECONDS:
+            return self._refreshed_cache
+        refreshed = self._refresh_dynamic(self.df)
+        self._refreshed_cache = refreshed
+        self._refreshed_cache_at = now
+        return refreshed
 
     def _load(self):
         try:
@@ -439,10 +465,12 @@ class DataManager:
                 df[col] = pd.to_datetime(df[col].apply(fix_date), errors='coerce')
 
             self.df = self._enrich(df)
+            self._invalidate_cache()
             print(f"[DataManager] Loaded {len(self.df)} rows from {self.filepath}")
         except Exception as e:
             print(f"[DataManager] Load error: {e}")
             self.df = pd.DataFrame()
+            self._invalidate_cache()
 
     def reload(self, filepath: str = None):
         if filepath:
@@ -504,6 +532,7 @@ class DataManager:
         self.df = self._enrich(
             self.df.drop(columns=[c for c in self.df.columns if c.startswith('_')], errors='ignore')
         )
+        self._invalidate_cache()
 
     def _row_to_dict(self, row) -> Dict[str, Any]:
         d = {}
@@ -532,7 +561,7 @@ class DataManager:
         # 이 함수는 self.df에 캐시된 _status를 그대로 썼었음 — 그 결과 메인 KPI 건수와
         # 팝업(목록) 건수가 날짜가 바뀌면서 달라지는 문제가 있었음(특히 'At Risk').
         # 동일한 기준으로 맞추기 위해 여기서도 재계산을 적용한다.
-        df = self._refresh_dynamic(self.df)
+        df = self._get_refreshed_df()
 
         if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
             df = df[df['_vendor_type'] == vendor_filter]
@@ -595,15 +624,16 @@ class DataManager:
         return df
 
     def _get_fresh_df(self, product_filter: str = "", date_col: str = "", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> pd.DataFrame:
-        """필터 적용 + 날짜 재계산된 df 반환."""
-        df = self.df.copy()
+        """필터 적용 + 날짜 재계산된 df 반환. 재계산(_refresh_dynamic) 자체는 필터와 무관하게
+        결과가 같으므로, 캐시된 전체 재계산 결과를 먼저 가져온 뒤 필터를 적용한다
+        (필터 조합마다 따로 재계산하지 않도록 하기 위함)."""
+        df = self._get_refreshed_df()
         if product_filter and product_filter != "전체" and '시스템명' in df.columns:
             pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
             if pf_list:
                 df = df[df['시스템명'].isin(pf_list)]
         if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
             df = df[df['_vendor_type'] == vendor_filter]
-        df = self._refresh_dynamic(df)
         if date_col and (date_from or date_to):
             df = apply_date_range(df, date_col, date_from, date_to)
         return df
@@ -662,109 +692,128 @@ class DataManager:
         차수를 펼치면 그 안의 BOM 아이템 개별 상태까지 내려간다.
         status_filter/step_filter는 '해당 조건을 만족하는 아이템이 하나라도 있는 수주'를
         골라내는 용도로만 쓰고, 골라진 수주 안의 아이템은 전부(필터링 없이) 보여준다
-        — 안 그러면 같은 차수 안에서 일부 아이템만 사라져 보여서 맥락을 잃기 때문."""
-        df = self._refresh_dynamic(self.df)
-        if df.empty:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
+        — 안 그러면 같은 차수 안에서 일부 아이템만 사라져 보여서 맥락을 잃기 때문.
 
-        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
-            df = df[df['_vendor_type'] == vendor_filter]
-        if company_filter and company_filter != "전체":
-            df = df[df['업체명'] == company_filter]
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-        if search:
-            mask = (
-                df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
-                df['업체명'].astype(str).str.contains(search, case=False, na=False)
-            )
-            if '프로젝트' in df.columns:
-                mask = mask | df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
-            if '시스템명' in df.columns:
-                mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
-            if '품명' in df.columns:
-                mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
-            df = df[mask]
+        필터가 하나도 안 걸린 '전체' 조회는 매번 266개 수주・수천개 아이템을 처음부터
+        다시 그룹핑하면 느려서, 이 경우에 한해 그룹핑 결과 자체를 캐싱한다(CACHE_TTL_SECONDS).
+        검색/필터가 하나라도 걸리면 캐시를 안 쓰고 그때그때 새로 계산한다."""
+        no_filters = (
+            not search
+            and (not status_filter or status_filter == "전체")
+            and (not company_filter or company_filter == "전체")
+            and (not step_filter or step_filter == "전체")
+            and (not product_filter or product_filter == "전체")
+            and (not vendor_filter or vendor_filter == "전체")
+        )
+        if no_filters and self._grouped_cache is not None and (time.time() - self._grouped_cache_at) < self.CACHE_TTL_SECONDS:
+            order_groups = self._grouped_cache
+        else:
+            df = self._get_refreshed_df()
+            if df.empty:
+                return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
 
-        if df.empty:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
+            if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+                df = df[df['_vendor_type'] == vendor_filter]
+            if company_filter and company_filter != "전체":
+                df = df[df['업체명'] == company_filter]
+            if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+                pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+                if pf_list:
+                    df = df[df['시스템명'].isin(pf_list)]
+            if search:
+                mask = (
+                    df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
+                    df['업체명'].astype(str).str.contains(search, case=False, na=False)
+                )
+                if '프로젝트' in df.columns:
+                    mask = mask | df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
+                if '시스템명' in df.columns:
+                    mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
+                if '품명' in df.columns:
+                    mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
+                df = df[mask]
 
-        order_groups = []
-        for order_no, order_df in df.groupby('수주번호', sort=False):
-            lots = self._build_lots(order_df)
-            is_delayed = any(lot['is_delayed'] for lot in lots)
-            rep = order_df.iloc[0]
+            if df.empty:
+                return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
 
-            # 수주 대표행 보완 — 차수가 여러개라 값 하나로 못 박는 요구납기일 빼고,
-            # 병목단계/진척률/이전공정실적일/현재단계예정일은 아이템 전체를 통틀어 집계
-            bottleneck_step = None
-            bottleneck_idx = None
-            if '_current_step' in order_df.columns:
-                for step in order_df['_current_step']:
-                    if step not in PROCESS_STEPS:
-                        continue
-                    idx = PROCESS_STEPS.index(step)
-                    if bottleneck_idx is None or idx < bottleneck_idx:
-                        bottleneck_idx = idx
-                        bottleneck_step = step
-            progresses = order_df['_progress'].tolist() if '_progress' in order_df.columns else []
-            overall_progress = min(progresses) if progresses else 0
+            order_groups = []
+            for order_no, order_df in df.groupby('수주번호', sort=False):
+                lots = self._build_lots(order_df)
+                is_delayed = any(lot['is_delayed'] for lot in lots)
+                rep = order_df.iloc[0]
 
-            # 가장 급한(가장 이른) 요구납기일 — 미정(NaT)은 제외, 이미 출고완료된(is_done) 차수도 제외.
-            # 즉 "아직 안 나간 차수" 중에서 제일 급한 납기만 본다.
-            nearest_due = None
-            pending_dues = [lot['요구납기일'] for lot in lots if lot['요구납기일'] and not lot['is_done']]
-            if pending_dues:
-                nearest_due = min(pending_dues)
+                # 수주 대표행 보완 — 차수가 여러개라 값 하나로 못 박는 요구납기일 빼고,
+                # 병목단계/진척률/이전공정실적일/현재단계예정일은 아이템 전체를 통틀어 집계
+                bottleneck_step = None
+                bottleneck_idx = None
+                if '_current_step' in order_df.columns:
+                    for step in order_df['_current_step']:
+                        if step not in PROCESS_STEPS:
+                            continue
+                        idx = PROCESS_STEPS.index(step)
+                        if bottleneck_idx is None or idx < bottleneck_idx:
+                            bottleneck_idx = idx
+                            bottleneck_step = step
+                progresses = order_df['_progress'].tolist() if '_progress' in order_df.columns else []
+                overall_progress = min(progresses) if progresses else 0
 
-            # 병목 아이템(가장 뒤처진 그 아이템)의 이전공정실적일/현재단계예정일을 대표값으로 사용
-            bottleneck_actual_date = None
-            bottleneck_planned_date = None
-            bottleneck_delayed = False
-            if bottleneck_step is not None and '_current_step' in order_df.columns:
-                bn_rows = order_df[order_df['_current_step'] == bottleneck_step]
-                if not bn_rows.empty:
-                    bn_row = bn_rows.iloc[0]
-                    bottleneck_actual_date = bn_row.get('_cur_actual_date')
-                    bottleneck_planned_date = bn_row.get('_current_planned_date')
-                    bottleneck_delayed = bool(bn_rows['_status'].isin(DELAY_STATUSES).any())
+                # 가장 급한(가장 이른) 요구납기일 — 미정(NaT)은 제외, 이미 출고완료된(is_done) 차수도 제외.
+                # 즉 "아직 안 나간 차수" 중에서 제일 급한 납기만 본다.
+                nearest_due = None
+                pending_dues = [lot['요구납기일'] for lot in lots if lot['요구납기일'] and not lot['is_done']]
+                if pending_dues:
+                    nearest_due = min(pending_dues)
 
-            # [BOM개편] 마일스톤 바 — 파란구간(공통 완료=overall_progress)까지, 병목이
-            # 지연이면 그 단계 폭만큼만 빨간구간을 이어붙인다(병목 단계가 끝나는 지점까지).
-            bar_red_end = overall_progress
-            if bottleneck_delayed and bottleneck_step in STEP_CUM_END:
-                bar_red_end = min(100, STEP_CUM_END[bottleneck_step])
+                # 병목 아이템(가장 뒤처진 그 아이템)의 이전공정실적일/현재단계예정일을 대표값으로 사용
+                bottleneck_actual_date = None
+                bottleneck_planned_date = None
+                bottleneck_delayed = False
+                if bottleneck_step is not None and '_current_step' in order_df.columns:
+                    bn_rows = order_df[order_df['_current_step'] == bottleneck_step]
+                    if not bn_rows.empty:
+                        bn_row = bn_rows.iloc[0]
+                        bottleneck_actual_date = bn_row.get('_cur_actual_date')
+                        bottleneck_planned_date = bn_row.get('_current_planned_date')
+                        bottleneck_delayed = bool(bn_rows['_status'].isin(DELAY_STATUSES).any())
 
-            # 가장 앞서있는(제일 많이 진행된) 차수의 진척률 — 틱 사이 회색 밴드 끝점으로 사용
-            lot_progresses = [lot['progress'] for lot in lots] if lots else [overall_progress]
-            bar_ahead_end = max(lot_progresses)
+                # [BOM개편] 마일스톤 바 — 파란구간(공통 완료=overall_progress)까지, 병목이
+                # 지연이면 그 단계 폭만큼만 빨간구간을 이어붙인다(병목 단계가 끝나는 지점까지).
+                bar_red_end = overall_progress
+                if bottleneck_delayed and bottleneck_step in STEP_CUM_END:
+                    bar_red_end = min(100, STEP_CUM_END[bottleneck_step])
 
-            # 마일스톤 점(출고 지점 고정) — 전체 아이템이 실제 출고(이상) 단계까지 갔는지
-            shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
+                # 가장 앞서있는(제일 많이 진행된) 차수의 진척률 — 틱 사이 회색 밴드 끝점으로 사용
+                lot_progresses = [lot['progress'] for lot in lots] if lots else [overall_progress]
+                bar_ahead_end = max(lot_progresses)
 
-            order_groups.append({
-                "수주번호": order_no,
-                "업체명": rep.get('업체명'),
-                "프로젝트": rep.get('프로젝트') if '프로젝트' in order_df.columns else None,
-                "_vendor_type": rep.get('_vendor_type'),
-                "item_count": len(order_df),
-                "lot_count": len(lots),
-                "delayed_lot_count": sum(1 for lot in lots if lot['is_delayed']),
-                "is_delayed": is_delayed,
-                "bottleneck_step": bottleneck_step,
-                "progress": overall_progress,
-                "nearest_due_date": nearest_due,
-                "bottleneck_actual_date": bottleneck_actual_date,
-                "bottleneck_planned_date": bottleneck_planned_date,
-                "bar_blue_end": overall_progress,
-                "bar_red_end": bar_red_end,
-                "bar_ahead_end": bar_ahead_end,
-                "ship_milestone_pct": SHIP_MILESTONE_PCT,
-                "shipped_all": shipped_all,
-                "lots": lots,
-            })
+                # 마일스톤 점(출고 지점 고정) — 전체 아이템이 실제 출고(이상) 단계까지 갔는지
+                shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
+
+                order_groups.append({
+                    "수주번호": order_no,
+                    "업체명": rep.get('업체명'),
+                    "프로젝트": rep.get('프로젝트') if '프로젝트' in order_df.columns else None,
+                    "_vendor_type": rep.get('_vendor_type'),
+                    "item_count": len(order_df),
+                    "lot_count": len(lots),
+                    "delayed_lot_count": sum(1 for lot in lots if lot['is_delayed']),
+                    "is_delayed": is_delayed,
+                    "bottleneck_step": bottleneck_step,
+                    "progress": overall_progress,
+                    "nearest_due_date": nearest_due,
+                    "bottleneck_actual_date": bottleneck_actual_date,
+                    "bottleneck_planned_date": bottleneck_planned_date,
+                    "bar_blue_end": overall_progress,
+                    "bar_red_end": bar_red_end,
+                    "bar_ahead_end": bar_ahead_end,
+                    "ship_milestone_pct": SHIP_MILESTONE_PCT,
+                    "shipped_all": shipped_all,
+                    "lots": lots,
+                })
+
+            if no_filters:
+                self._grouped_cache = order_groups
+                self._grouped_cache_at = time.time()
 
         # status_filter/step_filter: 조건을 만족하는 아이템이 하나라도 있는 수주만 남긴다
         if status_filter and status_filter != "전체":
@@ -781,6 +830,9 @@ class DataManager:
                 if any(item.get('_current_step') == step_filter for lot in g["lots"] for item in lot["items"])
             ]
 
+        # 캐시 히트 시 self._grouped_cache와 동일한 리스트 객체이므로, 정렬은 반드시
+        # 새 리스트에 대해 해야 한다(그대로 .sort()하면 캐시 원본 순서가 오염됨).
+        order_groups = list(order_groups)
         reverse = (sort_dir != "asc")
         if sort_by == "업체명":
             order_groups.sort(key=lambda g: str(g.get("업체명") or ""), reverse=reverse)
@@ -896,6 +948,7 @@ class DataManager:
             print(f"[DataManager] Save error: {e}")
             return False
 
+        self._invalidate_cache()
         return True
 
     def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
