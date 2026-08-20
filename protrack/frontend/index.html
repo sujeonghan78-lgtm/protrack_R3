@@ -3082,8 +3082,8 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
     }
   };
 
-  const ORDER_COLS = '24px 150px 1fr 200px 110px 90px 90px 80px';
-  const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px';
+  const ORDER_COLS = '24px 150px 1fr 280px 100px 100px 80px 140px';
+  const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px 140px';
 
   return (
     <>
@@ -3124,10 +3124,10 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                 <div>수주번호</div>
                 <div>업체명 / 호선명</div>
                 <div>종합 진행 (차수별)</div>
-                <div>가장 급한 요구납기</div>
+                <div>임박납기</div>
                 <div>품목/차수</div>
-                <div>지연차수</div>
                 <div>상태</div>
+                <div></div>
               </div>
               {data.items.map(order => {
                 const isOpen = expandedOrders.has(order.수주번호);
@@ -3141,7 +3141,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                       <div className="td-mono" style={{ fontWeight: 700 }}>{order.수주번호}</div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                          <span style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.업체명}</span>
+                          <span title={order.업체명} style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.업체명}</span>
                           {order._vendor_type && order._vendor_type !== '미분류' && (
                             <span className={`vendor-badge ${order._vendor_type}`} style={{ flexShrink: 0 }}>{order._vendor_type}</span>
                           )}
@@ -3152,15 +3152,15 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                       <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: order.nearest_due_date && order.nearest_due_date < new Date().toISOString().slice(0,10) ? '#dc2626' : 'var(--text)' }}>
                         {order.nearest_due_date || '—'}
                       </div>
-                      <div style={{ fontSize: 12 }}>{order.item_count}건 / {order.lot_count}차수</div>
-                      <div style={{ fontSize: 12, color: order.delayed_lot_count > 0 ? '#dc2626' : 'var(--muted)' }}>{order.delayed_lot_count}차수</div>
+                      <div style={{ fontSize: 12 }}>{order.item_count}건 · {order.lot_count}차수</div>
                       <div>
                         {order.is_delayed ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.1)', padding: '3px 8px', borderRadius: 6 }}>지연</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.1)', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>지연 ({order.delayed_lot_count}/{order.lot_count}차수)</span>
                         ) : (
                           <span style={{ fontSize: 11, fontWeight: 700, color: '#1f8a5f', background: 'rgba(31,138,95,0.1)', padding: '3px 8px', borderRadius: 6 }}>정상</span>
                         )}
                       </div>
+                      <div></div>
                     </div>
 
                     {isOpen && order.lots.map(lot => {
@@ -3192,11 +3192,22 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>진행중</span>
                               )}
                             </div>
+                            <div></div>
                           </div>
 
                           {lotOpen && (
                             <div style={{ padding: '4px 12px 10px 56px', background: 'rgba(37,99,235,0.02)', borderBottom: '1px solid var(--border)' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                                <colgroup>
+                                  <col style={{ width: 'auto' }} />
+                                  <col style={{ width: 70 }} />
+                                  <col style={{ width: 110 }} />
+                                  <col style={{ width: 100 }} />
+                                  <col style={{ width: 90 }} />
+                                  <col style={{ width: 90 }} />
+                                  <col style={{ width: 140 }} />
+                                  <col style={{ width: 60 }} />
+                                </colgroup>
                                 <thead>
                                   <tr style={{ fontSize: 10, color: 'var(--muted)' }}>
                                     <th style={{ textAlign: 'left', padding: '4px 6px' }}>품명</th>
@@ -3212,12 +3223,12 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                                 <tbody>
                                   {lot.items.map((item, i) => (
                                     <tr key={i} onClick={() => setSelected(item)} style={{ cursor: 'pointer' }}>
-                                      <td style={{ padding: '6px' }}>
-                                        <div style={{ fontSize: 12 }}>{item.품명}</div>
-                                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{item.시스템명}</div>
+                                      <td style={{ padding: '6px', overflow: 'hidden' }}>
+                                        <div title={item.품명} style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.품명}</div>
+                                        <div title={item.시스템명} style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.시스템명}</div>
                                       </td>
-                                      <td style={{ padding: '6px' }}><span className="step-badge">{item._current_step}</span></td>
-                                      <td style={{ padding: '6px' }}>
+                                      <td style={{ padding: '6px', overflow: 'hidden' }}><span className="step-badge">{item._current_step}</span></td>
+                                      <td style={{ padding: '6px', overflow: 'hidden' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                           <div className="progress-bar" style={{ width: 60, minWidth: 60 }}>
                                             <div className={`progress-fill ${DELAY_SET.includes(item._status) ? 'progress-red' : 'progress-blue'}`} style={{ width: `${item._progress}%` }} />
@@ -3225,13 +3236,13 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                                           <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono' }}>{item._progress}%</span>
                                         </div>
                                       </td>
-                                      <td style={{ padding: '6px' }}>
+                                      <td style={{ padding: '6px', overflow: 'hidden' }}>
                                         <span className="status-dot" style={{ background: statusColorMap[item._status] || 'var(--muted)' }} />
                                         <span style={{ fontSize: 11, fontWeight: 600, color: DELAY_SET.includes(item._status) ? '#dc2626' : (statusColorMap[item._status] || 'var(--muted)') }}>{STATUS_LABELS[item._status] || item._status}</span>
                                       </td>
-                                      <td style={{ padding: '6px', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item._cur_actual_date || '—'}</td>
-                                      <td style={{ padding: '6px', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--muted)' }}>{item._current_planned_date || '—'}</td>
-                                      <td style={{ padding: '6px', fontSize: 11, color: 'var(--text2)', maxWidth: 140 }}>
+                                      <td style={{ padding: '6px', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item._cur_actual_date || '—'}</td>
+                                      <td style={{ padding: '6px', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item._current_planned_date || '—'}</td>
+                                      <td style={{ padding: '6px', fontSize: 11, color: 'var(--text2)', overflow: 'hidden' }}>
                                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item['비고'] || ''}>{item['비고'] || ''}</div>
                                       </td>
                                       <td style={{ padding: '6px' }}>
