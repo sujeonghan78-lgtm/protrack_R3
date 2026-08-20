@@ -2962,12 +2962,16 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 // 눈금(tick): 각 차수 자신의 진척률 위치에 얇은 세로선으로 표시(바를 나누는 게 아니라 위치 표시)
 // 점: ship_milestone_pct(수주~출고 누적비중, 고정) 위치에 — 전체 차수가 다 출고됐으면 채움
 function MilestoneBar({ order }) {
-  const { bar_blue_end, bar_red_end, ship_milestone_pct, shipped_all, lots, progress } = order;
+  const { bar_blue_end, bar_red_end, bar_ahead_end, ship_milestone_pct, shipped_all, lots, progress } = order;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
       <div style={{ position: 'relative', flex: 1, maxWidth: 200, minWidth: 80, height: 16 }}>
         {/* 배경 트랙 */}
         <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 6, transform: 'translateY(-50%)', background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+          {/* 가장 뒤처진(blue_end) ~ 가장 앞선(ahead_end) 차수 사이 — 진한 회색으로 "편차" 표시 */}
+          {bar_ahead_end > bar_blue_end && (
+            <div style={{ position: 'absolute', left: `${bar_blue_end}%`, top: 0, bottom: 0, width: `${bar_ahead_end - bar_blue_end}%`, background: 'rgba(71,85,105,0.35)' }} />
+          )}
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${bar_blue_end}%`, background: 'var(--accent)' }} />
           {bar_red_end > bar_blue_end && (
             <div style={{ position: 'absolute', left: `${bar_blue_end}%`, top: 0, bottom: 0, width: `${bar_red_end - bar_blue_end}%`, background: '#dc2626' }} />
@@ -2978,16 +2982,17 @@ function MilestoneBar({ order }) {
           <div key={i} title={`${lot.label}${lot.요구납기일 ? ` (${lot.요구납기일})` : ''} · ${lot.is_done ? '완료' : (lot.is_delayed ? '지연' : '진행중')} · ${lot.progress}%`}
             style={{
               position: 'absolute', left: `${lot.progress}%`, top: 0, bottom: 0, width: 2,
-              transform: 'translateX(-1px)', background: lot.is_delayed ? '#7f1d1d' : 'rgba(0,0,0,0.35)',
+              transform: 'translateX(-1px)', background: lot.is_delayed ? '#7f1d1d' : 'rgba(0,0,0,0.5)',
               cursor: 'default',
             }} />
         ))}
-        {/* 마일스톤 점 — 출고 지점 고정 */}
+        {/* 마일스톤 점 — 출고 지점 고정. 채워지면 진한 파란색(바와 같은 계열) + 밝은 외곽선 */}
         <div title={`출고 ${shipped_all ? '완료' : '미완료'} (전체 차수 기준)`} style={{
           position: 'absolute', left: `${ship_milestone_pct}%`, top: '50%', transform: 'translate(-50%, -50%)',
           width: 9, height: 9, borderRadius: '50%',
-          background: shipped_all ? '#1f8a5f' : 'var(--bg)',
-          border: `2px solid ${shipped_all ? '#1f8a5f' : 'var(--muted)'}`,
+          background: shipped_all ? '#1e3a8a' : 'var(--bg)',
+          border: `2px solid ${shipped_all ? 'var(--surface)' : 'var(--muted)'}`,
+          boxShadow: shipped_all ? '0 0 0 1px #1e3a8a' : 'none',
           zIndex: 2,
         }} />
       </div>
