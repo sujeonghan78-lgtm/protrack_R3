@@ -33,6 +33,22 @@ PROGRESS_WEIGHTS = {
     '계산서발행일':  5,
 }
 
+# 지연으로 간주하는 _status 값 (여러 곳에서 중복 정의되어 있던 걸 재사용 가능하도록 통합)
+DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
+
+# 자재 단계 "STOCK"(스탁자재=이미 재고 확보) 처리용 컬럼.
+# STOCK 표시는 그대로 유지하되, 진행/진척 판단에서는 완료로 인정하고
+# 지연 판정 대상에서는 제외한다(=현재단계가 더는 자재에 머물지 않게 해서 자연스럽게 제외됨).
+MATERIAL_ACTUAL_COL = '자재입고일'
+MATERIAL_PLANNED_COL = '자재예상일'
+MATERIAL_ACTUAL_STOCK_COL = 'mat_actual_stock'   # underscore 없이 저장 — reload_vendors()가 '_' 컬럼을 지우기 때문
+MATERIAL_PLANNED_STOCK_COL = 'mat_planned_stock'
+MATERIAL_STOCK_COL = 'mat_stock'  # 위 둘 중 하나라도 True면 True
+
+
+def is_material_stock(row) -> bool:
+    return bool(row.get(MATERIAL_STOCK_COL, False))
+
 
 def safe_date(val):
     if val is None or (isinstance(val, float) and math.isnan(val)):
@@ -79,12 +95,16 @@ def infer_current_step(row) -> str:
     """실적(actual)이 찍힌 단계 중 가장 마지막(뒤) 단계를 찾아, 그 다음 단계를 현재 단계로 반환.
     (Stage Progress 표시/필터/KPI/지연계산 공용)
     중간에 실적이 비어있는 단계가 있어도(예: 자재 데이터 누락) 더 뒤 단계에 실적이 있으면
-    그 뒤 단계까지는 완료된 것으로 보고 건너뛴다."""
+    그 뒤 단계까지는 완료된 것으로 보고 건너뛴다.
+    자재 단계는 STOCK(재고 이미 확보)이면 실적 유무와 무관하게 완료로 간주한다."""
     steps = get_effective_steps(row)
     last_actual_idx = -1
     for i, step in enumerate(steps):
         actual_col = STEP_DATE_MAP.get(step, {}).get('actual')
-        if actual_col and pd.notna(row.get(actual_col)):
+        has_actual = bool(actual_col and pd.notna(row.get(actual_col)))
+        if step == '자재' and is_material_stock(row):
+            has_actual = True
+        if has_actual:
             last_actual_idx = i
     if last_actual_idx == len(steps) - 1:
         return steps[-1] if steps else '수주'
@@ -95,7 +115,10 @@ def calc_progress(row) -> int:
     weight_cols = list(PROGRESS_WEIGHTS.keys())
     last_idx = -1
     for i, col in enumerate(weight_cols):
-        if pd.notna(row.get(col)):
+        has_data = pd.notna(row.get(col))
+        if col == MATERIAL_ACTUAL_COL and is_material_stock(row):
+            has_data = True
+        if has_data:
             last_idx = i
     if last_idx < 0:
         return 0
@@ -142,7 +165,11 @@ def get_display_dates(row, status: str = None) -> dict:
     prev_actual_date = None
     prev_idx = cur_idx - 1
     while prev_idx >= 0:
-        prev_actual_col = STEP_DATE_MAP.get(steps[prev_idx], {}).get('actual')
+        prev_step = steps[prev_idx]
+        if prev_step == '자재' and is_material_stock(row):
+            prev_actual_date = 'STOCK'
+            break
+        prev_actual_col = STEP_DATE_MAP.get(prev_step, {}).get('actual')
         if prev_actual_col:
             val = row.get(prev_actual_col)
             if val is not None and pd.notna(val):
@@ -349,7 +376,7 @@ class DataManager:
 
     def _load(self):
         try:
-            engine = 'xlrd' if str(self.filepath).endswith('.xls') else 'openpyxl'
+            engine = 'xlrd' if str(self.filepath).lower().endswith('.xls') else 'openpyxl'
             df = pd.read_excel(self.filepath, engine=engine)
 
             # [FIX-6] 엑셀 헤더의 숨은 공백/유니코드 정규화 차이(NFC/NFD)로 인해
@@ -366,6 +393,22 @@ class DataManager:
 
             if 'ordseq' not in df.columns:
                 df['ordseq'] = df.groupby('수주번호').cumcount() + 1
+
+            # [BOM개편] 자재 단계 "STOCK"(스탁자재) 감지 — 날짜 파싱으로 텍스트가
+            # 사라지기 전에 미리 플래그로 남겨둔다. 컬럼명에 '_' 접두어를 안 쓰는 이유는
+            # reload_vendors()가 '_' 시작 컬럼을 지우고 재계산하기 때문(그때도 플래그가 남아있어야 함).
+            def _is_stock_text(v):
+                return isinstance(v, str) and v.strip().upper() == 'STOCK'
+
+            if MATERIAL_ACTUAL_COL in df.columns:
+                df[MATERIAL_ACTUAL_STOCK_COL] = df[MATERIAL_ACTUAL_COL].apply(_is_stock_text)
+            else:
+                df[MATERIAL_ACTUAL_STOCK_COL] = False
+            if MATERIAL_PLANNED_COL in df.columns:
+                df[MATERIAL_PLANNED_STOCK_COL] = df[MATERIAL_PLANNED_COL].apply(_is_stock_text)
+            else:
+                df[MATERIAL_PLANNED_STOCK_COL] = False
+            df[MATERIAL_STOCK_COL] = df[MATERIAL_ACTUAL_STOCK_COL] | df[MATERIAL_PLANNED_STOCK_COL]
 
             # [FIX-5] fix_date를 루프 밖으로 꺼내고 to_datetime 이중변환 제거
             def fix_date(v):
@@ -466,6 +509,11 @@ class DataManager:
                 d[col] = bool(val)
             else:
                 d[col] = val
+        # 자재 STOCK 항목은 실제 날짜 대신 'STOCK' 문자열을 그대로 표시
+        if row.get(MATERIAL_ACTUAL_STOCK_COL, False):
+            d[MATERIAL_ACTUAL_COL] = 'STOCK'
+        if row.get(MATERIAL_PLANNED_STOCK_COL, False):
+            d[MATERIAL_PLANNED_COL] = 'STOCK'
         return d
 
     def get_filtered_df(self, search="", status_filter="", company_filter="", step_filter="", product_filter="", vendor_filter="") -> pd.DataFrame:
@@ -580,10 +628,169 @@ class DataManager:
             actual_col = mapping.get('actual')
             planned = safe_date(row.get(planned_col)) if planned_col else None
             actual = safe_date(row.get(actual_col)) if actual_col else None
-            timeline.append({"step": step, "planned": planned, "actual": actual, "is_current": step == row['_current_step'], "is_done": actual is not None})
+            is_done = actual is not None
+            if step == '자재' and is_material_stock(row):
+                if row.get(MATERIAL_PLANNED_STOCK_COL, False):
+                    planned = 'STOCK'
+                if row.get(MATERIAL_ACTUAL_STOCK_COL, False):
+                    actual = 'STOCK'
+                is_done = True
+            timeline.append({"step": step, "planned": planned, "actual": actual, "is_current": step == row['_current_step'], "is_done": is_done})
 
         d['_timeline'] = timeline
         return d
+
+    # ── [BOM개편] 공정 목록 — 수주번호 → 차수(요구납기일) → 아이템 계층 구조 ──────
+
+    def get_grouped_processes(self, page=1, page_size=20, search="", status_filter="",
+                               company_filter="", step_filter="", product_filter="",
+                               vendor_filter="", sort_by="수주번호", sort_dir="asc") -> Dict:
+        """공정 목록 탭용. 최상위=수주번호(지연 섞이면 지연뱃지),
+        펼치면 차수(요구납기일 동일값 묶음, 1차/2차.../미정)별 게이지+대표단계,
+        차수를 펼치면 그 안의 BOM 아이템 개별 상태까지 내려간다.
+        status_filter/step_filter는 '해당 조건을 만족하는 아이템이 하나라도 있는 수주'를
+        골라내는 용도로만 쓰고, 골라진 수주 안의 아이템은 전부(필터링 없이) 보여준다
+        — 안 그러면 같은 차수 안에서 일부 아이템만 사라져 보여서 맥락을 잃기 때문."""
+        df = self._refresh_dynamic(self.df)
+        if df.empty:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
+
+        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+            df = df[df['_vendor_type'] == vendor_filter]
+        if company_filter and company_filter != "전체":
+            df = df[df['업체명'] == company_filter]
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['시스템명'].isin(pf_list)]
+        if search:
+            mask = (
+                df['수주번호'].astype(str).str.contains(search, case=False, na=False) |
+                df['업체명'].astype(str).str.contains(search, case=False, na=False)
+            )
+            if '프로젝트' in df.columns:
+                mask = mask | df['프로젝트'].astype(str).str.contains(search, case=False, na=False)
+            if '시스템명' in df.columns:
+                mask = mask | df['시스템명'].astype(str).str.contains(search, case=False, na=False)
+            if '품명' in df.columns:
+                mask = mask | df['품명'].astype(str).str.contains(search, case=False, na=False)
+            df = df[mask]
+
+        if df.empty:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
+
+        order_groups = []
+        for order_no, order_df in df.groupby('수주번호', sort=False):
+            lots = self._build_lots(order_df)
+            is_delayed = any(lot['is_delayed'] for lot in lots)
+            rep = order_df.iloc[0]
+            order_groups.append({
+                "수주번호": order_no,
+                "업체명": rep.get('업체명'),
+                "프로젝트": rep.get('프로젝트') if '프로젝트' in order_df.columns else None,
+                "_vendor_type": rep.get('_vendor_type'),
+                "item_count": len(order_df),
+                "lot_count": len(lots),
+                "delayed_lot_count": sum(1 for lot in lots if lot['is_delayed']),
+                "is_delayed": is_delayed,
+                "lots": lots,
+            })
+
+        # status_filter/step_filter: 조건을 만족하는 아이템이 하나라도 있는 수주만 남긴다
+        if status_filter and status_filter != "전체":
+            if status_filter == "지연(전체)":
+                order_groups = [g for g in order_groups if g["is_delayed"]]
+            else:
+                order_groups = [
+                    g for g in order_groups
+                    if any(item.get('_status') == status_filter for lot in g["lots"] for item in lot["items"])
+                ]
+        if step_filter and step_filter != "전체":
+            order_groups = [
+                g for g in order_groups
+                if any(item.get('_current_step') == step_filter for lot in g["lots"] for item in lot["items"])
+            ]
+
+        reverse = (sort_dir != "asc")
+        if sort_by == "업체명":
+            order_groups.sort(key=lambda g: str(g.get("업체명") or ""), reverse=reverse)
+        else:
+            order_groups.sort(key=lambda g: str(g["수주번호"]), reverse=reverse)
+
+        total = len(order_groups)
+        total_pages = max(1, math.ceil(total / page_size))
+        page = max(1, min(page, total_pages))
+        start = (page - 1) * page_size
+        page_items = order_groups[start:start + page_size]
+
+        return {"items": page_items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
+
+    def _build_lots(self, order_df: pd.DataFrame) -> List[Dict]:
+        """수주번호 하나 안에서 요구납기일 값으로 차수를 나눈다.
+        정확히 같은 날짜만 같은 차수. 요구납기일 없으면 '미정' 차수로 별도 그룹.
+        차수번호는 요구납기일 오름차순으로 1차가 가장 빠른 납기."""
+        if '요구납기일' in order_df.columns:
+            has_due = order_df['요구납기일'].notna()
+        else:
+            has_due = pd.Series(False, index=order_df.index)
+
+        dated_df = order_df[has_due]
+        undated_df = order_df[~has_due]
+
+        lot_groups = []
+        if not dated_df.empty:
+            for due_date, sub_df in dated_df.groupby('요구납기일', sort=True):
+                lot_groups.append((pd.Timestamp(due_date), sub_df))
+            lot_groups.sort(key=lambda x: x[0])
+        if not undated_df.empty:
+            lot_groups.append((None, undated_df))  # 미정차수는 항상 맨 뒤
+
+        lots = []
+        lot_no = 0
+        for due_date, sub_df in lot_groups:
+            if due_date is not None:
+                lot_no += 1
+                label = f"{lot_no}차"
+            else:
+                label = "미정"
+            lots.append(self._summarize_lot(label, due_date, sub_df))
+        return lots
+
+    def _summarize_lot(self, label: str, due_date, sub_df: pd.DataFrame) -> Dict:
+        items = [self._row_to_dict(row) for _, row in sub_df.iterrows()]
+        statuses = sub_df['_status'].tolist() if '_status' in sub_df.columns else []
+        is_delayed = any(s in DELAY_STATUSES for s in statuses)
+
+        # 대표단계(병목) = PROCESS_STEPS 순서상 가장 뒤처진(인덱스가 가장 낮은) 아이템의 현재단계
+        # (스킵규칙은 이미 아이템별 infer_current_step에서 반영되어 있음)
+        bottleneck_step = None
+        bottleneck_idx = None
+        if '_current_step' in sub_df.columns:
+            for step in sub_df['_current_step']:
+                if step not in PROCESS_STEPS:
+                    continue
+                idx = PROCESS_STEPS.index(step)
+                if bottleneck_idx is None or idx < bottleneck_idx:
+                    bottleneck_idx = idx
+                    bottleneck_step = step
+
+        progresses = sub_df['_progress'].tolist() if '_progress' in sub_df.columns else []
+        lot_progress = min(progresses) if progresses else 0
+
+        DONE_LIKE = {'출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연'}
+        is_all_done = bool(statuses) and all(s in DONE_LIKE for s in statuses)
+
+        return {
+            "label": label,
+            "요구납기일": safe_date(due_date) if due_date is not None else None,
+            "item_count": len(sub_df),
+            "delayed_item_count": sum(1 for s in statuses if s in DELAY_STATUSES),
+            "is_delayed": is_delayed,
+            "bottleneck_step": bottleneck_step,
+            "progress": lot_progress,
+            "is_done": is_all_done,
+            "items": items,
+        }
 
     def update_process(self, order_no: str, ordseq: int, updates: Dict) -> bool:
         mask = (self.df['수주번호'] == order_no) & (self.df['ordseq'] == ordseq)
