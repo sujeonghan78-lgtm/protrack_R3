@@ -951,47 +951,145 @@ class DataManager:
         self._invalidate_cache()
         return True
 
+    # ── [메인보드 복구, BOM단위] 수주번호 단위 롤업 — KPI/차트/모달 공용 ─────────
+    def get_order_rollups(self, product_filter: str = "", vendor_filter: str = "") -> List[Dict]:
+        """수주번호 단위로 묶은 대표 정보. 공정목록탭의 _build_lots를 그대로 재사용해서
+        차수(lot) 판정 로직이 완전히 동일하게 유지되도록 한다(아이템 목록은 제외한 가벼운 버전).
+        - is_delayed: 차수 중 하나라도 지연이면 True
+        - progress: 아이템 전체 중 최솟값(병목 기준)
+        - bottleneck_step: 아이템들 현재단계 중 PROCESS_STEPS상 가장 뒤처진 것
+        - nearest_due_date: 아직 출고 안 된 차수 중 가장 급한 요구납기일
+        - shipped_all: 전체 아이템이 실제 출고(이상) 단계까지 갔는지
+        - last_ship_date: 최종납기일(실제 출고일) 중 가장 늦은 날짜 — "전부 다 나간 시점" 기준
+        """
+        df = self._get_refreshed_df()
+        if df.empty:
+            return []
+        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
+            df = df[df['_vendor_type'] == vendor_filter]
+        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
+            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
+            if pf_list:
+                df = df[df['시스템명'].isin(pf_list)]
+        if df.empty:
+            return []
+
+        rollups = []
+        for order_no, order_df in df.groupby('수주번호', sort=False):
+            lots = self._build_lots(order_df)
+            lots_light = [{k: v for k, v in lot.items() if k != 'items'} for lot in lots]
+            is_delayed = any(lot['is_delayed'] for lot in lots)
+            rep = order_df.iloc[0]
+
+            bottleneck_step = None
+            bottleneck_idx = None
+            if '_current_step' in order_df.columns:
+                for step in order_df['_current_step']:
+                    if step not in PROCESS_STEPS:
+                        continue
+                    idx = PROCESS_STEPS.index(step)
+                    if bottleneck_idx is None or idx < bottleneck_idx:
+                        bottleneck_idx = idx
+                        bottleneck_step = step
+
+            progresses = order_df['_progress'].tolist() if '_progress' in order_df.columns else []
+            overall_progress = min(progresses) if progresses else 0
+
+            nearest_due = None
+            pending_dues = [lot['요구납기일'] for lot in lots if lot['요구납기일'] and not lot['is_done']]
+            if pending_dues:
+                nearest_due = min(pending_dues)
+
+            shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
+            last_ship_date = None
+            if '최종납기일' in order_df.columns:
+                ship_dates = order_df['최종납기일'].dropna()
+                if not ship_dates.empty:
+                    last_ship_date = safe_date(ship_dates.max())
+
+            # 병목단계 대표 아이템의 지연일수(_cur_diff) — 단계별 차트 평균지연일수 계산용
+            bottleneck_cur_diff = None
+            if bottleneck_step is not None and '_current_step' in order_df.columns:
+                bn_rows = order_df[order_df['_current_step'] == bottleneck_step]
+                if not bn_rows.empty:
+                    v = bn_rows.iloc[0].get('_cur_diff')
+                    if v is not None and not (isinstance(v, float) and pd.isna(v)):
+                        bottleneck_cur_diff = int(v)
+
+            rollups.append({
+                "수주번호": order_no,
+                "업체명": rep.get('업체명'),
+                "프로젝트": rep.get('프로젝트') if '프로젝트' in order_df.columns else None,
+                "시스템명": rep.get('시스템명') if '시스템명' in order_df.columns else None,
+                "_vendor_type": rep.get('_vendor_type'),
+                "item_count": len(order_df),
+                "lot_count": len(lots),
+                "delayed_lot_count": sum(1 for lot in lots if lot['is_delayed']),
+                "is_delayed": is_delayed,
+                "bottleneck_step": bottleneck_step,
+                "bottleneck_cur_diff": bottleneck_cur_diff,
+                "progress": overall_progress,
+                "nearest_due_date": nearest_due,
+                "shipped_all": shipped_all,
+                "last_ship_date": last_ship_date,
+                "lots": lots_light,
+            })
+        return rollups
+
     def get_kpi(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
-        total = len(df)
-        on_track  = len(df[df['_status'] == 'On Track'])
-        at_risk   = len(df[df['_status'] == 'At Risk'])
+        """[메인보드 복구] 수주번호(프로젝트) 단위 집계로 변경.
+        completed/delivered/invoiced/data_error 등 세부 분류는 그 수주의 병목(가장 뒤처진)
+        차수 기준 상태로 판정한다 — 병목이 어디 있는지가 그 수주의 실제 진행상황을 대표하므로."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
+        if date_from or date_to:
+            def _in_range(o):
+                d = o.get('nearest_due_date')
+                if not d:
+                    return False
+                if date_from and d < date_from:
+                    return False
+                if date_to and d > date_to:
+                    return False
+                return True
+            rollups = [o for o in rollups if _in_range(o)]
 
-        # 지연 분류
-        delayed_process  = len(df[df['_status'] == '지연'])          # 공정 중 지연
-        delayed_delivery = len(df[df['_status'] == '출고지연'])       # 출고 지연
-        delayed_post     = len(df[df['_status'].isin(['OTP지연', '계산서지연'])])  # 출고 이후 지연
-        delayed_total    = delayed_process + delayed_delivery + delayed_post
+        total = len(rollups)
+        delayed_total = sum(1 for o in rollups if o['is_delayed'])
 
-        completed = len(df[df['_status'].isin(['출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연'])])
-        delivered = len(df[df['_status'].isin(['출고완료', '출고지연'])])
-        invoiced  = len(df[df['_status'].isin(['계산서완료', 'OTP지연', '계산서지연'])])
-        data_error = len(df[df['_status'] == '데이터오류'])
-        avg_progress = int(df['_progress'].mean()) if total > 0 else 0
+        today_str = pd.Timestamp.now().strftime('%Y-%m-%d')
+        risk_edge = (pd.Timestamp.now() + pd.Timedelta(days=7)).strftime('%Y-%m-%d')
+        at_risk = sum(1 for o in rollups if (not o['is_delayed']) and o.get('nearest_due_date') and today_str <= o['nearest_due_date'] <= risk_edge)
+
+        shipped_all_orders = [o for o in rollups if o['shipped_all']]
+        shipped_order_nos = {o['수주번호'] for o in shipped_all_orders}
+        delivered = len(shipped_all_orders)  # 전체 차수 출고 완료(계산서 이전 포함)
+        invoiced = sum(1 for o in rollups if o['shipped_all'] and o['bottleneck_step'] == '계산서')
+        completed = invoiced  # 계산서까지 전부 끝난 것을 "완료"로 봄
+        data_error = 0  # 아이템 단위 데이터오류는 병목(수주) 개념과 안 맞아 order 롤업에서는 집계하지 않음
+
+        on_track = sum(1 for o in rollups if not o['is_delayed'] and o['수주번호'] not in shipped_order_nos and (not o.get('nearest_due_date') or o['nearest_due_date'] > risk_edge))
+        delayed_process = sum(1 for o in rollups if o['is_delayed'] and o['bottleneck_step'] not in ('출고', 'OTP', '계산서'))
+        delayed_delivery = sum(1 for o in rollups if o['is_delayed'] and o['bottleneck_step'] == '출고')
+        delayed_post = sum(1 for o in rollups if o['is_delayed'] and o['bottleneck_step'] in ('OTP', '계산서'))
+
+        avg_progress = round(sum(o['progress'] for o in rollups) / total) if total else 0
 
         system_counts = {}
         system_completed = {}
         system_delayed = {}
-        DELAY_STATUSES_ALL = ['지연', '출고지연', 'OTP지연', '계산서지연']
-        if '시스템명' in df.columns:
-            for sys, grp in df.groupby('시스템명'):
-                system_counts[str(sys)] = len(grp)
-                system_completed[str(sys)] = len(grp[grp['_status'].isin(['출고완료', '계산서완료', '출고지연', 'OTP지연', '계산서지연'])])
-                system_delayed[str(sys)] = len(grp[grp['_status'].isin(DELAY_STATUSES_ALL)])
+        for o in rollups:
+            sys = str(o.get('시스템명') or '미분류')
+            system_counts[sys] = system_counts.get(sys, 0) + 1
+            if o['shipped_all']:
+                system_completed[sys] = system_completed.get(sys, 0) + 1
+            if o['is_delayed']:
+                system_delayed[sys] = system_delayed.get(sys, 0) + 1
 
         in_progress = on_track + at_risk + delayed_process
 
-        # 이달 출고예정: 요구납기일이 이번 달이고 아직 출고(최종납기일) 안 된 건 (alerts의 due_soon_출고와 동일 기준)
-        due_this_month = 0
-        if '요구납기일' in df.columns:
-            today = pd.Timestamp.now()
-            this_month_start = today.replace(day=1)
-            next_month_start = this_month_start + pd.DateOffset(months=1)
-            mask = (df['요구납기일'].notna() &
-                    (df['요구납기일'].dt.date >= this_month_start.date()) &
-                    (df['요구납기일'].dt.date < next_month_start.date()) &
-                    df['최종납기일'].isna())
-            due_this_month = int(mask.sum())
+        # 이달 출고예정: 아직 출고 안 된 차수 중 가장 급한 요구납기일이 이번 달인 수주
+        this_month = pd.Timestamp.now().strftime('%Y-%m')
+        due_this_month = sum(1 for o in rollups if o.get('nearest_due_date') and o['nearest_due_date'][:7] == this_month)
 
         return {"total": total, "in_progress": in_progress, "on_track": on_track,
                 "at_risk": at_risk,
@@ -1200,51 +1298,54 @@ class DataManager:
         return result
 
     def get_stage_by_process(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
-        """공정 단계별 현재 건수 (누적 바차트용)"""
-        if self.df.empty:
+        """공정 단계별 현재 건수 (누적 바차트용) — [메인보드 복구] 수주번호(프로젝트) 단위.
+        버킷 기준 = 그 수주의 병목(가장 진척 덜 된) 차수의 현재단계. 지연 건수는 그 수주에
+        지연 차수가 하나라도 있으면 이 버킷에 1건으로 포함(병목단계와 실제 지연단계가
+        다를 수 있지만, "지금 이 단계에 몰려있는 프로젝트 중 지연 있는 게 몇 개"를 보여주는 것이 목적)."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
+        if not rollups:
             return []
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
-        total_count = len(df)
-        systems = sorted(df['시스템명'].dropna().unique().tolist()) if '시스템명' in df.columns else []
+        if date_from or date_to:
+            def _in_range(o):
+                d = o.get('nearest_due_date')
+                if not d:
+                    return False
+                if date_from and d < date_from:
+                    return False
+                if date_to and d > date_to:
+                    return False
+                return True
+            rollups = [o for o in rollups if _in_range(o)]
+        if not rollups:
+            return []
+        total_count = len(rollups)
+        systems = sorted(set(str(o['시스템명']) for o in rollups if o.get('시스템명')))
         system_colors = ['#2563eb','#3b82f6','#1e40af','#60a5fa','#1d4ed8','#93c5fd','#bfdbfe','#1e3a8a']
-
         step_order = {s: i for i, s in enumerate(PROCESS_STEPS)}
-        cur_step_idx = df['_current_step'].map(step_order)
 
         result = []
         for step in PROCESS_STEPS:
             if step == '수주':
                 continue
-            step_df = df[df['_current_step'] == step]
-            step_count = len(step_df)
+            step_orders = [o for o in rollups if o['bottleneck_step'] == step]
+            step_count = len(step_orders)
             by_system = []
             for si, system in enumerate(systems):
-                sys_step_df = step_df[step_df['시스템명'] == system] if '시스템명' in step_df.columns else step_df
-                count = len(sys_step_df)
+                count = sum(1 for o in step_orders if str(o.get('시스템명')) == system)
                 pct = round(count / total_count * 100) if total_count > 0 else 0
                 by_system.append({
-                    "system": str(system), "count": count, "pct": pct,
+                    "system": system, "count": count, "pct": pct,
                     "color": system_colors[si % len(system_colors)]
                 })
-            # 지연 건수: KPI/상태분포와 동일하게 _status 기준으로 통일 (기존 cur_diff>0 기준에서 변경)
-            DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
-            delayed_rows = [r for _, r in step_df.iterrows() if r.get('_status') in DELAY_STATUSES]
-            cur_diffs = [r['_cur_diff'] for r in delayed_rows
-                         if r.get('_cur_diff') is not None and not (isinstance(r['_cur_diff'], float) and pd.isna(r['_cur_diff']))]
+
+            delayed_orders = [o for o in step_orders if o['is_delayed']]
+            delayed_count = len(delayed_orders)
+            cur_diffs = [o['bottleneck_cur_diff'] for o in delayed_orders if o.get('bottleneck_cur_diff') is not None]
             avg_cur = round(sum(cur_diffs) / len(cur_diffs)) if cur_diffs else None
-            delayed_count = len(delayed_rows)
 
-            # 모드2: 다음 일정 초과 평균 — 전체 건 기준, 미초과=0 포함
-            next_diffs = [max(0, r['_next_diff']) for _, r in step_df.iterrows()
-                          if r.get('_next_diff') is not None and not (isinstance(r['_next_diff'], float) and pd.isna(r['_next_diff']))]
-            avg_next = round(sum(next_diffs) / len(next_diffs)) if next_diffs else None
-
-            # 완료 건수: 실적일 컬럼의 존재 여부가 아니라, 이미 계산된 현재단계(_current_step) 위치 기준으로 판단.
-            # (실적일만 보면 중간 단계 데이터 누락 시 순서가 깨짐 — infer_current_step이 이미 그 누락/스킵을
-            #  반영해서 현재단계를 정했으므로, 그 위치보다 뒤에 있으면 이 단계는 완료로 본다)
             idx = step_order[step]
-            completed_count = int((cur_step_idx > idx).sum())
-            waiting_count = int((cur_step_idx < idx).sum())
+            completed_count = sum(1 for o in rollups if o['bottleneck_step'] and step_order.get(o['bottleneck_step'], -1) > idx)
+            waiting_count = sum(1 for o in rollups if o['bottleneck_step'] and step_order.get(o['bottleneck_step'], -1) < idx)
 
             result.append({
                 "step": step,
@@ -1254,7 +1355,7 @@ class DataManager:
                 "by_system": by_system,
                 "avg_delay_days": avg_cur,
                 "avg_cur_days": avg_cur,
-                "avg_next_days": avg_next,
+                "avg_next_days": None,
                 "delayed_count": delayed_count,
                 "completed_count": completed_count,
                 "waiting_count": waiting_count,
@@ -1262,37 +1363,26 @@ class DataManager:
         return result
 
     def get_stage_delayed_items(self, step: str, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
-        """단계별 평균 지연일수 차트 클릭 시 — 해당 단계의 지연 건 목록 (차트와 동일 기준)"""
-        if self.df.empty:
-            return []
-        df = self._get_fresh_df(product_filter, date_col, date_from, date_to, vendor_filter)
-        step_df = df[df['_current_step'] == step]
-
-        DELAY_STATUSES = {'지연', '출고지연', 'OTP지연', '계산서지연'}
+        """단계별 차트 클릭 시 — 해당 단계가 병목인 지연 수주 목록. [메인보드 복구]
+        수주 대표로 뜨고, 프론트에서 눌러서 차수(lots)까지 펼칠 수 있게 lots를 같이 내려준다."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
         result = []
-        for _, row in step_df.iterrows():
-            status = row.get('_status', '')
-            if status not in DELAY_STATUSES:
+        for o in rollups:
+            if o['bottleneck_step'] != step or not o['is_delayed']:
                 continue
-            cur_diff = row.get('_cur_diff')
-            if cur_diff is None or (isinstance(cur_diff, float) and pd.isna(cur_diff)):
-                cur_diff = 0
-
             result.append({
-                "수주번호":         row.get('수주번호', ''),
-                "프로젝트":         row.get('프로젝트', ''),
-                "업체명":           row.get('업체명', ''),
-                "시스템명":         row.get('시스템명', ''),
-                "_current_step":    row.get('_current_step', ''),
-                "_status":          status,
-                "_cur_diff":        int(cur_diff),
-                "_cur_actual_date": row.get('_cur_actual_date'),
-                "_current_planned_date": row.get('_current_planned_date'),
-                "_progress":        row.get('_progress', 0),
-                "_row_id":          row.get('_row_id', ''),
-                "ordseq":           row.get('ordseq'),
+                "수주번호": o['수주번호'],
+                "프로젝트": o['프로젝트'],
+                "업체명": o['업체명'],
+                "시스템명": o['시스템명'],
+                "_current_step": o['bottleneck_step'],
+                "_status": '지연',
+                "_cur_diff": o.get('bottleneck_cur_diff') or 0,
+                "_progress": o['progress'],
+                "lot_count": o['lot_count'],
+                "delayed_lot_count": o['delayed_lot_count'],
+                "lots": o['lots'],
             })
-
         result.sort(key=lambda x: x['_cur_diff'], reverse=True)
         return result
 
@@ -1358,62 +1448,60 @@ class DataManager:
         }
 
     def get_monthly_delivery(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
-        """월별 출고예정(date_col) + 납품완료(최종납기일) 건수 및 상세"""
-        if self.df.empty or date_col not in self.df.columns:
-            if '요구납기일' not in self.df.columns:
-                return []
-            date_col = '요구납기일'
-        df = self.df.copy()
-        if product_filter and product_filter != "전체" and '시스템명' in df.columns:
-            pf_list = [p.strip() for p in product_filter.split(',') if p.strip()]
-            if pf_list:
-                df = df[df['시스템명'].isin(pf_list)]
-        if vendor_filter and vendor_filter != "전체" and '_vendor_type' in df.columns:
-            df = df[df['_vendor_type'] == vendor_filter]
+        """월별 출고예정 + 납품완료 건수 및 상세 — [메인보드 복구] 수주번호(프로젝트) 단위.
+        완료 = shipped_all(모든 차수가 다 출고된 수주), 완료월 = last_ship_date(가장 마지막에
+        나간 차수의 실제 출고일). 예정 = 아직 shipped_all이 아닌 수주 중, 가장 급한
+        요구납기일(nearest_due_date)이 있는 것들을 그 달로 집계."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
+        if not rollups:
+            return []
 
-        def row_brief(row):
+        def order_brief(o):
             return {
-                "수주번호": row.get('수주번호', ''),
-                "ordseq": int(row.get('ordseq', 0)),
-                "업체명": row.get('업체명', ''),
-                "프로젝트": row.get('프로젝트', ''),
-                "시스템명": row.get('시스템명', ''),
-                "_current_step": row.get('_current_step', ''),
-                "_progress": int(row.get('_progress', 0)),
-                "_vendor_type": row.get('_vendor_type', ''),
-                "요구납기일": safe_date(row.get('요구납기일')),
-                "최종납기일": safe_date(row.get('최종납기일')),
-                "OTP일자": safe_date(row.get('OTP일자')),
+                "수주번호": o['수주번호'],
+                "업체명": o['업체명'],
+                "프로젝트": o['프로젝트'],
+                "시스템명": o['시스템명'],
+                "_vendor_type": o['_vendor_type'],
+                "_progress": o['progress'],
+                "_current_step": o['bottleneck_step'],
+                "is_delayed": o['is_delayed'],
+                "lot_count": o['lot_count'],
+                "delayed_lot_count": o['delayed_lot_count'],
+                "요구납기일": o.get('nearest_due_date'),
+                "최종납기일": o.get('last_ship_date'),
+                "lots": o['lots'],
             }
 
-        # 출고예정: date_col 기준 + 날짜 범위 + 아직 출고 안 된 건만 (중복 제거)
-        df_filtered = apply_date_range(df, date_col, date_from, date_to) if (date_from or date_to) else df
-        planned_df = df_filtered[df_filtered[date_col].notna() & df_filtered['최종납기일'].isna()].copy()
-        planned_df['month'] = planned_df[date_col].dt.to_period('M').astype(str)
+        planned_by_month = {}
+        completed_by_month = {}
+        for o in rollups:
+            if o['shipped_all'] and o.get('last_ship_date'):
+                month = o['last_ship_date'][:7]
+                completed_by_month.setdefault(month, []).append(o)
+            elif not o['shipped_all'] and o.get('nearest_due_date'):
+                if date_from and o['nearest_due_date'] < date_from:
+                    continue
+                if date_to and o['nearest_due_date'] > date_to:
+                    continue
+                month = o['nearest_due_date'][:7]
+                planned_by_month.setdefault(month, []).append(o)
 
-        # 납품완료: 최종납기일 기준
-        completed_df = pd.DataFrame()
-        if '최종납기일' in df.columns:
-            completed_df = df[df['최종납기일'].notna()].copy()
-            completed_df['month'] = completed_df['최종납기일'].dt.to_period('M').astype(str)
-
-        months = set(planned_df['month'].tolist())
-        if not completed_df.empty:
-            months |= set(completed_df['month'].tolist())
-
+        months = set(planned_by_month.keys()) | set(completed_by_month.keys())
         result = []
         for month in sorted(months):
-            planned_rows = planned_df[planned_df['month'] == month]
-            completed_rows = completed_df[completed_df['month'] == month] if not completed_df.empty else pd.DataFrame()
+            planned_orders = planned_by_month.get(month, [])
+            completed_orders = completed_by_month.get(month, [])
             result.append({
                 'month': month,
-                'count': len(planned_rows),
-                'completed': len(completed_rows),
-                'planned_items': [row_brief(r) for _, r in planned_rows.iterrows()],
-                'completed_items': [row_brief(r) for _, r in completed_rows.iterrows()],
+                'count': len(planned_orders),
+                'completed': len(completed_orders),
+                'planned_items': [order_brief(o) for o in planned_orders],
+                'completed_items': [order_brief(o) for o in completed_orders],
             })
         result.sort(key=lambda x: x['month'])
         return result[-12:]
+
     def get_unique_values(self, col: str) -> List[str]:
         if col not in self.df.columns:
             return []
