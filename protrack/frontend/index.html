@@ -3023,7 +3023,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
     return pages;
   };
 
-  const ORDER_COLS = '24px 150px 1fr 80px 80px 90px 80px';
+  const ORDER_COLS = '24px 150px 1fr 90px 90px 130px 90px 90px 80px';
   const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px';
 
   return (
@@ -3055,8 +3055,10 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                 <div></div>
                 <div>수주번호</div>
                 <div>업체명 / 호선명</div>
-                <div>품목수</div>
-                <div>차수</div>
+                <div>병목단계</div>
+                <div>진척도</div>
+                <div>가장 급한 요구납기</div>
+                <div>품목/차수</div>
                 <div>지연차수</div>
                 <div>상태</div>
               </div>
@@ -3079,8 +3081,19 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{order.프로젝트}</div>
                       </div>
-                      <div style={{ fontSize: 12 }}>{order.item_count}건</div>
-                      <div style={{ fontSize: 12 }}>{order.lot_count}차수</div>
+                      <div style={{ fontSize: 12 }}>
+                        {order.bottleneck_step ? <span className="step-badge">{order.bottleneck_step}</span> : '—'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div className="progress-bar" style={{ width: 50 }}>
+                          <div className={`progress-fill ${order.is_delayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${order.progress}%` }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{order.progress}%</span>
+                      </div>
+                      <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: order.nearest_due_date && order.nearest_due_date < new Date().toISOString().slice(0,10) ? '#dc2626' : 'var(--text)' }}>
+                        {order.nearest_due_date || '—'}
+                      </div>
+                      <div style={{ fontSize: 12 }}>{order.item_count}건 / {order.lot_count}차수</div>
                       <div style={{ fontSize: 12, color: order.delayed_lot_count > 0 ? '#dc2626' : 'var(--muted)' }}>{order.delayed_lot_count}차수</div>
                       <div>
                         {order.is_delayed ? (
