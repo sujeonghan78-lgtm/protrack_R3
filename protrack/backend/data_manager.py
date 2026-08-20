@@ -694,12 +694,12 @@ class DataManager:
             progresses = order_df['_progress'].tolist() if '_progress' in order_df.columns else []
             overall_progress = min(progresses) if progresses else 0
 
-            # 가장 급한(가장 이른) 요구납기일 — 미정(NaT)은 제외
+            # 가장 급한(가장 이른) 요구납기일 — 미정(NaT)은 제외, 이미 출고완료된(is_done) 차수도 제외.
+            # 즉 "아직 안 나간 차수" 중에서 제일 급한 납기만 본다.
             nearest_due = None
-            if '요구납기일' in order_df.columns:
-                due_notna = order_df['요구납기일'].dropna()
-                if not due_notna.empty:
-                    nearest_due = safe_date(due_notna.min())
+            pending_dues = [lot['요구납기일'] for lot in lots if lot['요구납기일'] and not lot['is_done']]
+            if pending_dues:
+                nearest_due = min(pending_dues)
 
             # 병목 아이템(가장 뒤처진 그 아이템)의 이전공정실적일/현재단계예정일을 대표값으로 사용
             bottleneck_actual_date = None
