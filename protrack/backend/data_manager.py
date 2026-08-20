@@ -737,6 +737,10 @@ class DataManager:
             if bottleneck_delayed and bottleneck_step in STEP_CUM_END:
                 bar_red_end = min(100, STEP_CUM_END[bottleneck_step])
 
+            # 가장 앞서있는(제일 많이 진행된) 차수의 진척률 — 틱 사이 회색 밴드 끝점으로 사용
+            lot_progresses = [lot['progress'] for lot in lots] if lots else [overall_progress]
+            bar_ahead_end = max(lot_progresses)
+
             # 마일스톤 점(출고 지점 고정) — 전체 아이템이 실제 출고(이상) 단계까지 갔는지
             shipped_all = bool(order_df['_status'].isin(SHIPPED_STATUSES).all()) if len(order_df) else False
 
@@ -756,6 +760,7 @@ class DataManager:
                 "bottleneck_planned_date": bottleneck_planned_date,
                 "bar_blue_end": overall_progress,
                 "bar_red_end": bar_red_end,
+                "bar_ahead_end": bar_ahead_end,
                 "ship_milestone_pct": SHIP_MILESTONE_PCT,
                 "shipped_all": shipped_all,
                 "lots": lots,
