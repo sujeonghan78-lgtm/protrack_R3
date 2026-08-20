@@ -273,6 +273,25 @@ async def get_processes(
     return result
 
 
+@app.get("/api/processes/grouped")
+async def get_grouped_processes(
+    page: int = 1,
+    page_size: int = 20,
+    search: str = "",
+    status_filter: str = "",
+    company_filter: str = "",
+    step_filter: str = "",
+    product_filter: str = "",
+    vendor_filter: str = "",
+    sort_by: str = "수주번호",
+    sort_dir: str = "asc",
+    current_user: User = Depends(get_current_user)
+):
+    """공정 목록 탭 — 수주번호 → 차수 → 아이템 계층 구조."""
+    result = dm.get_grouped_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, product_filter=product_filter, vendor_filter=vendor_filter, sort_by=sort_by, sort_dir=sort_dir)
+    return result
+
+
 @app.get("/api/processes/{order_no}/{ordseq}")
 async def get_process_detail(
     order_no: str,
