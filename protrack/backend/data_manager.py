@@ -240,31 +240,16 @@ def calc_stage_diff(row) -> dict:
 
 def infer_status(row) -> str:
     """완료/지연 분기:
-    - 계산서발행일 있음 → 계산서완료 or 계산서지연
+    - 계산서발행일 있음 → 계산서완료 (실적만 찍히면 무조건 완료로 처리, 발행월 비교는 안 함)
     - OTP실적 있고 최종납기일 없음 → 데이터오류
-    - 최종납기일 있음 → 출고완료(실적만 있으면 지연 무관) or OTP지연 or 계산서지연
+    - 최종납기일 있음 → 출고완료(실적만 있으면 지연 무관) or OTP지연
     - 나머지 → 공정 중 지연/임박/정상
     """
     today = pd.Timestamp.now()
     is_domestic = row.get('_vendor_type') == '국내'
 
-    # ── 계산서 발행 완료 ──────────────────────────────
+    # ── 계산서 발행 완료 — 실적(계산서발행일)만 찍히면 무조건 완료 ──
     if pd.notna(row.get('계산서발행일')):
-        invoice_date = pd.Timestamp(row['계산서발행일'])
-        if is_domestic:
-            # 국내: 계산서 발행월 > 출고월이면 지연
-            if pd.notna(row.get('최종납기일')):
-                출고월 = pd.Timestamp(row['최종납기일']).to_period('M')
-                계산서월 = invoice_date.to_period('M')
-                if 계산서월 > 출고월:
-                    return '계산서지연'
-        else:
-            # 해외: 계산서 발행월 > OTP실적월이면 지연
-            if pd.notna(row.get('OTP일자')):
-                otp월 = pd.Timestamp(row['OTP일자']).to_period('M')
-                계산서월 = invoice_date.to_period('M')
-                if 계산서월 > otp월:
-                    return '계산서지연'
         return '계산서완료'
 
     # ── 데이터 오류: OTP실적 있는데 최종납기일 없음 ──
@@ -684,6 +669,39 @@ class DataManager:
             lots = self._build_lots(order_df)
             is_delayed = any(lot['is_delayed'] for lot in lots)
             rep = order_df.iloc[0]
+
+            # 수주 대표행 보완 — 차수가 여러개라 값 하나로 못 박는 요구납기일 빼고,
+            # 병목단계/진척률/이전공정실적일/현재단계예정일은 아이템 전체를 통틀어 집계
+            bottleneck_step = None
+            bottleneck_idx = None
+            if '_current_step' in order_df.columns:
+                for step in order_df['_current_step']:
+                    if step not in PROCESS_STEPS:
+                        continue
+                    idx = PROCESS_STEPS.index(step)
+                    if bottleneck_idx is None or idx < bottleneck_idx:
+                        bottleneck_idx = idx
+                        bottleneck_step = step
+            progresses = order_df['_progress'].tolist() if '_progress' in order_df.columns else []
+            overall_progress = min(progresses) if progresses else 0
+
+            # 가장 급한(가장 이른) 요구납기일 — 미정(NaT)은 제외
+            nearest_due = None
+            if '요구납기일' in order_df.columns:
+                due_notna = order_df['요구납기일'].dropna()
+                if not due_notna.empty:
+                    nearest_due = safe_date(due_notna.min())
+
+            # 병목 아이템(가장 뒤처진 그 아이템)의 이전공정실적일/현재단계예정일을 대표값으로 사용
+            bottleneck_actual_date = None
+            bottleneck_planned_date = None
+            if bottleneck_step is not None and '_current_step' in order_df.columns:
+                bn_rows = order_df[order_df['_current_step'] == bottleneck_step]
+                if not bn_rows.empty:
+                    bn_row = bn_rows.iloc[0]
+                    bottleneck_actual_date = bn_row.get('_cur_actual_date')
+                    bottleneck_planned_date = bn_row.get('_current_planned_date')
+
             order_groups.append({
                 "수주번호": order_no,
                 "업체명": rep.get('업체명'),
@@ -693,6 +711,11 @@ class DataManager:
                 "lot_count": len(lots),
                 "delayed_lot_count": sum(1 for lot in lots if lot['is_delayed']),
                 "is_delayed": is_delayed,
+                "bottleneck_step": bottleneck_step,
+                "progress": overall_progress,
+                "nearest_due_date": nearest_due,
+                "bottleneck_actual_date": bottleneck_actual_date,
+                "bottleneck_planned_date": bottleneck_planned_date,
                 "lots": lots,
             })
 
