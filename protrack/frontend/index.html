@@ -2956,32 +2956,40 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 // 백엔드 /api/processes/grouped를 사용. 최상위 행은 수주번호(지연 섞이면 지연뱃지),
 // 펼치면 차수(요구납기일 동일값 묶음)별 게이지+병목단계, 차수를 다시 펼치면 그 안의
 // BOM 아이템 개별 상태(기존 ListTab의 행과 동일한 정보)까지 내려간다.
-// ── [BOM개편] 마일스톤 바 — 수주 대표행에서 여러 차수를 하나의 바로 압축 표시 ──────
-// 전체 진척률을 채운 바 위에, 차수 개수만큼 균등 배치한 핀(점)을 얹어
-// 각 차수의 완료/지연/진행중 여부를 한눈에 보여준다. 날짜 비율이 아니라 차수
-// "순서" 기준 균등 배치 — 차수 간 기간이 크게 벌어져도 점들이 안 뭉치게 하기 위함.
-function MilestoneBar({ progress, isDelayed, lots }) {
+// ── [BOM개편] 마일스톤 바 — 수주 대표행에서 여러 차수를 하나의 선형 게이지로 압축 표시 ──
+// 파란구간: 0 ~ bar_blue_end(모든 차수가 공통으로 도달한 최소 진척률=병목 지점)
+// 빨간구간: bar_blue_end ~ bar_red_end(병목이 지연 중이면, 그 병목이 멈춰있는 단계의 폭만큼만)
+// 눈금(tick): 각 차수 자신의 진척률 위치에 얇은 세로선으로 표시(바를 나누는 게 아니라 위치 표시)
+// 점: ship_milestone_pct(수주~출고 누적비중, 고정) 위치에 — 전체 차수가 다 출고됐으면 채움
+function MilestoneBar({ order }) {
+  const { bar_blue_end, bar_red_end, ship_milestone_pct, shipped_all, lots, progress } = order;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <div style={{ position: 'relative', flex: 1, maxWidth: 180, minWidth: 60, height: 18, display: 'flex', alignItems: 'center' }}>
-        <div className="progress-bar" style={{ width: '100%', minWidth: 0 }}>
-          <div className={`progress-fill ${isDelayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${progress}%` }} />
+      <div style={{ position: 'relative', flex: 1, maxWidth: 200, minWidth: 80, height: 16 }}>
+        {/* 배경 트랙 */}
+        <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 6, transform: 'translateY(-50%)', background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${bar_blue_end}%`, background: 'var(--accent)' }} />
+          {bar_red_end > bar_blue_end && (
+            <div style={{ position: 'absolute', left: `${bar_blue_end}%`, top: 0, bottom: 0, width: `${bar_red_end - bar_blue_end}%`, background: '#dc2626' }} />
+          )}
         </div>
-        {lots.map((lot, i) => {
-          const left = `${((i + 0.5) / lots.length) * 100}%`;
-          const color = lot.is_done ? '#2563eb' : (lot.is_delayed ? '#dc2626' : 'var(--muted)');
-          const filled = lot.is_done || lot.is_delayed;
-          const title = `${lot.label}${lot.요구납기일 ? ` (${lot.요구납기일})` : ''} · ${lot.is_done ? '완료' : (lot.is_delayed ? '지연' : '진행중')}`;
-          return (
-            <div key={i} title={title} style={{
-              position: 'absolute', left, top: '50%', transform: 'translate(-50%, -50%)',
-              width: 8, height: 8, borderRadius: '50%',
-              background: filled ? color : 'var(--bg)',
-              border: `2px solid ${color}`,
+        {/* 차수별 눈금 — 각 차수 자신의 진척률 위치 */}
+        {lots.map((lot, i) => (
+          <div key={i} title={`${lot.label}${lot.요구납기일 ? ` (${lot.요구납기일})` : ''} · ${lot.is_done ? '완료' : (lot.is_delayed ? '지연' : '진행중')} · ${lot.progress}%`}
+            style={{
+              position: 'absolute', left: `${lot.progress}%`, top: 0, bottom: 0, width: 2,
+              transform: 'translateX(-1px)', background: lot.is_delayed ? '#7f1d1d' : 'rgba(0,0,0,0.35)',
               cursor: 'default',
             }} />
-          );
-        })}
+        ))}
+        {/* 마일스톤 점 — 출고 지점 고정 */}
+        <div title={`출고 ${shipped_all ? '완료' : '미완료'} (전체 차수 기준)`} style={{
+          position: 'absolute', left: `${ship_milestone_pct}%`, top: '50%', transform: 'translate(-50%, -50%)',
+          width: 9, height: 9, borderRadius: '50%',
+          background: shipped_all ? '#1f8a5f' : 'var(--bg)',
+          border: `2px solid ${shipped_all ? '#1f8a5f' : 'var(--muted)'}`,
+          zIndex: 2,
+        }} />
       </div>
       <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600, flexShrink: 0 }}>{progress}%</span>
     </div>
@@ -3112,7 +3120,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{order.프로젝트}</div>
                       </div>
-                      <MilestoneBar progress={order.progress} isDelayed={order.is_delayed} lots={order.lots} />
+                      <MilestoneBar order={order} />
                       <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: order.nearest_due_date && order.nearest_due_date < new Date().toISOString().slice(0,10) ? '#dc2626' : 'var(--text)' }}>
                         {order.nearest_due_date || '—'}
                       </div>
