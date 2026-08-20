@@ -2956,6 +2956,38 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 // 백엔드 /api/processes/grouped를 사용. 최상위 행은 수주번호(지연 섞이면 지연뱃지),
 // 펼치면 차수(요구납기일 동일값 묶음)별 게이지+병목단계, 차수를 다시 펼치면 그 안의
 // BOM 아이템 개별 상태(기존 ListTab의 행과 동일한 정보)까지 내려간다.
+// ── [BOM개편] 마일스톤 바 — 수주 대표행에서 여러 차수를 하나의 바로 압축 표시 ──────
+// 전체 진척률을 채운 바 위에, 차수 개수만큼 균등 배치한 핀(점)을 얹어
+// 각 차수의 완료/지연/진행중 여부를 한눈에 보여준다. 날짜 비율이 아니라 차수
+// "순서" 기준 균등 배치 — 차수 간 기간이 크게 벌어져도 점들이 안 뭉치게 하기 위함.
+function MilestoneBar({ progress, isDelayed, lots }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      <div style={{ position: 'relative', flex: 1, maxWidth: 180, minWidth: 60, height: 18, display: 'flex', alignItems: 'center' }}>
+        <div className="progress-bar" style={{ width: '100%', minWidth: 0 }}>
+          <div className={`progress-fill ${isDelayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${progress}%` }} />
+        </div>
+        {lots.map((lot, i) => {
+          const left = `${((i + 0.5) / lots.length) * 100}%`;
+          const color = lot.is_done ? '#2563eb' : (lot.is_delayed ? '#dc2626' : 'var(--muted)');
+          const filled = lot.is_done || lot.is_delayed;
+          const title = `${lot.label}${lot.요구납기일 ? ` (${lot.요구납기일})` : ''} · ${lot.is_done ? '완료' : (lot.is_delayed ? '지연' : '진행중')}`;
+          return (
+            <div key={i} title={title} style={{
+              position: 'absolute', left, top: '50%', transform: 'translate(-50%, -50%)',
+              width: 8, height: 8, borderRadius: '50%',
+              background: filled ? color : 'var(--bg)',
+              border: `2px solid ${color}`,
+              cursor: 'default',
+            }} />
+          );
+        })}
+      </div>
+      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600, flexShrink: 0 }}>{progress}%</span>
+    </div>
+  );
+}
+
 function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, search: searchProp, onToast, productFilter, vendorFilter = '전체', dueDateCol = '요구납기일', dateFrom = '', dateTo = '' }) {
   const [data, setData] = useState({ items: [], total: 0, page: 1, total_pages: 1 });
   const [page, setPage] = useState(1);
@@ -3023,7 +3055,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
     return pages;
   };
 
-  const ORDER_COLS = '24px 150px 1fr 90px 90px 130px 90px 90px 80px';
+  const ORDER_COLS = '24px 150px 1fr 200px 110px 90px 90px 80px';
   const LOT_COLS = '24px 44px 100px 1fr 100px 140px 70px';
 
   return (
@@ -3055,8 +3087,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                 <div></div>
                 <div>수주번호</div>
                 <div>업체명 / 호선명</div>
-                <div>병목단계</div>
-                <div>진척도</div>
+                <div>종합 진행 (차수별)</div>
                 <div>가장 급한 요구납기</div>
                 <div>품목/차수</div>
                 <div>지연차수</div>
@@ -3081,15 +3112,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{order.프로젝트}</div>
                       </div>
-                      <div style={{ fontSize: 12 }}>
-                        {order.bottleneck_step ? <span className="step-badge">{order.bottleneck_step}</span> : '—'}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div className="progress-bar" style={{ width: 50 }}>
-                          <div className={`progress-fill ${order.is_delayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${order.progress}%` }} />
-                        </div>
-                        <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{order.progress}%</span>
-                      </div>
+                      <MilestoneBar progress={order.progress} isDelayed={order.is_delayed} lots={order.lots} />
                       <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: order.nearest_due_date && order.nearest_due_date < new Date().toISOString().slice(0,10) ? '#dc2626' : 'var(--text)' }}>
                         {order.nearest_due_date || '—'}
                       </div>
@@ -3117,7 +3140,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{lot.label}</div>
                             <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--muted)' }}>{lot.요구납기일 || '—'}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div className="progress-bar" style={{ flex: 1, maxWidth: 160 }}>
+                              <div className="progress-bar" style={{ flex: 1, maxWidth: 160, minWidth: 0 }}>
                                 <div className={`progress-fill ${lot.is_delayed ? 'progress-red' : 'progress-blue'}`} style={{ width: `${lot.progress}%` }} />
                               </div>
                               <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{lot.progress}%</span>
@@ -3160,7 +3183,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
                                       <td style={{ padding: '6px' }}><span className="step-badge">{item._current_step}</span></td>
                                       <td style={{ padding: '6px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                          <div className="progress-bar" style={{ width: 60 }}>
+                                          <div className="progress-bar" style={{ width: 60, minWidth: 60 }}>
                                             <div className={`progress-fill ${DELAY_SET.includes(item._status) ? 'progress-red' : 'progress-blue'}`} style={{ width: `${item._progress}%` }} />
                                           </div>
                                           <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono' }}>{item._progress}%</span>
