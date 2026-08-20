@@ -37,7 +37,10 @@ DELAY_REASONS_FILE = os.path.join(os.path.dirname(__file__), "../data/delay_reas
 MAX_VERSIONS = 10
 
 os.makedirs(VERSIONS_DIR, exist_ok=True)
+import time as _time
+_t0 = _time.time()
 dm = DataManager(DATA_FILE)
+print(f"[startup] DataManager 초기 로딩 완료: {round(_time.time() - _t0, 1)}초, {len(dm.df)}행 (파일: {DATA_FILE})")
 
 
 def load_versions() -> list:
@@ -290,6 +293,13 @@ async def get_grouped_processes(
     """공정 목록 탭 — 수주번호 → 차수 → 아이템 계층 구조."""
     result = dm.get_grouped_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, product_filter=product_filter, vendor_filter=vendor_filter, sort_by=sort_by, sort_dir=sort_dir)
     return result
+
+
+@app.post("/api/refresh")
+async def refresh_cache(current_user: User = Depends(get_current_user)):
+    """[BOM개편] 상태/지연 재계산 캐시(최대 10분) 수동 무효화 — 다음 조회 때 바로 반영되게 함."""
+    dm._invalidate_cache()
+    return {"message": "새로고침 완료. 다음 조회부터 최신 상태로 반영됩니다."}
 
 
 @app.get("/api/processes/{order_no}/{ordseq}")
