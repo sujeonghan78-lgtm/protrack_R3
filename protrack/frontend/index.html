@@ -1831,7 +1831,7 @@ const STAGE_DELAY_MODAL_COLS = [
   { label: '시스템명', key: '시스템명' },
   { label: '진척도', key: '_progress' },
   { label: '업체명', key: '업체명' },
-  { label: '병목단계', key: '_current_step' },
+  { label: '최소진행단계', key: '_current_step' },
   { label: '수주번호', key: '수주번호' },
   { label: '차수현황', key: 'lot_count' },
 ];
@@ -1851,7 +1851,7 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
     '시스템명': item.시스템명 || '—',
     '진척도': item._progress != null ? `${item._progress}%` : '',
     '업체명': item.업체명 || '—',
-    '병목단계': item._current_step || '—',
+    '최소진행단계': item._current_step || '—',
     '수주번호': item.수주번호 || '—',
     '차수현황': `${item.lot_count}차수 중 ${item.delayed_lot_count}개 지연`,
   }));
@@ -2966,7 +2966,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
           </div>
           <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>전체 {kpi?.total ?? ''}건 기준</div>
           <div style={{fontSize:10.5,color:'var(--muted)',marginBottom:8,lineHeight:1.4}}>
-            ℹ️ 각 프로젝트는 <strong>가장 진척이 덜 된(병목) 차수</strong>의 단계에 표시돼요. 그 프로젝트의 다른 차수에서 지연이 있어도, 지연 건수는 이 병목 단계에 함께 집계됩니다.
+            ℹ️ 각 프로젝트는 <strong>진행이 가장 덜 된(최소진행) 차수</strong>의 단계에 표시돼요. 그 프로젝트의 다른 차수에서 지연이 있어도, 지연 건수는 이 최소진행단계에 함께 집계됩니다.
           </div>
           <div className="card-body">
             <StageIntegratedChart data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
@@ -3022,7 +3022,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 // ── List Tab ──────────────────────────────────────────────────────────────────
 // ── [BOM개편] 공정 목록 — 수주번호 → 차수 → 아이템 3단 펼침 구조 ──────────────
 // 백엔드 /api/processes/grouped를 사용. 최상위 행은 수주번호(지연 섞이면 지연뱃지),
-// 펼치면 차수(요구납기일 동일값 묶음)별 게이지+병목단계, 차수를 다시 펼치면 그 안의
+// 펼치면 차수(요구납기일 동일값 묶음)별 게이지+최소진행단계, 차수를 다시 펼치면 그 안의
 // BOM 아이템 개별 상태(기존 ListTab의 행과 동일한 정보)까지 내려간다.
 // ── [BOM개편] 마일스톤 바 — 수주 대표행에서 여러 차수를 하나의 선형 게이지로 압축 표시 ──
 // 파란구간: 0 ~ bar_blue_end(모든 차수가 공통으로 도달한 최소 진척률=병목 지점)
@@ -3157,7 +3157,7 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
     <>
       <div className="table-card" style={{ minHeight: 0 }}>
         <div className="table-header">
-          <div className="table-header-title">프로젝트 공정 상세 목록 (수주 → 차수 → 품목)</div>
+          <div className="table-header-title">프로젝트 공정 상세 목록</div>
           <div className="filter-group">
             <button
               onClick={handleManualRefresh}
@@ -3187,6 +3187,9 @@ function GroupedListTab({ api, user, initialStepFilter, initialStatusFilter, sea
             <div className="empty-state">검색 결과가 없습니다.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '8px 12px 0', fontSize: 10.5, color: 'var(--muted)' }}>
+                <span style={{ fontWeight: 700 }}>|</span> 각 차수의 진행 위치(가장 왼쪽=최소진행단계, 가장 오른쪽=최대진행단계) · <span style={{ fontWeight: 700 }}>●</span> 전체 차수 출고 시점(채워지면 완료) — 막대에 마우스를 올리면 상세정보가 표시돼요
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: ORDER_COLS, gap: 8, padding: '10px 12px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                 <div></div>
                 <div>수주번호</div>
