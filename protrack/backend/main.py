@@ -168,6 +168,18 @@ async def get_stage_delayed_items(step: str, product_filter: str = "", date_col:
     return attach_reasons(items)
 
 
+@app.get("/api/dashboard/delayed-orders")
+async def get_delayed_orders(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    """[메인보드 복구] '지연' KPI카드 클릭 — 수주 대표(차수까지 펼침 가능)"""
+    return dm.get_delayed_orders(product_filter=product_filter, vendor_filter=vendor_filter)
+
+
+@app.get("/api/dashboard/at-risk-orders")
+async def get_at_risk_orders(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
+    """[메인보드 복구] '임박(7일 이내)' KPI카드 클릭 — 수주 대표(차수까지 펼침 가능)"""
+    return dm.get_at_risk_orders(product_filter=product_filter, vendor_filter=vendor_filter)
+
+
 # ─── 지연 관리 (수주번호+시스템명 기준, 사유는 여러 건 누적 가능한 로그) ──────────
 
 @app.get("/api/delay-management")
