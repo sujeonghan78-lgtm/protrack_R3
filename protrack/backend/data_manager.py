@@ -1012,6 +1012,15 @@ class DataManager:
                 if not ship_dates.empty:
                     last_ship_date = safe_date(ship_dates.max())
 
+            # 전체 아이템 OTP 완료 여부/마지막 OTP일자 — 해외 건 "OTP 완료" 표시용
+            otp_all_done = False
+            last_otp_date = None
+            if 'OTP일자' in order_df.columns:
+                otp_dates = order_df['OTP일자'].dropna()
+                if not otp_dates.empty:
+                    last_otp_date = safe_date(otp_dates.max())
+                otp_all_done = bool(order_df['OTP일자'].notna().all()) if len(order_df) else False
+
             # 병목단계 대표 아이템의 지연일수(_cur_diff) — 단계별 차트 평균지연일수 계산용
             bottleneck_cur_diff = None
             if bottleneck_step is not None and '_current_step' in order_df.columns:
@@ -1038,6 +1047,8 @@ class DataManager:
                 "last_due_date": last_due_date,
                 "shipped_all": shipped_all,
                 "last_ship_date": last_ship_date,
+                "otp_all_done": otp_all_done,
+                "last_otp_date": last_otp_date,
                 "lots": lots_light,
             })
         return rollups
@@ -1399,6 +1410,62 @@ class DataManager:
         result.sort(key=lambda x: x['_cur_diff'], reverse=True)
         return result
 
+    def get_delayed_orders(self, product_filter: str = "", vendor_filter: str = "") -> List[Dict]:
+        """[메인보드 복구] '지연' KPI카드 클릭 — 병목단계 상관없이 지연 있는 수주 전체.
+        get_stage_delayed_items와 같은 모양(수주 대표+lots)이라 StageDelayModal 재사용 가능."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
+        result = []
+        for o in rollups:
+            if not o['is_delayed']:
+                continue
+            result.append({
+                "수주번호": o['수주번호'],
+                "프로젝트": o['프로젝트'],
+                "업체명": o['업체명'],
+                "시스템명": o['시스템명'],
+                "_current_step": o['bottleneck_step'],
+                "_status": '지연',
+                "_cur_diff": o.get('bottleneck_cur_diff') or 0,
+                "_progress": o['progress'],
+                "lot_count": o['lot_count'],
+                "delayed_lot_count": o['delayed_lot_count'],
+                "lots": o['lots'],
+            })
+        result.sort(key=lambda x: x['_cur_diff'], reverse=True)
+        return result
+
+    def get_at_risk_orders(self, product_filter: str = "", vendor_filter: str = "") -> List[Dict]:
+        """[메인보드 복구] '임박(7일 이내)' KPI카드 클릭 — 아직 지연은 아니지만 가장 급한
+        요구납기일이 7일 이내로 다가온 수주. MonthlyModal(출고예정 팝업)과 동일한 모양으로 반환."""
+        rollups = self.get_order_rollups(product_filter=product_filter, vendor_filter=vendor_filter)
+        today_str = pd.Timestamp.now().strftime('%Y-%m-%d')
+        risk_edge = (pd.Timestamp.now() + pd.Timedelta(days=7)).strftime('%Y-%m-%d')
+        result = []
+        for o in rollups:
+            if o['is_delayed']:
+                continue
+            d = o.get('nearest_due_date')
+            if not d or not (today_str <= d <= risk_edge):
+                continue
+            result.append({
+                "수주번호": o['수주번호'],
+                "업체명": o['업체명'],
+                "프로젝트": o['프로젝트'],
+                "시스템명": o['시스템명'],
+                "_vendor_type": o['_vendor_type'],
+                "_progress": o['progress'],
+                "_current_step": o['bottleneck_step'],
+                "is_delayed": o['is_delayed'],
+                "lot_count": o['lot_count'],
+                "delayed_lot_count": o['delayed_lot_count'],
+                "요구납기일": d,
+                "최종납기일": o.get('last_ship_date'),
+                "lots": o['lots'],
+            })
+        result.sort(key=lambda x: x['요구납기일'])
+        return result
+
+
     def get_all_delayed_items(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> List[Dict]:
         """전체 지연 건 목록 (지연 관리 탭용) — 공정중지연/출고지연/OTP지연/계산서지연 모두 포함"""
         if self.df.empty:
@@ -1483,6 +1550,7 @@ class DataManager:
                 "delayed_lot_count": o['delayed_lot_count'],
                 "요구납기일": o.get('nearest_due_date'),
                 "최종납기일": o.get('last_ship_date'),
+                "OTP일자": o.get('last_otp_date') if o.get('otp_all_done') else None,
                 "lots": o['lots'],
             }
 
