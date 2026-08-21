@@ -1424,11 +1424,11 @@ function AnnualDeliveryChart({ data, onSelectItem }) {
                               {item.프로젝트 || item.수주번호 || '—'}
                               {item.업체명 && <span style={{ color: 'var(--muted)' }}> · {item.업체명}</span>}
                             </span>
-                            <span style={{ flexShrink: 0, marginLeft: 8, fontWeight: 700, color: item._done ? '#2563eb' : '#3b82f6' }}>{item._done ? '완료' : '예정'}</span>
+                            <span style={{ flexShrink: 0, marginLeft: 8, fontWeight: 700, color: item._done ? '#2563eb' : (item.is_delayed ? '#dc2626' : '#3b82f6') }}>{item._done ? '완료' : (item.is_delayed ? '지연' : '예정')}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3, fontSize: 10, color: 'var(--muted)' }}>
                             {item.시스템명 && <span>{item.시스템명}</span>}
-                            <span>출고일자 {item.요구납기일 || '-'}</span>
+                            {!item._done && <span>요구납기일 {item.요구납기일 || '-'}</span>}
                             {!isDomestic && (
                               <span style={{ fontWeight: 700, color: otpDone ? '#1f8a5f' : 'var(--muted)' }}>
                                 {otpDone ? `OTP 완료 · ${item.OTP일자}` : 'OTP 미완료'}
@@ -1689,23 +1689,26 @@ const MONTHLY_MODAL_COLS = [
   { label: '수주번호', key: '수주번호' },
 ];
 
-function MonthlyModal({ monthData, onClose, onSelect }) {
-  const { sorted: items, sortKey, sortDir, toggleSort } = useSortableData(monthData?.planned_items, '프로젝트', 'desc');
+function MonthlyModal({ monthData, items: itemsProp, title: titleProp, onClose, onSelect }) {
+  const sourceItems = itemsProp || monthData?.planned_items;
+  const { sorted: items, sortKey, sortDir, toggleSort } = useSortableData(sourceItems, '프로젝트', 'desc');
   const [expandedOrders, setExpandedOrders] = useState(new Set());
   const toggleExpand = (orderNo) => setExpandedOrders(prev => {
     const next = new Set(prev);
     if (next.has(orderNo)) next.delete(orderNo); else next.add(orderNo);
     return next;
   });
-  if (!monthData) return null;
+  if (!monthData && !itemsProp) return null;
+  const title = titleProp || `${monthData.month?.slice(0,4)}년 ${monthData.month?.slice(5)}월 출고예정 (${items.length}건)`;
+  const exportName = titleProp ? titleProp.replace(/[^\w가-힣]/g, '_') : `${monthData.month}_출고예정`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 'fit-content', minWidth: 'min(760px, 92vw)', maxWidth: '96vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div className="modal-title">{monthData.month?.slice(0,4)}년 {monthData.month?.slice(5)}월 출고예정 ({items.length}건)</div>
+          <div className="modal-title">{title}</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-icon" onClick={() => exportToExcel(items, `${monthData.month}_출고예정`)} style={{ fontSize: 11, padding: '5px 10px' }}>📥 엑셀</button>
+            <button className="btn-icon" onClick={() => exportToExcel(items, exportName)} style={{ fontSize: 11, padding: '5px 10px' }}>📥 엑셀</button>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -2831,8 +2834,16 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
   const handleKpiClick = async (statusKey) => {
     setKpiModal(statusKey);
     setKpiModalLoading(true);
-    const base = `/api/processes${pf}${vf}${dateParam}${dateRange}${(pf||vf||dateParam||dateRange)?'&':'?'}page_size=500`;
     let items = [];
+    if (statusKey === 'delayed') {
+      items = await api.get(`/api/dashboard/delayed-orders${pf}${vf}`);
+    } else if (statusKey === 'At Risk') {
+      items = await api.get(`/api/dashboard/at-risk-orders${pf}${vf}`);
+      setKpiModalItems(items);
+      setKpiModalLoading(false);
+      return;
+    } else {
+    const base = `/api/processes${pf}${vf}${dateParam}${dateRange}${(pf||vf||dateParam||dateRange)?'&':'?'}page_size=500`;
     if (statusKey === 'in_progress') {
       const [r1, r2, r3] = await Promise.all([
         api.get(`${base}&status_filter=On Track`),
@@ -2853,15 +2864,6 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
         api.get(`${base}&status_filter=계산서지연`),
       ]);
       items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[])];
-    } else if (statusKey === 'delayed') {
-      const [r1, r2, r3, r4] = await Promise.all([
-        api.get(`${base}&status_filter=지연`),
-        api.get(`${base}&status_filter=출고지연`),
-        api.get(`${base}&status_filter=OTP지연`),
-        api.get(`${base}&status_filter=계산서지연`),
-      ]);
-      items = [...(r1.items||[]), ...(r2.items||[]), ...(r3.items||[]), ...(r4.items||[])]
-        .sort((a, b) => (b._cur_diff ?? 0) - (a._cur_diff ?? 0));
     } else {
       const res = await api.get(`${base}&status_filter=${encodeURIComponent(statusKey)}`);
       const DELAY_KEYS = new Set(['지연', '출고지연', 'OTP지연', '계산서지연']);
@@ -2870,6 +2872,7 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
       } else {
         items = res.items || [];
       }
+    }
     }
     setKpiModalItems(items);
     setKpiModalLoading(false);
@@ -2962,6 +2965,9 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
             <span className="chart-badge">클릭 시 목록</span>
           </div>
           <div className="chart-subtitle" style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>전체 {kpi?.total ?? ''}건 기준</div>
+          <div style={{fontSize:10.5,color:'var(--muted)',marginBottom:8,lineHeight:1.4}}>
+            ℹ️ 각 프로젝트는 <strong>가장 진척이 덜 된(병목) 차수</strong>의 단계에 표시돼요. 그 프로젝트의 다른 차수에서 지연이 있어도, 지연 건수는 이 병목 단계에 함께 집계됩니다.
+          </div>
           <div className="card-body">
             <StageIntegratedChart data={stageByProcess} onStepClick={handleStepClick} vendorFilter={vendorFilter} />
           </div>
@@ -2995,6 +3001,8 @@ function DashboardTab({ api, user, onFilterStep, onToast, productFilter, vendorF
 
       {kpiModal && ['delayed','지연','출고지연','OTP지연','계산서지연'].includes(kpiModal)
         ? <StageDelayModal title={kpiLabelMap[kpiModal] || kpiModal} items={kpiModalItems} loading={kpiModalLoading} onClose={() => setKpiModal(null)} onSelectItem={(item) => { setSelectedAlert(item); setKpiModal(null); }} />
+        : kpiModal === 'At Risk'
+        ? <MonthlyModal title={`임박 (7일 이내) (${kpiModalItems.length}건)`} items={kpiModalItems} onClose={() => setKpiModal(null)} onSelect={(item) => { setSelectedAlert(item); setKpiModal(null); }} />
         : kpiModal && <ModalTable items={kpiModalItems} loading={kpiModalLoading} title={kpiLabelMap[kpiModal] || kpiModal} onClose={() => setKpiModal(null)} />
       }
       {stepModal && <StageDelayModal step={stepModal} items={stepModalItems} loading={stepModalLoading} onClose={() => setStepModal(null)} onSelectItem={(item) => { setSelectedAlert(item); setStepModal(null); }} />}
