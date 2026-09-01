@@ -1829,7 +1829,7 @@ const STAGE_DELAY_MODAL_COLS = [
   { label: '지연일수', key: '_cur_diff' },
   { label: '프로젝트(호선)', key: '프로젝트' },
   { label: '시스템명', key: '시스템명' },
-  { label: '진척도', key: '_progress' },
+  { label: '요구납기일', key: '요구납기일' },
   { label: '업체명', key: '업체명' },
   { label: '최소진행단계', key: '_current_step' },
   { label: '수주번호', key: '수주번호' },
@@ -1849,9 +1849,9 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
     '지연일수': item._cur_diff != null ? `+${item._cur_diff}일` : '',
     '프로젝트(호선)': item.프로젝트 || '—',
     '시스템명': item.시스템명 || '—',
-    '진척도': item._progress != null ? `${item._progress}%` : '',
+    '요구납기일': item.요구납기일 || '',
     '업체명': item.업체명 || '—',
-    '최소진행단계': item._current_step || '—',
+    '최소진행단계': item._current_step ? `${item._current_step} (+${item._cur_diff ?? 0}일)` : '—',
     '수주번호': item.수주번호 || '—',
     '차수현황': `${item.lot_count}차수 중 ${item.delayed_lot_count}개 지연`,
   }));
@@ -1922,14 +1922,18 @@ function StageDelayModal({ step, title, items, loading, onClose, onSelectItem })
                       <td title={item.시스템명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160, color: 'var(--muted)', fontSize: 11 }}>
                         {item.시스템명 || '—'}
                       </td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {item._progress != null ? `${item._progress}%` : '—'}
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', whiteSpace: 'nowrap', fontSize: 11, color: (item.요구납기일 && new Date(item.요구납기일) < new Date()) ? '#dc2626' : 'var(--text)', fontWeight: (item.요구납기일 && new Date(item.요구납기일) < new Date()) ? 700 : 400 }}>
+                        {item.요구납기일 || '—'}
                       </td>
                       <td title={item.업체명 || ''} style={{ padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
                         {item.업체명 || '—'}
                       </td>
                       <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
-                        <span className="step-badge">{item._current_step || '—'}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 6, background: badgeBg, border: `1px solid ${badgeColor}22` }}>
+                          <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text)' }}>{item._current_step || '—'}</span>
+                          <span style={{ width: 1, height: 10, background: `${badgeColor}55` }} />
+                          <span style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 11, color: badgeColor }}>+{days}일</span>
+                        </span>
                       </td>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180, fontSize: 11 }}>
                         {item.수주번호 || '—'}
@@ -3630,7 +3634,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
 
   useEffect(() => { load(); }, [load]);
 
-  const { sorted, sortKey, sortDir, toggleSort } = useSortableData(items, '_cur_diff', 'desc');
+  const { sorted, sortKey, sortDir, toggleSort } = useSortableData(items, '_delay_days', 'desc');
 
   const q = search.trim().toLowerCase();
   const filtered = q ? sorted.filter(it => {
@@ -3682,7 +3686,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
   };
 
   const DELAY_COLS = [
-    { label: '지연일수', key: '_cur_diff' },
+    { label: '지연일수', key: '_delay_days' },
     { label: '상태', key: '_status' },
     { label: '호선명', key: '프로젝트' },
     { label: '시스템명', key: '시스템명' },
@@ -3714,7 +3718,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
               if (!filtered.length) return;
               const headers = ['지연일수', '상태', '호선명', '시스템명', '업체명', '현재단계', '요구납기일', '수주번호', '지연사유(최신)'];
               const rows = filtered.map(it => [
-                `+${it._cur_diff}일`, STATUS_LABELS[it._status] || it._status, it.프로젝트 || '', it.시스템명 || '',
+                `+${it._delay_days}일`, STATUS_LABELS[it._status] || it._status, it.프로젝트 || '', it.시스템명 || '',
                 it.업체명 || '', it._current_step || '', it.요구납기일 || '', it.수주번호 || '', it._reason || '',
               ]);
               const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -3759,7 +3763,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                         )}
                       </td>
                       <td style={{ padding: '10px 8px', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, background: 'rgba(220,38,38,0.1)', color: '#dc2626', fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 11 }}>+{item._cur_diff}일</span>
+                        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, background: 'rgba(220,38,38,0.1)', color: '#dc2626', fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 11 }}>+{item._delay_days}일</span>
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <span className="status-dot" style={{ background: STATUS_COLORS[item._status] || 'var(--muted)' }} />
