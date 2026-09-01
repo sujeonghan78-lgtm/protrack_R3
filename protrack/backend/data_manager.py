@@ -1403,6 +1403,7 @@ class DataManager:
                 "_status": '지연',
                 "_cur_diff": o.get('bottleneck_cur_diff') or 0,
                 "_progress": o['progress'],
+                "요구납기일": o.get('nearest_due_date'),
                 "lot_count": o['lot_count'],
                 "delayed_lot_count": o['delayed_lot_count'],
                 "lots": o['lots'],
@@ -1427,6 +1428,7 @@ class DataManager:
                 "_status": '지연',
                 "_cur_diff": o.get('bottleneck_cur_diff') or 0,
                 "_progress": o['progress'],
+                "요구납기일": o.get('nearest_due_date'),
                 "lot_count": o['lot_count'],
                 "delayed_lot_count": o['delayed_lot_count'],
                 "lots": o['lots'],
@@ -1478,9 +1480,9 @@ class DataManager:
             status = row.get('_status', '')
             if status not in DELAY_STATUSES:
                 continue
-            cur_diff = row.get('_cur_diff')
-            if cur_diff is None or (isinstance(cur_diff, float) and pd.isna(cur_diff)):
-                cur_diff = 0
+            delay_days = row.get('_delay_days')
+            if delay_days is None or (isinstance(delay_days, float) and pd.isna(delay_days)):
+                delay_days = 0
 
             result.append({
                 "수주번호":         row.get('수주번호', ''),
@@ -1489,7 +1491,7 @@ class DataManager:
                 "시스템명":         row.get('시스템명', ''),
                 "_current_step":    row.get('_current_step', ''),
                 "_status":          status,
-                "_cur_diff":        int(cur_diff),
+                "_delay_days":      int(delay_days),
                 "_cur_actual_date": row.get('_cur_actual_date'),
                 "_current_planned_date": row.get('_current_planned_date'),
                 "_progress":        row.get('_progress', 0),
@@ -1498,7 +1500,7 @@ class DataManager:
                 "ordseq":           row.get('ordseq'),
             })
 
-        result.sort(key=lambda x: x['_cur_diff'], reverse=True)
+        result.sort(key=lambda x: x['_delay_days'], reverse=True)
         return result
 
     def get_status_distribution(self, product_filter: str = "", date_col: str = "요구납기일", date_from: str = "", date_to: str = "", vendor_filter: str = "") -> Dict:
