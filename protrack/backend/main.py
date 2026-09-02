@@ -89,22 +89,22 @@ def save_delay_reasons(data: dict):
 
 
 def _group_reasons(reasons: dict) -> dict:
-    """(수주번호, 시스템명) 기준으로 사유 항목들을 묶어서 반환"""
+    """수주번호 기준으로 사유 항목들을 묶어서 반환"""
     groups = {}
     for v in reasons.values():
-        gkey = (v.get('수주번호', ''), v.get('시스템명', ''))
+        gkey = v.get('수주번호', '')
         groups.setdefault(gkey, []).append(v)
     return groups
 
 
 def attach_reasons(items: list, reasons: dict = None) -> list:
-    """공정 목록/지연 모달 등에서 재사용 — 수주번호+시스템명 기준으로 가장 최근 작성된
-    지연사유를 대표로 매칭해 _reason 필드를 붙임(작성된 단계가 현재단계와 달라도 최신 사유를 표시)"""
+    """공정 목록/지연 모달 등에서 재사용 — 수주번호 기준으로 가장 최근 작성된
+    지연사유를 대표로 매칭해 _reason 필드를 붙임"""
     if reasons is None:
         reasons = load_delay_reasons()
     groups = _group_reasons(reasons)
     for it in items:
-        gkey = (it.get('수주번호', ''), it.get('시스템명', ''))
+        gkey = it.get('수주번호', '')
         entries = groups.get(gkey, [])
         rep = max(entries, key=lambda e: e.get('updated_at') or '') if entries else None
         it['_reason'] = rep.get('reason', '') if rep else ''
@@ -171,7 +171,8 @@ async def get_stage_delayed_items(step: str, product_filter: str = "", date_col:
 @app.get("/api/dashboard/delayed-orders")
 async def get_delayed_orders(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
     """[메인보드 복구] '지연' KPI카드 클릭 — 수주 대표(차수까지 펼침 가능)"""
-    return dm.get_delayed_orders(product_filter=product_filter, vendor_filter=vendor_filter)
+    items = dm.get_delayed_orders(product_filter=product_filter, vendor_filter=vendor_filter)
+    return attach_reasons(items)
 
 
 @app.get("/api/dashboard/at-risk-orders")
@@ -184,20 +185,58 @@ async def get_at_risk_orders(product_filter: str = "", vendor_filter: str = "", 
 
 @app.get("/api/delay-management")
 async def get_delay_management(product_filter: str = "", vendor_filter: str = "", current_user: User = Depends(get_current_user)):
-    items = dm.get_all_delayed_items(product_filter=product_filter, vendor_filter=vendor_filter)
+    """지연 관리 탭 — 수주번호 단위 대표행 + 개별 지연 품목은 items로 펼침 가능.
+    사유는 수주번호 하나당 하나의 타임라인(이력)만 존재."""
+    raw_items = dm.get_all_delayed_items(product_filter=product_filter, vendor_filter=vendor_filter)
     reasons = load_delay_reasons()
     groups = _group_reasons(reasons)
-    for it in items:
+
+    orders = {}
+    order_seq = []
+    for it in raw_items:
         order_no = it.get('수주번호', '')
-        system_name = it.get('시스템명', '')
-        entries = sorted(groups.get((order_no, system_name), []), key=lambda e: e.get('updated_at') or '', reverse=True)
+        if order_no not in orders:
+            orders[order_no] = {
+                "수주번호": order_no,
+                "프로젝트": it.get('프로젝트', ''),
+                "업체명": it.get('업체명', ''),
+                "_delay_days": 0,
+                "_status": it.get('_status', ''),
+                "_current_step": it.get('_current_step', ''),
+                "요구납기일": it.get('요구납기일'),
+                "systems": [],
+                "items": [],
+            }
+            order_seq.append(order_no)
+        o = orders[order_no]
+        o["items"].append(it)
+        if it.get('시스템명') and it['시스템명'] not in o["systems"]:
+            o["systems"].append(it['시스템명'])
+        # 대표행 = 그룹 내 가장 심하게 지연된 품목 기준
+        if it.get('_delay_days', 0) >= o["_delay_days"]:
+            o["_delay_days"] = it.get('_delay_days', 0)
+            o["_status"] = it.get('_status', '')
+            o["_current_step"] = it.get('_current_step', '')
+        due = it.get('요구납기일')
+        if due and (not o["요구납기일"] or due < o["요구납기일"]):
+            o["요구납기일"] = due
+
+    result = []
+    for order_no in order_seq:
+        o = orders[order_no]
+        systems = o.pop("systems")
+        o["시스템명"] = systems[0] if len(systems) == 1 else f"{systems[0]} 외 {len(systems)-1}"
+        o["item_count"] = len(o["items"])
+        entries = sorted(groups.get(order_no, []), key=lambda e: e.get('updated_at') or '', reverse=True)
         rep = entries[0] if entries else None
-        it['_reason'] = rep.get('reason', '') if rep else ''
-        it['_reason_updated_at'] = rep.get('updated_at') if rep else None
-        it['_reason_updated_by'] = rep.get('updated_by') if rep else None
-        it['_reason_step'] = rep.get('_current_step') if rep else None
-        it['_entries'] = entries  # 전체 사유 이력(현재단계 포함) — 각 항목에 id, _current_step, reason, updated_at, updated_by
-    return items
+        o['_reason'] = rep.get('reason', '') if rep else ''
+        o['_reason_updated_at'] = rep.get('updated_at') if rep else None
+        o['_reason_updated_by'] = rep.get('updated_by') if rep else None
+        o['_entries'] = entries  # 이 수주의 사유 이력(시간순 최신 우선)
+        result.append(o)
+
+    result.sort(key=lambda x: x['_delay_days'], reverse=True)
+    return result
 
 
 @app.post("/api/delay-management/reason")
@@ -304,6 +343,7 @@ async def get_grouped_processes(
 ):
     """공정 목록 탭 — 수주번호 → 차수 → 아이템 계층 구조."""
     result = dm.get_grouped_processes(page=page, page_size=page_size, search=search, status_filter=status_filter, company_filter=company_filter, step_filter=step_filter, product_filter=product_filter, vendor_filter=vendor_filter, sort_by=sort_by, sort_dir=sort_dir)
+    result["items"] = attach_reasons(result.get("items", []))
     return result
 
 
