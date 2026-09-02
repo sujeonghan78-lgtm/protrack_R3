@@ -1489,6 +1489,7 @@ class DataManager:
                 "프로젝트":         row.get('프로젝트', ''),
                 "업체명":           row.get('업체명', ''),
                 "시스템명":         row.get('시스템명', ''),
+                "품명":             row.get('품명', ''),
                 "_current_step":    row.get('_current_step', ''),
                 "_status":          status,
                 "_delay_days":      int(delay_days),
