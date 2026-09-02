@@ -3865,7 +3865,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                           <table style={{ width: '100%', tableLayout: 'auto' }}>
                             <thead>
                               <tr>
-                                {['지연일수', '상태', '시스템명', '현재단계', '요구납기일'].map(h => (
+                                {['지연일수', '품명', '시스템명', '현재단계', '상태', '요구납기일'].map(h => (
                                   <th key={h} style={{ padding: '4px 8px', fontSize: 10, color: 'var(--muted)', textAlign: 'left', fontWeight: 700 }}>{h}</th>
                                 ))}
                               </tr>
@@ -3876,9 +3876,10 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                                   <td style={{ padding: '4px 8px', fontSize: 11 }}>
                                     <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontFamily: 'var(--mono)', fontWeight: 700 }}>+{it._delay_days}일</span>
                                   </td>
-                                  <td style={{ padding: '4px 8px', fontSize: 11, color: '#dc2626' }}>{STATUS_LABELS[it._status] || it._status}</td>
+                                  <td title={it.품명 || ''} style={{ padding: '4px 8px', fontSize: 11, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.품명 || '—'}</td>
                                   <td style={{ padding: '4px 8px', fontSize: 11 }}>{it.시스템명 || '—'}</td>
                                   <td style={{ padding: '4px 8px', fontSize: 11 }}><span className="step-badge">{it._current_step || '—'}</span></td>
+                                  <td style={{ padding: '4px 8px', fontSize: 11, color: '#dc2626' }}>{STATUS_LABELS[it._status] || it._status}</td>
                                   <td style={{ padding: '4px 8px', fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{it.요구납기일 || '—'}</td>
                                 </tr>
                               ))}
