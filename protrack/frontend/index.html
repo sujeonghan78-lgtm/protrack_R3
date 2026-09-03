@@ -3680,6 +3680,7 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
   const systems = ['전체', ...new Set(orders.flatMap(o => (o.items || []).map(it => it.시스템명)).filter(Boolean))].sort((a, b) => a === '전체' ? -1 : b === '전체' ? 1 : a.localeCompare(b));
 
   const q = search.trim().toLowerCase();
+  const hasStepOrSystemFilter = stepFilter !== '전체' || systemFilter !== '전체';
   const filtered = sorted.filter(o => {
     if (q) {
       const hay = `${o.프로젝트 || ''} ${o.수주번호 || ''} ${o.업체명 || ''} ${o.시스템명 || ''}`.toLowerCase();
@@ -3688,6 +3689,17 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
     if (stepFilter !== '전체' && !(o.items || []).some(it => it._current_step === stepFilter)) return false;
     if (systemFilter !== '전체' && !(o.items || []).some(it => it.시스템명 === systemFilter)) return false;
     return true;
+  }).map(o => {
+    if (!hasStepOrSystemFilter) return o;
+    // 단계/시스템 필터가 걸려있으면 대표행 표시값을 "필터에 맞는 품목 중 가장 지연된 것" 기준으로 재계산
+    const matched = (o.items || []).filter(it =>
+      (stepFilter === '전체' || it._current_step === stepFilter) &&
+      (systemFilter === '전체' || it.시스템명 === systemFilter)
+    );
+    if (matched.length === 0) return o;
+    const rep = matched.reduce((a, b) => (b._delay_days || 0) >= (a._delay_days || 0) ? b : a);
+    const nearestDue = matched.reduce((min, it) => (it.요구납기일 && (!min || it.요구납기일 < min)) ? it.요구납기일 : min, null);
+    return { ...o, _delay_days: rep._delay_days, _status: rep._status, _current_step: rep._current_step, 요구납기일: nearestDue, _filterMatchedCount: matched.length };
   });
 
   const withReasonCount = orders.filter(o => o._reason).length;
@@ -3823,7 +3835,9 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
                       </td>
                       <td style={{ fontSize: 13, fontWeight: 700, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.프로젝트 || ''}>
                         {order.프로젝트 || '—'}
-                        {order.item_count > 1 && <span onClick={() => setExpandedItems(e => ({ ...e, [key]: !e[key] }))} style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer' }}>품목 {order.item_count}건</span>}
+                        {order.item_count > 1 && <span onClick={() => setExpandedItems(e => ({ ...e, [key]: !e[key] }))} style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer' }}>
+                          {order._filterMatchedCount ? `필터일치 ${order._filterMatchedCount}건 / 전체 ${order.item_count}건` : `품목 ${order.item_count}건`}
+                        </span>}
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.시스템명 || ''}>{order.시스템명 || '—'}</td>
                       <td style={{ fontSize: 12, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.업체명 || ''}>{order.업체명}</td>
