@@ -3639,6 +3639,8 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [stepFilter, setStepFilter] = useState('전체');
+  const [systemFilter, setSystemFilter] = useState('전체');
   const [expandedItems, setExpandedItems] = useState({}); // 수주번호 -> 품목 목록 펼침 여부
   const [expandedHistory, setExpandedHistory] = useState({}); // 수주번호 -> 사유 이력 펼침 여부
   const [addOpen, setAddOpen] = useState({}); // 수주번호 -> 입력창 열림 여부
@@ -3674,11 +3676,19 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortableData(orders, '_delay_days', 'desc');
 
+  const steps = ['전체', '수주', '시방', '자재', '생산', '검사', ...(vendorFilter !== '국내' ? ['포장'] : []), '출고', ...(vendorFilter !== '국내' ? ['OTP'] : []), '계산서'];
+  const systems = ['전체', ...new Set(orders.flatMap(o => (o.items || []).map(it => it.시스템명)).filter(Boolean))].sort((a, b) => a === '전체' ? -1 : b === '전체' ? 1 : a.localeCompare(b));
+
   const q = search.trim().toLowerCase();
-  const filtered = q ? sorted.filter(o => {
-    const hay = `${o.프로젝트 || ''} ${o.수주번호 || ''} ${o.업체명 || ''} ${o.시스템명 || ''}`.toLowerCase();
-    return hay.includes(q);
-  }) : sorted;
+  const filtered = sorted.filter(o => {
+    if (q) {
+      const hay = `${o.프로젝트 || ''} ${o.수주번호 || ''} ${o.업체명 || ''} ${o.시스템명 || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (stepFilter !== '전체' && !(o.items || []).some(it => it._current_step === stepFilter)) return false;
+    if (systemFilter !== '전체' && !(o.items || []).some(it => it.시스템명 === systemFilter)) return false;
+    return true;
+  });
 
   const withReasonCount = orders.filter(o => o._reason).length;
   const selectedCount = Object.values(selectedIds).filter(Boolean).length;
@@ -3740,9 +3750,15 @@ function DelayManagementTab({ api, user, productFilter, vendorFilter = '전체',
       <div className="table-card" style={{ minHeight: 0 }}>
         <div className="table-header">
           <div className="table-header-title">
-            지연 관리 {!loading && <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--muted)', marginLeft: 6 }}>전체 {orders.length}건(수주 기준) · 사유 작성 {withReasonCount}건</span>}
+            지연 관리 {!loading && <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--muted)', marginLeft: 6 }}>전체 {orders.length}건(수주 기준) · 사유 작성 {withReasonCount}건{(stepFilter !== '전체' || systemFilter !== '전체' || search) ? ` · 필터 결과 ${filtered.length}건` : ''}</span>}
           </div>
           <div className="filter-group">
+            <select className="filter-select" value={stepFilter} onChange={e => setStepFilter(e.target.value)}>
+              {steps.map(s => <option key={s} value={s}>{s === '전체' ? '단계 전체' : s}</option>)}
+            </select>
+            <select className="filter-select" value={systemFilter} onChange={e => setSystemFilter(e.target.value)}>
+              {systems.map(s => <option key={s} value={s}>{s === '전체' ? '시스템 전체' : s}</option>)}
+            </select>
             <div className="search-box" style={{ width: 240 }}>
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>⌕</span>
               <input placeholder="수주번호, 업체명, 호선명, 시스템명 검색..." value={search} onChange={e => setSearch(e.target.value)} />
